@@ -1,0 +1,3 @@
+D:/work/p1/build/CMakeFiles/yunet_demo.dir
+D:/work/p1/build/CMakeFiles/ALL_BUILD.dir
+D:/work/p1/build/CMakeFiles/ZERO_CHECK.dir

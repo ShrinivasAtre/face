@@ -4,17 +4,13 @@
 #include <iostream>
 #include <vector>
 
-// Calculate the vertical and horizontal Eye Aspect Ratio (EAR)
+// Reliable EAR calculator using explicit .at() mapping
 double calculateEAR(const std::vector<cv::Point2f>& eye_points) {
-    // eye_points contains 6 coordinates ordered around the eye perimeter clockwise
-    // Distance between vertical eye landmarks
-    double p2_p6 = cv::norm(eye_points[1] - eye_points[5]);
-    double p3_p5 = cv::norm(eye_points[2] - eye_points[4]);
-
-    // Distance between horizontal eye landmarks
-    double p1_p4 = cv::norm(eye_points[0] - eye_points[3]);
-
-    // Compute EAR formula
+    if (eye_points.size() < 6) return 0.0;
+    double p2_p6 = cv::norm(eye_points.at(1) - eye_points.at(5));
+    double p3_p5 = cv::norm(eye_points.at(2) - eye_points.at(4));
+    double p1_p4 = cv::norm(eye_points.at(0) - eye_points.at(3));
+    if (p1_p4 == 0.0) return 0.0;
     return (p2_p6 + p3_p5) / (2.0 * p1_p4);
 }
 
@@ -22,12 +18,17 @@ int main() {
     std::string yunet_model = "face_detection_yunet_2026may.onnx";
     std::string facemark_model = "lbfmodel.yaml";
 
-    // Threshold configs for geometric detection
-    const double EAR_THRESHOLD = 0.22; // Lower values mean narrower/closed eyes
-    int blink_count = 0;
-    bool was_blinking = false;
+    // Threshold optimized for your 0.34 open eye baseline
+    const double EAR_CLOSE_THRESHOLD = 0.27;
 
-    // 1. Initialize Webcam
+    int blink_count = 0;
+    bool is_eye_closed = false;
+
+    // Persistent Bounding Box Memory to survive face tracking drops
+    cv::Rect last_valid_face_box(0, 0, 0, 0);
+    int face_lost_frame_counter = 0;
+    const int MAX_FACE_LOST_GRACE_PERIOD = 15; // ~0.5 seconds at 30fps
+
     cv::VideoCapture cap(0);
     if (!cap.isOpened()) {
         std::cerr << "Error: Camera unavailable." << std::endl;
@@ -40,16 +41,15 @@ int main() {
     cap >> frame;
     if (frame.empty()) return -1;
 
-    // 2. Initialize YuNet Face Detector
+    // Drop score threshold down to 0.60 to keep YuNet alive as long as possible
     cv::Ptr<cv::FaceDetectorYN> detector = cv::FaceDetectorYN::create(
-        yunet_model, "", frame.size(), 0.85f, 0.3f, 5000
+        yunet_model, "", frame.size(), 0.60f, 0.3f, 5000
     );
 
-    // 3. Initialize Facemark LBF Detector
     cv::Ptr<cv::face::Facemark> facemark = cv::face::FacemarkLBF::create();
     facemark->loadModel(facemark_model);
 
-    std::cout << "Geometric blink tracker started. Calibration complete." << std::endl;
+    std::cout << "Memory-locked engine initialized. Ready." << std::endl;
 
     while (true) {
         cap >> frame;
@@ -58,47 +58,96 @@ int main() {
         cv::Mat faces;
         detector->detect(frame, faces);
 
-        // Map YuNet results to OpenCV bounding boxes for Facemark input
-        std::vector<cv::Rect> faces_boxes;
-        for (int i = 0; i < faces.rows; i++) {
-            int x = static_cast<int>(faces.at<float>(i, 0));
-            int y = static_cast<int>(faces.at<float>(i, 1));
-            int w = static_cast<int>(faces.at<float>(i, 2));
-            int h = static_cast<int>(faces.at<float>(i, 3));
-            faces_boxes.push_back(cv::Rect(x, y, w, h));
+        bool face_found_this_frame = false;
+        cv::Rect active_face_box;
+
+        if (faces.rows > 0) {
+            int x = static_cast<int>(faces.at<float>(0, 0));
+            int y = static_cast<int>(faces.at<float>(0, 1));
+            int w = static_cast<int>(faces.at<float>(0, 2));
+            int h = static_cast<int>(faces.at<float>(0, 3));
+
+            active_face_box = cv::Rect(x, y, w, h) & cv::Rect(0, 0, frame.cols, frame.rows);
+            last_valid_face_box = active_face_box; // Store to memory cache
+            face_found_this_frame = true;
+            face_lost_frame_counter = 0;
+        }
+        else {
+            face_lost_frame_counter++;
+            // If we recently had a face box, keep using the cached box position
+            if (face_lost_frame_counter <= MAX_FACE_LOST_GRACE_PERIOD && last_valid_face_box.width > 0) {
+                active_face_box = last_valid_face_box;
+                face_found_this_frame = true;
+            }
         }
 
-        // Run landmark extraction if a face is present
         std::vector<std::vector<cv::Point2f>> landmarks;
-        if (!faces_boxes.empty() && facemark->fit(frame, faces_boxes, landmarks)) {
-            // Focus on the primary face array
-            const auto& face_pts = landmarks[0];
+        std::vector<cv::Rect> fit_boxes;
+        if (face_found_this_frame) {
+            fit_boxes.push_back(active_face_box);
+        }
 
-            // Extract the specific indices representing both eyes in 68-point models
-            // Right Eye indices: 36 to 41 | Left Eye indices: 42 to 47
-            std::vector<cv::Point2f> right_eye(face_pts.begin() + 36, face_pts.begin() + 42);
-            std::vector<cv::Point2f> left_eye(face_pts.begin() + 42, face_pts.begin() + 48);
+        bool current_frame_eyes_closed = false;
+        double current_ear = 0.34;
+        bool landmark_success = false;
 
-            // Compute geometric ratios
-            double right_ear = calculateEAR(right_eye);
-            double left_ear = calculateEAR(left_eye);
-            double average_ear = (right_ear + left_ear) / 2.0;
+        // Try extracting landmarks using either current or cached memory bounding box
+        if (!fit_boxes.empty() && facemark->fit(frame, fit_boxes, landmarks)) {
+            if (!landmarks.empty() && landmarks.at(0).size() >= 48) {
+                landmark_success = true;
+                const auto& face_pts = landmarks.at(0);
 
-            // Draw eye silhouettes for reference visualization
-            for (const auto& pt : right_eye) cv::circle(frame, pt, 2, cv::Scalar(0, 255, 255), -1);
-            for (const auto& pt : left_eye) cv::circle(frame, pt, 2, cv::Scalar(0, 255, 255), -1);
+                std::vector<cv::Point2f> right_eye(face_pts.begin() + 36, face_pts.begin() + 42);
+                std::vector<cv::Point2f> left_eye(face_pts.begin() + 42, face_pts.begin() + 48);
 
-            // Evaluate eye closure state independent of position changes
-            bool currently_blinking = (average_ear < EAR_THRESHOLD);
-            if (currently_blinking && !was_blinking) {
-                blink_count++;
+                double r_ear = calculateEAR(right_eye);
+                double l_ear = calculateEAR(left_eye);
+                current_ear = (r_ear + l_ear) / 2.0;
+
+                // Draw alignment markers
+                for (const auto& pt : right_eye) cv::circle(frame, pt, 2, cv::Scalar(0, 255, 255), -1);
+                for (const auto& pt : left_eye) cv::circle(frame, pt, 2, cv::Scalar(0, 255, 255), -1);
+
+                if (r_ear < EAR_CLOSE_THRESHOLD || l_ear < EAR_CLOSE_THRESHOLD) {
+                    current_frame_eyes_closed = true;
+                }
             }
-            was_blinking = currently_blinking;
+        }
 
-            // Print real-time updates onto UI
-            std::string text = "Blinks: " + std::to_string(blink_count) + " | EAR: " + cv::format("%.2f", average_ear);
-            if (currently_blinking) text += " [CLOSED]";
-            cv::putText(frame, text, cv::Point(30, 50), cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0, 255, 0), 2);
+        // CRITICAL CONTEXT FIX: If face box tracking drops out completely right after an eye narrowing signal, 
+        // it means the user closed their eyes tight. Force a closed state.
+        if (!landmark_success && face_lost_frame_counter > 0 && face_lost_frame_counter <= MAX_FACE_LOST_GRACE_PERIOD) {
+            current_frame_eyes_closed = true;
+        }
+
+        // UNBREAKABLE ABSOLUTE STATE MACHINE
+        if (current_frame_eyes_closed) {
+            if (!is_eye_closed) {
+                blink_count++; // Increments EXACTLY once when entering the down-state
+                is_eye_closed = true;
+            }
+        }
+        else {
+            if (landmark_success && current_ear >= EAR_CLOSE_THRESHOLD) {
+                is_eye_closed = false; // Only reset to open if tracking clearly proves they are open
+            }
+        }
+
+        // RENDER STABLE TEXT OVERLAY
+        std::string text = "Blinks: " + std::to_string(blink_count);
+        if (landmark_success) {
+            text += " | EAR: " + cv::format("%.2f", current_ear);
+        }
+        else {
+            text += " | EAR: RECOVERING";
+        }
+
+        if (is_eye_closed) {
+            text += " [CLOSED]";
+            cv::putText(frame, text, cv::Point(30, 50), cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0, 0, 255), 2); // Red Locked Closed text
+        }
+        else {
+            cv::putText(frame, text, cv::Point(30, 50), cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0, 255, 0), 2); // Green Open text
         }
 
         cv::imshow("YuNet + Geometric EAR Blink Tracker", frame);

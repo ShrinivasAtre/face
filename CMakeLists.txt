@@ -1,18 +1,33 @@
 cmake_minimum_required(VERSION 3.10)
-project(YuNetFaceDetection)
 
-# Set C++ standard
+project(YuNetFaceDetection LANGUAGES CXX)
+
+# C++ standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Find the OpenCV library packages
+# Find OpenCV
 find_package(OpenCV REQUIRED)
 
-# Include OpenCV headers
-include_directories(${OpenCV_INCLUDE_DIRS})
+# Show which OpenCV CMake found
+message(STATUS "OpenCV version: ${OpenCV_VERSION}")
+message(STATUS "OpenCV include dirs: ${OpenCV_INCLUDE_DIRS}")
+message(STATUS "OpenCV libraries: ${OpenCV_LIBS}")
 
-# Define the executable
-add_executable(yunet_demo main.cpp)
+# Application
+add_executable(yunet_demo
+    main.cpp
+)
 
-# Link OpenCV libraries to the executable
-target_link_libraries(yunet_demo ${OpenCV_LIBS})
+# OpenCV include directories
+target_include_directories(yunet_demo
+    PRIVATE
+        ${OpenCV_INCLUDE_DIRS}
+)
+
+# OpenCV libraries
+target_link_libraries(yunet_demo
+    PRIVATE
+        ${OpenCV_LIBS}
+)

@@ -38,7 +38,63 @@ int main() {
     int face_lost_frame_counter = 0;
     const int MAX_FACE_LOST_GRACE_PERIOD = 15; // ~0.5 seconds at 30fps
 
-    cv::VideoCapture cap(0);
+	cv::VideoCapture cap;
+
+	#ifdef _WIN32
+		cap.open(0);
+	#else
+		cap.open(0, cv::CAP_V4L2);
+	#endif
+
+	if (!cap.isOpened()) {
+		std::cerr << "Error: Camera unavailable." << std::endl;
+		return -1;
+	}
+
+	#ifndef _WIN32
+		cap.set(cv::CAP_PROP_FOURCC,
+				cv::VideoWriter::fourcc('M', 'J', 'P', 'G'));
+	#endif
+
+	cap.set(cv::CAP_PROP_FRAME_WIDTH, 640);
+	cap.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
+	cap.set(cv::CAP_PROP_FPS, 30);
+
+	std::cout << "Camera resolution: "
+			  << cap.get(cv::CAP_PROP_FRAME_WIDTH)
+			  << " x "
+			  << cap.get(cv::CAP_PROP_FRAME_HEIGHT)
+			  << std::endl;
+
+	std::cout << "Camera FPS: "
+			  << cap.get(cv::CAP_PROP_FPS)
+			  << std::endl;
+
+	if (!cap.isOpened()) {
+		std::cerr << "Error: Camera unavailable." << std::endl;
+		return -1;
+	}
+
+	cap.set(cv::CAP_PROP_FOURCC,
+			cv::VideoWriter::fourcc('M', 'J', 'P', 'G'));
+
+	cap.set(cv::CAP_PROP_FRAME_WIDTH, 640);
+	cap.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
+	cap.set(cv::CAP_PROP_FPS, 30);
+
+	std::cout << "Camera backend: "
+			  << cap.getBackendName() << std::endl;
+
+	std::cout << "Camera resolution: "
+			  << cap.get(cv::CAP_PROP_FRAME_WIDTH)
+			  << " x "
+			  << cap.get(cv::CAP_PROP_FRAME_HEIGHT)
+			  << std::endl;
+
+	std::cout << "Camera FPS: "
+			  << cap.get(cv::CAP_PROP_FPS)
+			  << std::endl;
+			  
     if (!cap.isOpened()) {
         std::cerr << "Error: Camera unavailable." << std::endl;
         return -1;
@@ -46,9 +102,17 @@ int main() {
     cap.set(cv::CAP_PROP_FRAME_WIDTH, 640);
     cap.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
 
-    cv::Mat frame;
-    cap >> frame;
-    if (frame.empty()) return -1;
+	cv::Mat frame;
+	cap >> frame;
+
+	if (frame.empty()) {
+		std::cerr << "ERROR: First camera frame is empty." << std::endl;
+		return -1;
+	}
+
+	std::cout << "First frame received: "
+			  << frame.cols << "x"
+			  << frame.rows << std::endl;
 
     // Drop score threshold down to 0.60 to keep YuNet alive as long as possible
 	cv::Ptr<cv::FaceDetectorYN> detector =

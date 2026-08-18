@@ -39,10 +39,19 @@
 *.out
 *.app
 
+# Generated binaries
+*.exe
+*.dll
+*.so
+*.a
+
+
 # Build directories
 build/
 Build/
 build-*/
+cmake-build-*/
+out/
 
 # CMake generated files
 CMakeFiles/
@@ -67,3 +76,8 @@ vcpkg_installed/
 # test output & cache
 Testing/
 .cache/
+
+# Visual Studio
+.vs/
+*.suo
+*.user

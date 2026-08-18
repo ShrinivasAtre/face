@@ -2,8 +2,9 @@
 
 #include <filesystem>
 
-namespace AppPaths {
+class AppPaths
+{
+public:
 
-std::filesystem::path executableDirectory();
-
-}
+    static std::filesystem::path executableDirectory();
+};

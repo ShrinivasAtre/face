@@ -31,11 +31,8 @@ message(STATUS "----------------------------------------")
 add_executable(yunet_demo
 
     src/main.cpp
-
     src/AppPaths.cpp
-
     src/FaceDetector.cpp
-
     src/BlinkTracker.cpp
 )
 
@@ -49,7 +46,6 @@ target_include_directories(yunet_demo
     PRIVATE
 
         ${CMAKE_CURRENT_SOURCE_DIR}/include
-
         ${OpenCV_INCLUDE_DIRS}
 )
 
@@ -69,19 +65,18 @@ target_link_libraries(yunet_demo
 # ============================================================
 # Model deployment
 #
-# The models are copied next to the executable.
+# Models are copied next to the executable:
 #
 # Windows:
 #   build/Release/models/
 #
-# Linux / Jetson:
+# Linux / Orin:
 #   build/models/
 # ============================================================
 
 set(MODEL_SOURCE_DIR
     "${CMAKE_CURRENT_SOURCE_DIR}/models"
 )
-
 
 add_custom_command(
     TARGET yunet_demo
@@ -105,39 +100,38 @@ add_custom_command(
 
 # ============================================================
 # Windows OpenCV DLL deployment
+#
+# The DLL path is supplied when configuring CMake:
+#
+# -DOPENCV_DLL="C:/.../opencv_world480.dll"
+#
+# This keeps machine-specific paths out of the repository.
 # ============================================================
 
 if(WIN32)
 
-    # OpenCVConfig.cmake is located at:
-    #
-    # C:/opencv-4.8.0-src/install/lib/cmake/opencv4
-    #
-    # OpenCV DLL is located at:
-    #
-    # C:/opencv-4.8.0-src/install/bin/opencv_world480.dll
-    #
-    # We use CMAKE_PREFIX_PATH rather than OpenCV_DIR because
-    # OpenCV_DIR can be normalized internally by the package.
+    set(OPENCV_DLL
+        ""
+        CACHE FILEPATH
+        "Path to OpenCV Windows DLL"
+    )
 
-    if(DEFINED CMAKE_PREFIX_PATH)
 
-        list(GET CMAKE_PREFIX_PATH 0 OPENCV_PREFIX)
+    if(OPENCV_DLL STREQUAL "")
 
-        set(OPENCV_DLL
-            "${OPENCV_PREFIX}/bin/opencv_world480.dll"
+        message(FATAL_ERROR
+            "OPENCV_DLL is not set. "
+            "Configure with "
+            "-DOPENCV_DLL=<path-to-opencv_world480.dll>"
         )
 
     endif()
 
 
-    # If CMAKE_PREFIX_PATH was not supplied, use the known
-    # OpenCV installation location as a fallback.
+    if(NOT EXISTS "${OPENCV_DLL}")
 
-    if(NOT DEFINED OPENCV_DLL OR NOT EXISTS "${OPENCV_DLL}")
-
-        set(OPENCV_DLL
-            "C:/opencv-4.8.0-src/install/bin/opencv_world480.dll"
+        message(FATAL_ERROR
+            "OpenCV DLL does not exist: ${OPENCV_DLL}"
         )
 
     endif()
@@ -146,15 +140,6 @@ if(WIN32)
     message(STATUS
         "OpenCV DLL: ${OPENCV_DLL}"
     )
-
-
-    if(NOT EXISTS "${OPENCV_DLL}")
-
-        message(FATAL_ERROR
-            "OpenCV DLL not found: ${OPENCV_DLL}"
-        )
-
-    endif()
 
 
     add_custom_command(

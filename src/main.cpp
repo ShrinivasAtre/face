@@ -4,6 +4,7 @@
 
 #include <opencv2/opencv.hpp>
 
+#include <chrono>
 #include <iostream>
 #include <string>
 
@@ -34,7 +35,6 @@ int main()
             << lbfModel
             << std::endl;
 
-
         // --------------------------------------------------
         // Camera
         // --------------------------------------------------
@@ -60,11 +60,11 @@ int main()
             return -1;
         }
 
-
 #ifndef _WIN32
 
         // Jetson / Linux:
         // Request MJPEG from the USB camera.
+
         cap.set(
             cv::CAP_PROP_FOURCC,
             cv::VideoWriter::fourcc(
@@ -93,7 +93,6 @@ int main()
             30
         );
 
-
         std::cout
             << "Camera backend: "
             << cap.getBackendName()
@@ -110,7 +109,6 @@ int main()
             << "Camera FPS: "
             << cap.get(cv::CAP_PROP_FPS)
             << std::endl;
-
 
         // --------------------------------------------------
         // Get first frame
@@ -136,7 +134,6 @@ int main()
             << frame.rows
             << std::endl;
 
-
         // --------------------------------------------------
         // Face detector
         // --------------------------------------------------
@@ -149,7 +146,6 @@ int main()
             5000
         );
 
-
         // --------------------------------------------------
         // Blink tracker
         // --------------------------------------------------
@@ -159,11 +155,24 @@ int main()
             0.27
         );
 
-
         std::cout
             << "Memory-locked engine initialized. Ready."
             << std::endl;
 
+        // --------------------------------------------------
+        // Performance measurement
+        // --------------------------------------------------
+
+        using Clock = std::chrono::steady_clock;
+
+        double captureTimeMs = 0.0;
+        double yunetTimeMs = 0.0;
+        double lbfTimeMs = 0.0;
+        double totalTimeMs = 0.0;
+
+        int performanceFrames = 0;
+
+        auto performanceStart = Clock::now();
 
         // --------------------------------------------------
         // Main loop
@@ -171,7 +180,17 @@ int main()
 
         while (true)
         {
+            auto frameStart = Clock::now();
+
+            // --------------------------------------------------
+            // Camera capture
+            // --------------------------------------------------
+
+            auto captureStart = Clock::now();
+
             cap >> frame;
+
+            auto captureEnd = Clock::now();
 
             if (frame.empty())
             {
@@ -182,12 +201,18 @@ int main()
                 continue;
             }
 
+            captureTimeMs +=
+                std::chrono::duration<double, std::milli>(
+                    captureEnd - captureStart
+                ).count();
 
             // --------------------------------------------------
-            // Face detection
+            // Face detection - YuNet
             // --------------------------------------------------
 
             cv::Rect faceBox;
+
+            auto yunetStart = Clock::now();
 
             bool faceFound =
                 faceDetector.detect(
@@ -195,12 +220,20 @@ int main()
                     faceBox
                 );
 
+            auto yunetEnd = Clock::now();
+
+            yunetTimeMs +=
+                std::chrono::duration<double, std::milli>(
+                    yunetEnd - yunetStart
+                ).count();
 
             // --------------------------------------------------
-            // Blink / landmark processing
+            // Blink / landmark processing - LBF
             // --------------------------------------------------
 
             bool landmarkSuccess = false;
+
+            auto lbfStart = Clock::now();
 
             if (faceFound)
             {
@@ -218,6 +251,12 @@ int main()
                 );
             }
 
+            auto lbfEnd = Clock::now();
+
+            lbfTimeMs +=
+                std::chrono::duration<double, std::milli>(
+                    lbfEnd - lbfStart
+                ).count();
 
             // --------------------------------------------------
             // Text overlay
@@ -228,7 +267,6 @@ int main()
                 std::to_string(
                     blinkTracker.getBlinkCount()
                 );
-
 
             if (landmarkSuccess)
             {
@@ -244,7 +282,6 @@ int main()
                 text +=
                     " | EAR: RECOVERING";
             }
-
 
             if (blinkTracker.isEyeClosed())
             {
@@ -275,6 +312,88 @@ int main()
                 );
             }
 
+            // --------------------------------------------------
+            // Total frame processing time
+            // --------------------------------------------------
+
+            auto frameEnd = Clock::now();
+
+            totalTimeMs +=
+                std::chrono::duration<double, std::milli>(
+                    frameEnd - frameStart
+                ).count();
+
+            performanceFrames++;
+
+            // --------------------------------------------------
+            // Performance reporting
+            //
+            // Print approximately once per second.
+            // --------------------------------------------------
+
+            auto performanceNow = Clock::now();
+
+            double elapsedSeconds =
+                std::chrono::duration<double>(
+                    performanceNow - performanceStart
+                ).count();
+
+            if (elapsedSeconds >= 1.0)
+            {
+                double fps =
+                    performanceFrames /
+                    elapsedSeconds;
+
+                double avgCapture =
+                    captureTimeMs /
+                    performanceFrames;
+
+                double avgYuNet =
+                    yunetTimeMs /
+                    performanceFrames;
+
+                double avgLBF =
+                    lbfTimeMs /
+                    performanceFrames;
+
+                double avgTotal =
+                    totalTimeMs /
+                    performanceFrames;
+
+                std::cout
+                    << "\n"
+                    << "----------------------------------------\n"
+                    << "Performance\n"
+                    << "FPS          : "
+                    << fps
+                    << "\n"
+                    << "Capture      : "
+                    << avgCapture
+                    << " ms\n"
+                    << "YuNet        : "
+                    << avgYuNet
+                    << " ms\n"
+                    << "LBF          : "
+                    << avgLBF
+                    << " ms\n"
+                    << "Total        : "
+                    << avgTotal
+                    << " ms\n"
+                    << "----------------------------------------\n"
+                    << std::flush;
+
+                // Reset one-second measurement window.
+
+                performanceStart =
+                    performanceNow;
+
+                performanceFrames = 0;
+
+                captureTimeMs = 0.0;
+                yunetTimeMs = 0.0;
+                lbfTimeMs = 0.0;
+                totalTimeMs = 0.0;
+            }
 
             // --------------------------------------------------
             // Display
@@ -284,7 +403,6 @@ int main()
                 "YuNet + Geometric EAR Blink Tracker",
                 frame
             );
-
 
             char key =
                 static_cast<char>(
@@ -301,12 +419,12 @@ int main()
             }
         }
 
-
         // --------------------------------------------------
         // Cleanup
         // --------------------------------------------------
 
         cap.release();
+
         cv::destroyAllWindows();
 
         return 0;

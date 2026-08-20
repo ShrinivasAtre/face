@@ -3,9 +3,34 @@ $ErrorActionPreference = 'Stop'
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $MediaPipeRoot = Join-Path $RepoRoot 'third_party\mediapipe'
 $BridgeRoot = Join-Path $MediaPipeRoot 'face_bridge'
+$TasksCoreBuild = Join-Path $MediaPipeRoot 'mediapipe\tasks\cc\core\BUILD'
+$TasksCoreSrc = Join-Path $MediaPipeRoot 'mediapipe\tasks\cc\core\task_runner.cc'
+$TasksLoggingBuild = Join-Path $MediaPipeRoot 'mediapipe\tasks\cc\core\logging\BUILD'
+$TasksDummyLogger = Join-Path $MediaPipeRoot 'mediapipe\tasks\cc\core\logging\tasks_dummy_logger.h'
 
 if (-not (Test-Path (Join-Path $MediaPipeRoot 'WORKSPACE'))) {
     throw "MediaPipe workspace not found at $MediaPipeRoot. Run scripts\fetch_mediapipe.ps1 first."
+}
+
+function Remove-LineContaining([string]$Path, [string]$Needle, [string]$Message) {
+    $content = Get-Content -Raw $Path
+    if ($content.Contains($Needle)) {
+        Write-Host $Message
+        $lines = Get-Content $Path | Where-Object { -not $_.Contains($Needle) }
+        Set-Content -Encoding UTF8 $Path $lines
+    }
+}
+
+# MediaPipe v0.10.33 OSS checkout is missing internal analytics protos. Mirror
+# the Linux compatibility patch exactly for the Face Landmarker path.
+Remove-LineContaining $TasksCoreBuild '//mediapipe/util/analytics:mediapipe_logging_enums_cc_proto' 'Applying MediaPipe v0.10.33 task_runner analytics compatibility patch...'
+Remove-LineContaining $TasksCoreSrc 'mediapipe/util/analytics/mediapipe_logging_enums.pb.h' 'Removing unused task_runner analytics enum include...'
+Remove-LineContaining $TasksLoggingBuild '":logging_client"' 'Removing dummy logger dependency on unavailable analytics logging client...'
+Remove-LineContaining $TasksDummyLogger 'mediapipe/tasks/cc/core/logging/logging_client.h' 'Removing unused analytics logging_client include from dummy logger...'
+
+if ((Get-Content -Raw $TasksCoreBuild).Contains('//mediapipe/util/analytics:mediapipe_logging_enums_cc_proto') -or
+    (Get-Content -Raw $TasksCoreSrc).Contains('mediapipe/util/analytics/mediapipe_logging_enums.pb.h')) {
+    throw 'MediaPipe analytics compatibility patch did not apply cleanly.'
 }
 
 if (Test-Path $BridgeRoot) {
@@ -20,7 +45,7 @@ Copy-Item (Join-Path $RepoRoot 'mediapipe\src\FaceMediaPipe.cpp') (Join-Path $Br
 
 @'
 cc_library(
-    name = "FaceMediaPipe",
+    name = "FaceMediaPipe_impl",
     srcs = ["src/FaceMediaPipe.cpp"],
     hdrs = ["api/FaceMediaPipe.h"],
     deps = [
@@ -28,14 +53,22 @@ cc_library(
         "//mediapipe/tasks/cc/vision/face_landmarker:face_landmarker",
     ],
     copts = ["/DFACE_MEDIAPIPE_BUILD"],
-    linkstatic = False,
+    alwayslink = True,
+    visibility = ["//visibility:private"],
+)
+
+cc_binary(
+    name = "FaceMediaPipe.dll",
+    deps = [":FaceMediaPipe_impl"],
+    linkshared = True,
+    linkstatic = True,
     visibility = ["//visibility:public"],
 )
 '@ | Set-Content -Encoding UTF8 (Join-Path $BridgeRoot 'BUILD.bazel')
 
 Push-Location $MediaPipeRoot
 try {
-    bazelisk build //face_bridge:FaceMediaPipe
+    bazelisk build //face_bridge:FaceMediaPipe.dll
 }
 finally {
     Pop-Location

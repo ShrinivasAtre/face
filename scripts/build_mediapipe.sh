@@ -6,7 +6,8 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 MEDIAPIPE_ROOT="${REPO_ROOT}/third_party/mediapipe"
 BRIDGE_ROOT="${MEDIAPIPE_ROOT}/face_bridge"
 TASKS_CORE_BUILD="${MEDIAPIPE_ROOT}/mediapipe/tasks/cc/core/BUILD"
-ANALYTICS_DEP='        "//mediapipe/util/analytics:mediapipe_logging_enums_cc_proto",'
+TASKS_LOGGING_BUILD="${MEDIAPIPE_ROOT}/mediapipe/tasks/cc/core/logging/BUILD"
+TASKS_DUMMY_LOGGER="${MEDIAPIPE_ROOT}/mediapipe/tasks/cc/core/logging/tasks_dummy_logger.h"
 
 if [[ ! -f "${MEDIAPIPE_ROOT}/WORKSPACE" ]]; then
     echo "ERROR: MediaPipe workspace not found at ${MEDIAPIPE_ROOT}" >&2
@@ -14,18 +15,31 @@ if [[ ! -f "${MEDIAPIPE_ROOT}/WORKSPACE" ]]; then
     exit 1
 fi
 
-# MediaPipe v0.10.33 references an internal analytics proto from task_runner,
-# but mediapipe/util/analytics is not included in the OSS checkout. Apply the
-# smallest possible compatibility patch and only when the exact dependency is
-# present. The fetched checkout remains pinned; fetch_mediapipe.sh can restore
-# it from Git at any time.
-if grep -Fqx "${ANALYTICS_DEP}" "${TASKS_CORE_BUILD}"; then
-    echo "Applying MediaPipe v0.10.33 OSS analytics compatibility patch..."
+# MediaPipe v0.10.33 references internal analytics protos that are not shipped
+# in the OSS checkout. The Face Landmarker path uses the dummy logger, which
+# does not need those analytics types. Apply the smallest compatibility patch:
+#   1. Remove task_runner's direct analytics enum dependency.
+#   2. Remove the dummy logger's unnecessary dependency/include on
+#      logging_client (which is the only route to the missing log proto).
+# The real logging_client target remains untouched and simply becomes unused
+# by the Face Landmarker build path.
+if grep -Fq '//mediapipe/util/analytics:mediapipe_logging_enums_cc_proto' "${TASKS_CORE_BUILD}"; then
+    echo "Applying MediaPipe v0.10.33 task_runner analytics compatibility patch..."
     sed -i '\|//mediapipe/util/analytics:mediapipe_logging_enums_cc_proto|d' "${TASKS_CORE_BUILD}"
 fi
 
-if grep -Fq '//mediapipe/util/analytics:' "${TASKS_CORE_BUILD}"; then
-    echo "ERROR: Unexpected MediaPipe analytics dependency remains in ${TASKS_CORE_BUILD}" >&2
+if grep -Fq '":logging_client"' "${TASKS_LOGGING_BUILD}"; then
+    echo "Removing dummy logger dependency on unavailable analytics logging client..."
+    sed -i '/":logging_client"/d' "${TASKS_LOGGING_BUILD}"
+fi
+
+if grep -Fq 'mediapipe/tasks/cc/core/logging/logging_client.h' "${TASKS_DUMMY_LOGGER}"; then
+    echo "Removing unused analytics logging_client include from dummy logger..."
+    sed -i '\|mediapipe/tasks/cc/core/logging/logging_client.h|d' "${TASKS_DUMMY_LOGGER}"
+fi
+
+if grep -Fq '//mediapipe/util/analytics:mediapipe_logging_enums_cc_proto' "${TASKS_CORE_BUILD}"; then
+    echo "ERROR: task_runner analytics dependency still present." >&2
     exit 1
 fi
 

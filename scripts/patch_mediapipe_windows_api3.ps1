@@ -3,8 +3,9 @@ $ErrorActionPreference = 'Stop'
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $Header = Join-Path $RepoRoot 'third_party\mediapipe\mediapipe\framework\api3\calculator_context.h'
 $GraphHeader = Join-Path $RepoRoot 'third_party\mediapipe\mediapipe\framework\api3\graph.h'
+$ImageToTensorHeader = Join-Path $RepoRoot 'third_party\mediapipe\mediapipe\calculators\tensor\image_to_tensor_calculator.h'
 
-foreach ($required in @($Header, $GraphHeader)) {
+foreach ($required in @($Header, $GraphHeader, $ImageToTensorHeader)) {
     if (-not (Test-Path $required)) {
         throw "MediaPipe API3 header not found at $required. Run scripts\fetch_mediapipe.ps1 first."
     }
@@ -70,6 +71,23 @@ if (-not $graphContent.Contains($forwardDecl) -and -not $graphContent.Contains($
     throw 'MediaPipe graph.h SubgraphContext forward declaration patch did not apply cleanly.'
 }
 Write-Utf8NoBom $GraphHeader $graphContent
+
+# ImageToTensorNode feeds an inline constexpr absl::string_view into the
+# CompileTimeString non-type template parameter. Newer MSVC rejects the
+# string_view implementation's internal pointer as a constant template value
+# (C7658). MediaPipe's Node API explicitly supports a string literal directly,
+# so use the literal form while preserving the exact registration name.
+$imageContent = [System.IO.File]::ReadAllText($ImageToTensorHeader)
+$oldImageNode = 'struct ImageToTensorNode : Node<kImageToTensorNodeName> {'
+$newImageNode = 'struct ImageToTensorNode : Node<"ImageToTensorCalculator"> {'
+if ($imageContent.Contains($oldImageNode)) {
+    $imageContent = $imageContent.Replace($oldImageNode, $newImageNode)
+    $changed = $true
+}
+if (-not $imageContent.Contains($newImageNode)) {
+    throw 'MediaPipe ImageToTensorNode MSVC compatibility patch did not apply cleanly.'
+}
+Write-Utf8NoBom $ImageToTensorHeader $imageContent
 
 if ($changed) {
     Write-Host 'Applied MediaPipe API3 compatibility patches for MSVC.'

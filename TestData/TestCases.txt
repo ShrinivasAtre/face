@@ -1,0 +1,452 @@
+Test Group A — Face detection
+A1 — Straight face
+
+Sit normally facing the camera.
+
+Duration:
+
+10 seconds
+
+Expected:
+
+Face detected continuously
+Face bounding box stable
+EAR available
+No RECOVERING flicker
+FPS ≈ 30
+
+Expected result:
+
+PASS
+
+A2 — Turn head left
+
+Slowly rotate your head approximately:
+
+0° → 30° → 45°
+
+Hold for ~5 seconds.
+
+Then return to center.
+
+Expected:
+
+Face detection continues
+Landmarks remain reasonably stable
+No excessive face-loss events
+
+Record whether detection fails at some angle.
+
+A3 — Turn head right
+
+Same test:
+
+0° → -30° → -45°
+
+Hold for 5 seconds.
+
+Then return.
+
+A4 — Look up
+
+Without moving your body:
+
+Normal
+   ↓
+Look upward
+   ↓
+Hold 5 sec
+   ↓
+Return
+
+Watch:
+
+face detection
+landmarks
+EAR
+A5 — Look down
+
+Same thing looking downward.
+
+This one is particularly interesting for the eye landmarks.
+
+Test Group B — Distance
+B1 — Move closer
+
+Start at ~70 cm.
+
+Slowly move toward camera until roughly:
+
+30–40 cm
+
+Hold for 5 seconds.
+
+Expected:
+
+Face remains detected
+Landmarks remain stable
+
+Record approximately where detection starts becoming unreliable.
+
+B2 — Move farther away
+
+Start at ~50 cm.
+
+Move backwards slowly until approximately:
+
+1.0 m
+
+Hold.
+
+Record:
+
+At what distance does YuNet lose reliable detection?
+
+This gives us a practical minimum face size.
+
+Test Group C — Lighting
+
+This is important.
+
+C1 — Normal lighting
+
+Already covered by A1.
+
+C2 — Dim lighting
+
+Reduce room lighting.
+
+Don't make it completely dark.
+
+Something like:
+
+Normal room
+      ↓
+50% lighting
+      ↓
+Hold 10 sec
+
+Observe:
+
+detection
+landmarks
+EAR
+blink count
+C3 — Backlight
+
+Put a bright light/window behind you.
+
+Your face should be relatively darker than the background.
+
+Expected:
+
+Detection may degrade.
+
+That's okay.
+
+We're measuring the boundary.
+
+C4 — Side lighting
+
+Have light primarily from one side.
+
+Turn your face slightly toward/away from the light.
+
+This is useful because eye landmarks can behave differently when one side of the face is darker.
+
+Test Group D — Blink detection
+
+This is the most important group for our application.
+
+D1 — Normal blink
+
+Perform:
+
+Open
+↓
+Normal blink
+↓
+Open
+
+Do this 10 times.
+
+Expected:
+
+Starting count = N
+
+
+After 10 blinks:
+
+
+count = N + 10
+
+Record actual count.
+
+For example:
+
+Expected: 10
+Actual:   10
+D2 — Rapid blinking
+
+Blink quickly:
+
+blink blink blink blink blink
+
+Do approximately 10 rapid blinks.
+
+We're testing whether the state machine incorrectly combines or duplicates events.
+
+Expected:
+
+10 intentional blinks
+≈ 10 count
+D3 — Long eye closure
+
+This is especially important given your current state machine.
+
+Do:
+
+Open
+ ↓
+Close eyes
+ ↓
+Hold closed for 3 seconds
+ ↓
+Open
+
+Expected:
+
+Blinks +1
+
+NOT:
+
+Blinks +50
+
+or whatever number of frames occurred during the closure.
+
+D4 — Multiple long closures
+
+Do:
+
+Open
+Close 2 sec
+Open
+
+
+Close 2 sec
+Open
+
+
+Close 2 sec
+Open
+
+Expected:
+
++3
+D5 — Slow eye closure
+
+This is an interesting edge case.
+
+Slowly close your eyes over approximately:
+
+2 seconds
+
+Hold closed briefly.
+
+Then slowly open.
+
+Watch:
+
+EAR
+Blinks
+CLOSED/OPEN state
+
+We want to know whether the transition happens sensibly.
+
+Test Group E — Face loss / recovery
+
+This tests the code you previously added specifically for this problem.
+
+E1 — Leave frame
+
+Start normally.
+
+Then slowly move your face completely out of the camera view.
+
+Expected:
+
+Face lost
+↓
+short grace period
+↓
+RECOVERING
+
+Then return.
+
+Expected:
+
+Face detected
+landmarks recover
+blink state remains sane
+E2 — Brief obstruction
+
+Put your hand between your face and camera for approximately:
+
+0.2–0.5 sec
+
+Then remove it.
+
+Expected:
+
+Tracking recovers
+No false blink
+No huge blink count increase
+E3 — Longer obstruction
+
+Repeat but block the face for:
+
+2 seconds
+
+Then remove your hand.
+
+Observe what happens.
+
+We're particularly interested in whether the current:
+
+MAX_FACE_LOST_GRACE_PERIOD
+
+behavior produces a false blink.
+
+Test Group F — Realistic movement
+
+This is the final manual test.
+
+For approximately 30 seconds, behave normally:
+
+look around
+talk
+blink naturally
+move slightly
+lean forward/back
+turn your head
+
+Don't deliberately try to break it.
+
+Watch whether:
+
+Face detection
+EAR
+Blink count
+FPS
+
+remain stable.
+
+Use this test sheet
+
+I'd suggest copying this into a text file or your notes:
+
+YU-NET + LBF ROBUSTNESS TEST
+============================
+
+
+Platform: Jetson Orin
+Resolution: 640x480
+Camera FPS: 30
+
+
+A. FACE DETECTION
+-----------------
+A1 Straight face       PASS / FAIL / PARTIAL
+A2 Turn left           PASS / FAIL / PARTIAL
+A3 Turn right          PASS / FAIL / PARTIAL
+A4 Look up             PASS / FAIL / PARTIAL
+A5 Look down           PASS / FAIL / PARTIAL
+
+
+B. DISTANCE
+-----------
+B1 Move closer         PASS / FAIL / PARTIAL
+B2 Move farther        PASS / FAIL / PARTIAL
+
+
+C. LIGHTING
+-----------
+C1 Normal              PASS / FAIL / PARTIAL
+C2 Dim                 PASS / FAIL / PARTIAL
+C3 Backlight           PASS / FAIL / PARTIAL
+C4 Side light          PASS / FAIL / PARTIAL
+
+
+D. BLINK
+--------
+D1 10 normal blinks    Expected: 10  Actual: ___
+D2 10 rapid blinks     Expected: 10  Actual: ___
+D3 3 sec closure       Expected: +1  Actual: ___
+D4 Three long blinks   Expected: +3  Actual: ___
+D5 Slow closure        PASS / FAIL / PARTIAL
+
+
+E. FACE LOSS
+------------
+E1 Leave frame         PASS / FAIL / PARTIAL
+E2 Short obstruction   PASS / FAIL / PARTIAL
+E3 Long obstruction    PASS / FAIL / PARTIAL
+
+
+F. REAL WORLD
+-------------
+F1 Normal movement     PASS / FAIL / PARTIAL
+One thing I specifically want you to watch
+
+Don't just look at whether the face box appears.
+
+Watch the EAR value.
+
+For example, you might see:
+
+EAR: 0.34
+EAR: 0.33
+EAR: 0.31
+EAR: 0.25
+EAR: 0.18
+[CLOSED]
+EAR: 0.22
+EAR: 0.31
+EAR: 0.34
+[OPEN]
+
+That's good.
+
+But if you see something like:
+
+EAR: 0.34
+EAR: 0.18
+EAR: 0.34
+EAR: 0.17
+EAR: 0.34
+
+while your eyes are actually open, that's a landmark stability problem, not a performance problem.
+
+Similarly, if the count increases while you're simply holding your eyes closed, that's a state-machine problem.
+
+Don't try all 20 tests at once
+
+I'd do them in this order:
+
+Session 1 — Most important
+
+A1 → A2 → A3 → D1 → D3 → E1
+
+These six will tell us a lot.
+
+Then send me the results, especially:
+
+A2:
+A3:
+D1: Expected / Actual
+D3: Expected / Actual
+E1:
+
+If those are clean, we'll proceed to the more aggressive lighting/distance tests.
+
+No code changes yet. The objective of Stage 3 is to discover weaknesses first; then we'll fix only the ones we actually observe.

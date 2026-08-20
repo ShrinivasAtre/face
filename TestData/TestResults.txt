@@ -1,0 +1,47 @@
+20th August 2026 - Test by Shrinivas . Time 10:00am.
+YU-NET + LBF ROBUSTNESS TEST
+============================
+
+Platform: Jetson Orin
+Resolution: 640x480
+Camera FPS: 30
+
+A. FACE DETECTION
+-----------------
+A1 Straight face       PASS 
+A2 Turn left           PASS 
+A3 Turn right          PASS
+A4 Look up             PARTIAL
+A5 Look down           PARTIAL
+
+B. DISTANCE
+-----------
+B1 Move closer         PARTIAL - 
+B2 Move farther        FAIL - Eyes shown as closed  when moved farther
+
+C. LIGHTING
+-----------
+C1 Normal              PASS
+C2 Dim                 PARTIAL
+C3 Backlight           FAIL
+C4 Side light          PARTIAL
+
+D. BLINK
+--------
+D1 10 normal blinks    Expected: 10  Actual: 30
+D2 10 rapid blinks     Expected: 10  Actual: 35
+D3 3 sec closure       Expected: +1  Actual: 48
+D4 Three long blinks   Expected: +3  Actual: 60
+D5 Slow closure        FAIL - EAR drops below 0.28, Blink count drastically increases, CLOSED/OPEN state rapidly changes.
+
+E. FACE LOSS
+------------
+E1 Leave frame         PASS
+E2 Short obstruction   PASS
+E3 Long obstruction    PASS
+
+F. REAL WORLD
+-------------
+F1 Normal movement     PASS
+
+General observation is that eye marking is not correct for one eye. MArking for one eye( my left , right on screen) shifted by few pixels or yellow marks.

@@ -68,6 +68,13 @@ cc_binary(
 
 $BazelArgs = @('build')
 
+# TensorFlow in MediaPipe v0.10.33 only ships requirements lock files for
+# Python 3.9-3.12. New Windows hosts may otherwise default to 3.14, which
+# fails during repository initialization. Pin the hermetic Python repository
+# to the newest version supported by this checkout.
+$BazelArgs += '--repo_env=HERMETIC_PYTHON_VERSION=3.12'
+Write-Host 'Using hermetic Python 3.12 for MediaPipe/TensorFlow repositories'
+
 # Bazel's Java downloader may time out on GitHub release assets even when
 # PowerShell can download them. Let Bazel reuse any matching archives that were
 # downloaded manually into TEMP before it attempts the network.

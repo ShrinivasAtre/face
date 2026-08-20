@@ -35,6 +35,27 @@ if ! command -v pkg-config >/dev/null 2>&1 || ! pkg-config --exists opencv4; the
     exit 6
 fi
 
+# Some Orin installations have a stale opencv4.pc that advertises
+# /usr/local/include/opencv4 even though the headers are installed elsewhere.
+# Detect the actual header tree exactly as build_mediapipe.sh does.
+OPENCV_INCLUDE=""
+for candidate in \
+    /usr/include/opencv4 \
+    /usr/local/include/opencv4 \
+    /usr/local/opencv-4.8.0-contrib/include/opencv4; do
+    if [[ -f "${candidate}/opencv2/core/version.hpp" ]]; then
+        OPENCV_INCLUDE="${candidate}"
+        break
+    fi
+done
+
+if [[ -z "${OPENCV_INCLUDE}" ]]; then
+    echo "ERROR: Could not locate OpenCV headers." >&2
+    exit 7
+fi
+
+echo "Using OpenCV headers from ${OPENCV_INCLUDE}"
+
 mkdir -p "${REPO_ROOT}/build"
 
 CXX="${CXX:-g++}"
@@ -43,8 +64,8 @@ CXX="${CXX:-g++}"
     -std=c++17 \
     -O2 \
     -I"${REPO_ROOT}/mediapipe/api" \
+    -I"${OPENCV_INCLUDE}" \
     "${REPO_ROOT}/tests/mediapipe_smoke.cpp" \
-    $(pkg-config --cflags opencv4) \
     -L"${SO_DIR}" \
     -Wl,-rpath,"${SO_DIR}" \
     -lFaceMediaPipe \

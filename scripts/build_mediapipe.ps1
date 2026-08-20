@@ -12,12 +12,17 @@ if (-not (Test-Path (Join-Path $MediaPipeRoot 'WORKSPACE'))) {
     throw "MediaPipe workspace not found at $MediaPipeRoot. Run scripts\fetch_mediapipe.ps1 first."
 }
 
+function Write-Utf8NoBom([string]$Path, [string]$Content) {
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($Path, $Content, $utf8NoBom)
+}
+
 function Remove-LineContaining([string]$Path, [string]$Needle, [string]$Message) {
     $content = Get-Content -Raw $Path
     if ($content.Contains($Needle)) {
         Write-Host $Message
         $lines = Get-Content $Path | Where-Object { -not $_.Contains($Needle) }
-        Set-Content -Encoding UTF8 $Path $lines
+        Write-Utf8NoBom $Path (($lines -join [Environment]::NewLine) + [Environment]::NewLine)
     }
 }
 
@@ -43,7 +48,7 @@ New-Item -ItemType Directory -Force (Join-Path $BridgeRoot 'src') | Out-Null
 Copy-Item (Join-Path $RepoRoot 'mediapipe\api\FaceMediaPipe.h') (Join-Path $BridgeRoot 'api\FaceMediaPipe.h')
 Copy-Item (Join-Path $RepoRoot 'mediapipe\src\FaceMediaPipe.cpp') (Join-Path $BridgeRoot 'src\FaceMediaPipe.cpp')
 
-@'
+$BridgeBuild = @'
 cc_library(
     name = "FaceMediaPipe_impl",
     srcs = ["src/FaceMediaPipe.cpp"],
@@ -64,7 +69,9 @@ cc_binary(
     linkstatic = True,
     visibility = ["//visibility:public"],
 )
-'@ | Set-Content -Encoding UTF8 (Join-Path $BridgeRoot 'BUILD.bazel')
+'@
+
+Write-Utf8NoBom (Join-Path $BridgeRoot 'BUILD.bazel') $BridgeBuild
 
 $BazelArgs = @('build')
 

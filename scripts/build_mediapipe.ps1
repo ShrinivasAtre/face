@@ -3,6 +3,7 @@ $ErrorActionPreference = 'Stop'
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $MediaPipeRoot = Join-Path $RepoRoot 'third_party\mediapipe'
 $BridgeRoot = Join-Path $MediaPipeRoot 'face_bridge'
+$OpenCvAdapterRoot = Join-Path $MediaPipeRoot 'face_windows_opencv'
 $TasksCoreBuild = Join-Path $MediaPipeRoot 'mediapipe\tasks\cc\core\BUILD'
 $TasksCoreSrc = Join-Path $MediaPipeRoot 'mediapipe\tasks\cc\core\task_runner.cc'
 $TasksLoggingBuild = Join-Path $MediaPipeRoot 'mediapipe\tasks\cc\core\logging\BUILD'
@@ -51,13 +52,76 @@ if ((Get-Content -Raw $TasksCoreBuild).Contains('//mediapipe/util/analytics:medi
     throw 'MediaPipe analytics compatibility patch did not apply cleanly.'
 }
 
+# MediaPipe v0.10.33's bundled @windows_opencv repository is hard-coded for
+# OpenCV 3.4.10 / VC15. Reuse the OpenCV 4.8.0 installation already used by
+# this project instead. OPENCV_ROOT can override auto-detection on another host.
+$OpenCvRoot = $env:OPENCV_ROOT
+if (-not $OpenCvRoot) {
+    $OpenCvCandidates = @(
+        'C:\opencv-4.8.0-src\install',
+        'C:\opencv\build'
+    )
+    foreach ($candidate in $OpenCvCandidates) {
+        if ((Test-Path (Join-Path $candidate 'include\opencv2\core\version.hpp')) -and
+            (Test-Path (Join-Path $candidate 'lib\opencv_world480.lib')) -and
+            (Test-Path (Join-Path $candidate 'bin\opencv_world480.dll'))) {
+            $OpenCvRoot = $candidate
+            break
+        }
+    }
+}
+
+if (-not $OpenCvRoot) {
+    throw 'OpenCV 4.8.0 install not found. Set OPENCV_ROOT to a directory containing include\opencv2, lib\opencv_world480.lib and bin\opencv_world480.dll.'
+}
+
+$OpenCvRoot = (Resolve-Path $OpenCvRoot).Path
+$OpenCvHeader = Join-Path $OpenCvRoot 'include\opencv2\core\version.hpp'
+$OpenCvLib = Join-Path $OpenCvRoot 'lib\opencv_world480.lib'
+$OpenCvDll = Join-Path $OpenCvRoot 'bin\opencv_world480.dll'
+foreach ($required in @($OpenCvHeader, $OpenCvLib, $OpenCvDll)) {
+    if (-not (Test-Path $required)) {
+        throw "Required OpenCV 4.8.0 file not found: $required"
+    }
+}
+Write-Host "Using OpenCV 4.8.0 from: $OpenCvRoot"
+
+# Build a generated local Bazel repository with the exact target name
+# MediaPipe expects: @windows_opencv//:opencv. This leaves the OpenCV install
+# itself untouched and avoids installing MediaPipe's obsolete OpenCV 3.4.10.
+if (Test-Path $OpenCvAdapterRoot) {
+    Remove-Item -Recurse -Force $OpenCvAdapterRoot
+}
+New-Item -ItemType Directory -Force (Join-Path $OpenCvAdapterRoot 'include') | Out-Null
+New-Item -ItemType Directory -Force (Join-Path $OpenCvAdapterRoot 'lib') | Out-Null
+New-Item -ItemType Directory -Force (Join-Path $OpenCvAdapterRoot 'bin') | Out-Null
+Copy-Item -Recurse -Force (Join-Path $OpenCvRoot 'include\opencv2') (Join-Path $OpenCvAdapterRoot 'include\opencv2')
+Copy-Item -Force $OpenCvLib (Join-Path $OpenCvAdapterRoot 'lib\opencv_world480.lib')
+Copy-Item -Force $OpenCvDll (Join-Path $OpenCvAdapterRoot 'bin\opencv_world480.dll')
+
+$OpenCvBuild = @'
+cc_import(
+    name = "opencv_world_import",
+    interface_library = "lib/opencv_world480.lib",
+    shared_library = "bin/opencv_world480.dll",
+)
+
+cc_library(
+    name = "opencv",
+    hdrs = glob(["include/opencv2/**"]),
+    includes = ["include"],
+    deps = [":opencv_world_import"],
+    visibility = ["//visibility:public"],
+)
+'@
+Write-Utf8NoBom (Join-Path $OpenCvAdapterRoot 'BUILD.bazel') $OpenCvBuild
+Write-Utf8NoBom (Join-Path $OpenCvAdapterRoot 'WORKSPACE') 'workspace(name = "windows_opencv")'
+
 if (Test-Path $BridgeRoot) {
     Remove-Item -Recurse -Force $BridgeRoot
 }
-
 New-Item -ItemType Directory -Force (Join-Path $BridgeRoot 'api') | Out-Null
 New-Item -ItemType Directory -Force (Join-Path $BridgeRoot 'src') | Out-Null
-
 Copy-Item (Join-Path $RepoRoot 'mediapipe\api\FaceMediaPipe.h') (Join-Path $BridgeRoot 'api\FaceMediaPipe.h')
 Copy-Item (Join-Path $RepoRoot 'mediapipe\src\FaceMediaPipe.cpp') (Join-Path $BridgeRoot 'src\FaceMediaPipe.cpp')
 
@@ -83,29 +147,20 @@ cc_binary(
     visibility = ["//visibility:public"],
 )
 '@
-
 Write-Utf8NoBom (Join-Path $BridgeRoot 'BUILD.bazel') $BridgeBuild
 
 $BazelArgs = @('build')
-
-# MediaPipe's pinned Windows OpenCV rule selects libraries only for explicit
-# opt or dbg compilation modes. Build the production bridge in opt mode so the
-# select() in @windows_opencv//:opencv resolves deterministically.
 $BazelArgs += '--compilation_mode=opt'
 Write-Host 'Using Bazel compilation mode: opt'
-
-# TensorFlow in MediaPipe v0.10.33 only ships requirements lock files for
-# Python 3.9-3.12. New Windows hosts may otherwise default to 3.14.
 $BazelArgs += '--repo_env=HERMETIC_PYTHON_VERSION=3.12'
 Write-Host 'Using hermetic Python 3.12 for MediaPipe/TensorFlow repositories'
-
-# Bazel's Java downloader may time out on GitHub release assets even when
-# PowerShell can download them. Let Bazel reuse matching archives in TEMP.
 if ($env:TEMP -and (Test-Path $env:TEMP)) {
     Write-Host "Using Bazel distdir: $env:TEMP"
     $BazelArgs += "--distdir=$env:TEMP"
 }
-
+$OpenCvAdapterBazelPath = $OpenCvAdapterRoot -replace '\\','/'
+$BazelArgs += "--override_repository=windows_opencv=$OpenCvAdapterBazelPath"
+Write-Host "Overriding @windows_opencv with: $OpenCvAdapterRoot"
 $BazelArgs += '//face_bridge:FaceMediaPipe.dll'
 
 Push-Location $MediaPipeRoot

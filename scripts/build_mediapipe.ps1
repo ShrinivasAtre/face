@@ -167,6 +167,15 @@ Write-Host 'Using MSVC C11 mode and C11 atomics for C dependencies'
 $BazelArgs += '--cxxopt=/Zc:preprocessor'
 Write-Host 'Using MSVC conforming C++ preprocessor'
 
+# Protobuf 5.28.3 declares JSON headers with strip_include_prefix="/src".
+# On this Bazel/MSVC combination, exec/tool compilations can fail to resolve the
+# generated virtual include for headers in the same target. Add the repository
+# source root explicitly for both target and host/tool C++ actions.
+$ProtoSrcInclude = 'external/com_google_protobuf/src'
+$BazelArgs += "--cxxopt=/I$ProtoSrcInclude"
+$BazelArgs += "--host_cxxopt=/I$ProtoSrcInclude"
+Write-Host 'Adding direct Protobuf source include path for Windows tool builds'
+
 $BazelArgs += '--repo_env=HERMETIC_PYTHON_VERSION=3.12'
 Write-Host 'Using hermetic Python 3.12 for MediaPipe/TensorFlow repositories'
 if ($env:TEMP -and (Test-Path $env:TEMP)) {

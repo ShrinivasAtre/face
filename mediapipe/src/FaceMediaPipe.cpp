@@ -90,12 +90,13 @@ extern "C" FACE_MEDIAPIPE_API int32_t face_mp_process_bgr(
 
     // MediaPipe Face Landmarker expects RGB or RGBA. Convert the caller's
     // OpenCV-style BGR buffer to an RGB ImageFrame without exposing OpenCV
-    // types across the DLL ABI.
+    // types across the DLL ABI. The 4-argument ImageFrame constructor takes
+    // an alignment boundary, not a source stride, so use MediaPipe's default
+    // allocation and honor its actual WidthStep() while copying each row.
     mediapipe::ImageFrame rgb_frame(
         mediapipe::ImageFormat::SRGB,
         width,
-        height,
-        stride);
+        height);
 
     uint8_t* rgb = rgb_frame.MutablePixelData();
     const int rgb_stride = rgb_frame.WidthStep();

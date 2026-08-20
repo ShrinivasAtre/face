@@ -149,6 +149,32 @@ cc_binary(
 '@
 Write-Utf8NoBom (Join-Path $BridgeRoot 'BUILD.bazel') $BridgeBuild
 
+# TensorFlow/FlatBuffers still contains shell-backed genrules on Windows.
+# Never let Bazel pick C:\Windows\System32\bash.exe (the WSL launcher): that
+# shell cannot directly execute the native Windows flatc.exe produced by Bazel.
+# Prefer MSYS2 as recommended by Bazel; Git-for-Windows Bash is an acceptable
+# fallback for these simple genrules. BAZEL_SH can override auto-detection.
+$BazelSh = $env:BAZEL_SH
+if (-not $BazelSh -or -not (Test-Path $BazelSh) -or $BazelSh -ieq "$env:WINDIR\System32\bash.exe") {
+    $BashCandidates = @(
+        'C:\msys64\usr\bin\bash.exe',
+        'C:\Program Files\Git\usr\bin\bash.exe',
+        'C:\Program Files\Git\bin\bash.exe'
+    )
+    $BazelSh = $null
+    foreach ($candidate in $BashCandidates) {
+        if (Test-Path $candidate) {
+            $BazelSh = $candidate
+            break
+        }
+    }
+}
+if (-not $BazelSh) {
+    throw 'A native Windows Bash is required for TensorFlow/FlatBuffers genrules. Install MSYS2 x64 (recommended) or Git for Windows, or set BAZEL_SH to its bash.exe. Do not use C:\Windows\System32\bash.exe.'
+}
+$env:BAZEL_SH = (Resolve-Path $BazelSh).Path
+Write-Host "Using Bazel Bash: $env:BAZEL_SH"
+
 $BazelArgs = @('build')
 $BazelArgs += '--compilation_mode=opt'
 Write-Host 'Using Bazel compilation mode: opt'

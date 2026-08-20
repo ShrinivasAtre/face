@@ -66,9 +66,21 @@ cc_binary(
 )
 '@ | Set-Content -Encoding UTF8 (Join-Path $BridgeRoot 'BUILD.bazel')
 
+$BazelArgs = @('build')
+
+# Bazel's Java downloader may time out on GitHub release assets even when
+# PowerShell can download them. Let Bazel reuse any matching archives that were
+# downloaded manually into TEMP before it attempts the network.
+if ($env:TEMP -and (Test-Path $env:TEMP)) {
+    Write-Host "Using Bazel distdir: $env:TEMP"
+    $BazelArgs += "--distdir=$env:TEMP"
+}
+
+$BazelArgs += '//face_bridge:FaceMediaPipe.dll'
+
 Push-Location $MediaPipeRoot
 try {
-    & bazelisk build //face_bridge:FaceMediaPipe.dll
+    & bazelisk @BazelArgs
     if ($LASTEXITCODE -ne 0) {
         throw "Bazel build failed with exit code $LASTEXITCODE."
     }

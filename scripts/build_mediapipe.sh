@@ -65,7 +65,19 @@ cc_library(
 EOF
 
 cd "${MEDIAPIPE_ROOT}"
-bazelisk build //face_bridge:FaceMediaPipe
+
+BAZEL_ARGS=("//face_bridge:FaceMediaPipe")
+
+# Jetson Orin systems commonly have 8 GiB RAM and no swap. The first
+# MediaPipe/TensorFlow build can otherwise start too many large C++ compiler
+# processes at once. Keep the Linux/aarch64 build conservative and
+# reproducible. Bazel's cache still makes subsequent builds much faster.
+if [[ "$(uname -s)" == "Linux" && "$(uname -m)" == "aarch64" ]]; then
+    echo "Using conservative Orin Bazel limits: jobs=2, local RAM=4096 MB"
+    BAZEL_ARGS+=("--jobs=2" "--local_ram_resources=4096")
+fi
+
+bazelisk build "${BAZEL_ARGS[@]}"
 
 echo
 echo "MediaPipe bridge build completed."

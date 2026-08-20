@@ -1,6 +1,6 @@
 package(default_visibility = ["//visibility:public"])
 
-cc_binary(
+cc_library(
     name = "FaceMediaPipe",
     srcs = ["src/FaceMediaPipe.cpp"],
     hdrs = ["api/FaceMediaPipe.h"],
@@ -9,6 +9,5 @@ cc_binary(
         "@mediapipe//mediapipe/framework/formats:image_frame",
         "@mediapipe//mediapipe/tasks/cc/vision/face_landmarker:face_landmarker",
     ],
-    linkshared = True,
-    linkstatic = True,
+    linkstatic = False,
 )

@@ -159,6 +159,13 @@ Write-Host 'Using Bazel compilation mode: opt'
 $BazelArgs += '--conlyopt=/std:c11'
 Write-Host 'Using MSVC C11 mode for C dependencies'
 
+# MediaPipe's MP_ASSIGN_OR_RETURN / status macros rely on conforming variadic
+# macro expansion. MSVC's traditional preprocessor can leave helper tokens such
+# as MP_STATUS_MACROS_IMPL_REM unexpanded. Enable Microsoft's conforming
+# token-based preprocessor for all C++ compilation actions.
+$BazelArgs += '--cxxopt=/Zc:preprocessor'
+Write-Host 'Using MSVC conforming C++ preprocessor'
+
 $BazelArgs += '--repo_env=HERMETIC_PYTHON_VERSION=3.12'
 Write-Host 'Using hermetic Python 3.12 for MediaPipe/TensorFlow repositories'
 if ($env:TEMP -and (Test-Path $env:TEMP)) {

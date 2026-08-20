@@ -1,309 +1,443 @@
 #include "BlinkTracker.hpp"
 
 #include <iostream>
-#include <stdexcept>
+#include <iomanip>
+#include <cmath>
+#include <limits>
+
+
+BlinkTracker::BlinkTracker()
+    : rightEAR_(0.0),
+      leftEAR_(0.0),
+      averageEAR_(0.0),
+
+      minRightEAR_(std::numeric_limits<double>::max()),
+      maxRightEAR_(std::numeric_limits<double>::lowest()),
+
+      minLeftEAR_(std::numeric_limits<double>::max()),
+      maxLeftEAR_(std::numeric_limits<double>::lowest()),
+
+      minAverageEAR_(std::numeric_limits<double>::max()),
+      maxAverageEAR_(std::numeric_limits<double>::lowest()),
+
+      landmarkValid_(false),
+      eyeClosed_(false),
+      blinkCount_(0),
+      earCloseThreshold_(0.27)
+{
+}
 
 
 BlinkTracker::BlinkTracker(
-    const std::string& landmarkModelPath,
-    double eyeCloseThreshold)
-    : eyeCloseThreshold_(eyeCloseThreshold),
+    const std::string& modelPath,
+    double earThreshold)
+    : rightEAR_(0.0),
+      leftEAR_(0.0),
+      averageEAR_(0.0),
+
+      minRightEAR_(std::numeric_limits<double>::max()),
+      maxRightEAR_(std::numeric_limits<double>::lowest()),
+
+      minLeftEAR_(std::numeric_limits<double>::max()),
+      maxLeftEAR_(std::numeric_limits<double>::lowest()),
+
+      minAverageEAR_(std::numeric_limits<double>::max()),
+      maxAverageEAR_(std::numeric_limits<double>::lowest()),
+
+      landmarkValid_(false),
+      eyeClosed_(false),
       blinkCount_(0),
-      isEyeClosed_(false),
-      currentEAR_(0.0)
+      earCloseThreshold_(earThreshold)
+{
+    initialize(modelPath);
+}
+
+
+bool BlinkTracker::initialize(
+    const std::string& modelPath)
 {
     std::cout
         << "Loading LBF landmark model: "
-        << landmarkModelPath
+        << modelPath
         << std::endl;
 
-
-    // --------------------------------------------------
-    // Create LBF facemark detector
-    // --------------------------------------------------
-
-    facemark_ =
-        cv::face::FacemarkLBF::create();
-
-
-    if (facemark_.empty())
+    try
     {
-        throw std::runtime_error(
-            "Failed to create LBF Facemark"
-        );
+        facemark_ =
+            cv::face::FacemarkLBF::create();
+
+        facemark_->loadModel(modelPath);
     }
+    catch (const cv::Exception& e)
+    {
+        std::cerr
+            << "ERROR: Failed to load LBF model: "
+            << e.what()
+            << std::endl;
 
+        facemark_.release();
 
-    // --------------------------------------------------
-    // Load model
-    // --------------------------------------------------
-
-    facemark_->loadModel(
-        landmarkModelPath
-    );
-
+        return false;
+    }
 
     std::cout
         << "LBF landmark detector initialized."
         << std::endl;
-}
-
-
-// ======================================================
-// EAR calculation
-// ======================================================
-
-double BlinkTracker::calculateEAR(
-    const std::vector<cv::Point2f>& eyePoints) const
-{
-    if (eyePoints.size() < 6)
-    {
-        return 0.0;
-    }
-
-
-    // Standard 6-point eye EAR calculation:
-    //
-    //        p2       p3
-    //         ●-------●
-    //       /           \
-    //     p1               p4
-    //       \             /
-    //         ●---------●
-    //        p6          p5
-    //
-
-    double p2_p6 =
-        cv::norm(
-            eyePoints.at(1) -
-            eyePoints.at(5)
-        );
-
-
-    double p3_p5 =
-        cv::norm(
-            eyePoints.at(2) -
-            eyePoints.at(4)
-        );
-
-
-    double p1_p4 =
-        cv::norm(
-            eyePoints.at(0) -
-            eyePoints.at(3)
-        );
-
-
-    if (p1_p4 == 0.0)
-    {
-        return 0.0;
-    }
-
-
-    return
-        (p2_p6 + p3_p5) /
-        (2.0 * p1_p4);
-}
-
-
-// ======================================================
-// Process one frame
-// ======================================================
-
-bool BlinkTracker::process(
-    cv::Mat& frame,
-    const cv::Rect& faceBox)
-{
-    if (frame.empty())
-    {
-        return false;
-    }
-
-
-    if (
-        faceBox.width <= 0 ||
-        faceBox.height <= 0
-    )
-    {
-        return false;
-    }
-
-
-    // --------------------------------------------------
-    // LBF expects a vector of face bounding boxes
-    // --------------------------------------------------
-
-    std::vector<cv::Rect> faceBoxes;
-
-    faceBoxes.push_back(
-        faceBox
-    );
-
-
-    // --------------------------------------------------
-    // Landmark output
-    // --------------------------------------------------
-
-    std::vector<
-        std::vector<cv::Point2f>
-    > landmarks;
-
-
-    bool success =
-        facemark_->fit(
-            frame,
-            faceBoxes,
-            landmarks
-        );
-
-
-    if (!success)
-    {
-        return false;
-    }
-
-
-    if (landmarks.empty())
-    {
-        return false;
-    }
-
-
-    if (landmarks.at(0).size() < 48)
-    {
-        return false;
-    }
-
-
-    const auto& facePoints =
-        landmarks.at(0);
-
-
-    // --------------------------------------------------
-    // 68-point LBF landmark layout
-    //
-    // Right eye: 36 - 41
-    // Left eye : 42 - 47
-    // --------------------------------------------------
-
-    std::vector<cv::Point2f> rightEye(
-        facePoints.begin() + 36,
-        facePoints.begin() + 42
-    );
-
-
-    std::vector<cv::Point2f> leftEye(
-        facePoints.begin() + 42,
-        facePoints.begin() + 48
-    );
-
-
-    // --------------------------------------------------
-    // Calculate EAR
-    // --------------------------------------------------
-
-    double rightEAR =
-        calculateEAR(
-            rightEye
-        );
-
-
-    double leftEAR =
-        calculateEAR(
-            leftEye
-        );
-
-
-    currentEAR_ =
-        (rightEAR + leftEAR) / 2.0;
-
-
-    // --------------------------------------------------
-    // Draw eye landmarks
-    // --------------------------------------------------
-
-    for (const auto& point : rightEye)
-    {
-        cv::circle(
-            frame,
-            point,
-            2,
-            cv::Scalar(
-                0,
-                255,
-                255
-            ),
-            -1
-        );
-    }
-
-
-    for (const auto& point : leftEye)
-    {
-        cv::circle(
-            frame,
-            point,
-            2,
-            cv::Scalar(
-                0,
-                255,
-                255
-            ),
-            -1
-        );
-    }
-
-
-    // --------------------------------------------------
-    // Determine whether eyes are closed
-    // --------------------------------------------------
-
-    bool eyesClosed =
-        rightEAR < eyeCloseThreshold_ ||
-        leftEAR < eyeCloseThreshold_;
-
-
-    // --------------------------------------------------
-    // Blink state machine
-    //
-    // OPEN -> CLOSED
-    //        blinkCount++
-    //
-    // CLOSED -> OPEN
-    //        reset state
-    // --------------------------------------------------
-
-    if (eyesClosed)
-    {
-        if (!isEyeClosed_)
-        {
-            blinkCount_++;
-
-            isEyeClosed_ = true;
-        }
-    }
-    else
-    {
-        // Only reset after tracking proves that the
-        // eyes are open again.
-
-        if (
-            currentEAR_ >=
-            eyeCloseThreshold_
-        )
-        {
-            isEyeClosed_ = false;
-        }
-    }
-
 
     return true;
 }
 
 
-// ======================================================
-// Get blink count
-// ======================================================
+double BlinkTracker::calculateEAR(
+    const std::vector<cv::Point2f>& eyePoints) const
+{
+    if (eyePoints.size() != 6)
+        return 0.0;
+
+    const double vertical1 =
+        cv::norm(
+            eyePoints[1] -
+            eyePoints[5]);
+
+    const double vertical2 =
+        cv::norm(
+            eyePoints[2] -
+            eyePoints[4]);
+
+    const double horizontal =
+        cv::norm(
+            eyePoints[0] -
+            eyePoints[3]);
+
+    if (horizontal < 1e-6)
+        return 0.0;
+
+    return
+        (vertical1 + vertical2)
+        / (2.0 * horizontal);
+}
+
+
+void BlinkTracker::drawEyeLandmarks(
+    cv::Mat& frame,
+    const std::vector<cv::Point2f>& eyePoints,
+    const std::string& label,
+    bool rightEye) const
+{
+    if (eyePoints.size() != 6)
+        return;
+
+    const cv::Scalar pointColor =
+        rightEye
+            ? cv::Scalar(0, 255, 255)
+            : cv::Scalar(255, 255, 0);
+
+    const cv::Scalar lineColor =
+        rightEye
+            ? cv::Scalar(0, 200, 200)
+            : cv::Scalar(200, 200, 0);
+
+    for (size_t i = 0;
+         i < eyePoints.size();
+         ++i)
+    {
+        const cv::Point2f& p =
+            eyePoints[i];
+
+        cv::circle(
+            frame,
+            p,
+            3,
+            pointColor,
+            -1);
+
+        cv::putText(
+            frame,
+            label + std::to_string(i),
+            cv::Point(
+                static_cast<int>(p.x) + 4,
+                static_cast<int>(p.y) - 4),
+            cv::FONT_HERSHEY_SIMPLEX,
+            0.4,
+            pointColor,
+            1,
+            cv::LINE_AA);
+    }
+
+    for (int i = 0; i < 6; ++i)
+    {
+        cv::line(
+            frame,
+            eyePoints[i],
+            eyePoints[(i + 1) % 6],
+            lineColor,
+            1,
+            cv::LINE_AA);
+    }
+}
+
+
+bool BlinkTracker::process(
+    cv::Mat& frame,
+    const cv::Rect& faceBox)
+{
+    landmarkValid_ = false;
+
+    rightEAR_ = 0.0;
+    leftEAR_ = 0.0;
+    averageEAR_ = 0.0;
+
+    if (!facemark_)
+        return false;
+
+    if (faceBox.width <= 0 ||
+        faceBox.height <= 0)
+        return false;
+
+    std::vector<cv::Rect> boxes;
+    boxes.push_back(faceBox);
+
+    std::vector<std::vector<cv::Point2f>> landmarks;
+
+    bool success = false;
+
+    try
+    {
+        success =
+            facemark_->fit(
+                frame,
+                boxes,
+                landmarks);
+    }
+    catch (const cv::Exception& e)
+    {
+        std::cerr
+            << "LBF fit error: "
+            << e.what()
+            << std::endl;
+
+        return false;
+    }
+
+    if (!success ||
+        landmarks.empty() ||
+        landmarks[0].size() < 48)
+    {
+        return false;
+    }
+
+    const auto& points =
+        landmarks[0];
+
+    // Standard 68-point facial landmark layout:
+    //
+    // Right eye: 36 - 41
+    // Left eye : 42 - 47
+
+    std::vector<cv::Point2f> rightEye(
+        points.begin() + 36,
+        points.begin() + 42);
+
+    std::vector<cv::Point2f> leftEye(
+        points.begin() + 42,
+        points.begin() + 48);
+
+    rightEAR_ =
+        calculateEAR(rightEye);
+
+    leftEAR_ =
+        calculateEAR(leftEye);
+
+    averageEAR_ =
+        (rightEAR_ + leftEAR_) / 2.0;
+
+    landmarkValid_ = true;
+
+
+    // ------------------------------------------------------------
+    // Update recorded minimum / maximum values.
+    // ------------------------------------------------------------
+
+    minRightEAR_ =
+        std::min(minRightEAR_, rightEAR_);
+
+    maxRightEAR_ =
+        std::max(maxRightEAR_, rightEAR_);
+
+    minLeftEAR_ =
+        std::min(minLeftEAR_, leftEAR_);
+
+    maxLeftEAR_ =
+        std::max(maxLeftEAR_, leftEAR_);
+
+    minAverageEAR_ =
+        std::min(minAverageEAR_, averageEAR_);
+
+    maxAverageEAR_ =
+        std::max(maxAverageEAR_, averageEAR_);
+
+
+    // Draw eye landmarks.
+    drawEyeLandmarks(
+        frame,
+        rightEye,
+        "R",
+        true);
+
+    drawEyeLandmarks(
+        frame,
+        leftEye,
+        "L",
+        false);
+
+
+    // ------------------------------------------------------------
+    // Simple diagnostic blink logic.
+    // ------------------------------------------------------------
+
+    const bool currentClosed =
+        rightEAR_ < earCloseThreshold_ ||
+        leftEAR_ < earCloseThreshold_;
+
+    if (currentClosed)
+    {
+        if (!eyeClosed_)
+        {
+            ++blinkCount_;
+        }
+
+        eyeClosed_ = true;
+    }
+    else
+    {
+        eyeClosed_ = false;
+    }
+
+
+    // ------------------------------------------------------------
+    // Diagnostic information.
+    //
+    // Displayed at the bottom of the frame.
+    // ------------------------------------------------------------
+
+    const int h = frame.rows;
+
+    const int line1Y = h - 150;
+    const int line2Y = h - 120;
+    const int line3Y = h - 90;
+    const int line4Y = h - 60;
+    const int line5Y = h - 30;
+
+
+    // Right EAR
+    cv::putText(
+        frame,
+        "R-EAR: " +
+            cv::format("%.3f", rightEAR_) +
+            "  MIN: " +
+            cv::format("%.3f", minRightEAR_) +
+            "  MAX: " +
+            cv::format("%.3f", maxRightEAR_),
+        cv::Point(30, line1Y),
+        cv::FONT_HERSHEY_SIMPLEX,
+        0.60,
+        cv::Scalar(0, 255, 255),
+        2,
+        cv::LINE_AA);
+
+
+    // Left EAR
+    cv::putText(
+        frame,
+        "L-EAR: " +
+            cv::format("%.3f", leftEAR_) +
+            "  MIN: " +
+            cv::format("%.3f", minLeftEAR_) +
+            "  MAX: " +
+            cv::format("%.3f", maxLeftEAR_),
+        cv::Point(30, line2Y),
+        cv::FONT_HERSHEY_SIMPLEX,
+        0.60,
+        cv::Scalar(255, 255, 0),
+        2,
+        cv::LINE_AA);
+
+
+    // Average EAR
+    cv::putText(
+        frame,
+        "AVG:   " +
+            cv::format("%.3f", averageEAR_) +
+            "  MIN: " +
+            cv::format("%.3f", minAverageEAR_) +
+            "  MAX: " +
+            cv::format("%.3f", maxAverageEAR_),
+        cv::Point(30, line3Y),
+        cv::FONT_HERSHEY_SIMPLEX,
+        0.60,
+        cv::Scalar(255, 255, 255),
+        2,
+        cv::LINE_AA);
+
+
+    // Blink count
+    cv::putText(
+        frame,
+        "Blinks: " +
+            std::to_string(blinkCount_),
+        cv::Point(30, line4Y),
+        cv::FONT_HERSHEY_SIMPLEX,
+        0.60,
+        cv::Scalar(255, 255, 255),
+        2,
+        cv::LINE_AA);
+
+
+    // Eye state
+    cv::putText(
+        frame,
+        eyeClosed_
+            ? "STATE: CLOSED"
+            : "STATE: OPEN",
+        cv::Point(300, line4Y),
+        cv::FONT_HERSHEY_SIMPLEX,
+        0.60,
+        eyeClosed_
+            ? cv::Scalar(0, 0, 255)
+            : cv::Scalar(0, 255, 0),
+        2,
+        cv::LINE_AA);
+
+
+    // Calibration reminder.
+    cv::putText(
+        frame,
+        "Min/Max recorded since application start",
+        cv::Point(30, line5Y),
+        cv::FONT_HERSHEY_SIMPLEX,
+        0.50,
+        cv::Scalar(200, 200, 200),
+        1,
+        cv::LINE_AA);
+
+
+    return eyeClosed_;
+}
+
+
+// ------------------------------------------------------------
+// Compatibility API
+// ------------------------------------------------------------
+
+double BlinkTracker::getEAR() const
+{
+    return averageEAR_;
+}
+
+
+// ------------------------------------------------------------
+// Public getters
+// ------------------------------------------------------------
 
 int BlinkTracker::getBlinkCount() const
 {
@@ -311,21 +445,31 @@ int BlinkTracker::getBlinkCount() const
 }
 
 
-// ======================================================
-// Get current EAR
-// ======================================================
-
-double BlinkTracker::getEAR() const
+double BlinkTracker::getRightEAR() const
 {
-    return currentEAR_;
+    return rightEAR_;
 }
 
 
-// ======================================================
-// Get eye state
-// ======================================================
+double BlinkTracker::getLeftEAR() const
+{
+    return leftEAR_;
+}
+
+
+double BlinkTracker::getAverageEAR() const
+{
+    return averageEAR_;
+}
+
 
 bool BlinkTracker::isEyeClosed() const
 {
-    return isEyeClosed_;
+    return eyeClosed_;
+}
+
+
+bool BlinkTracker::isLandmarkValid() const
+{
+    return landmarkValid_;
 }

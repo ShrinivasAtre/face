@@ -152,6 +152,13 @@ Write-Utf8NoBom (Join-Path $BridgeRoot 'BUILD.bazel') $BridgeBuild
 $BazelArgs = @('build')
 $BazelArgs += '--compilation_mode=opt'
 Write-Host 'Using Bazel compilation mode: opt'
+
+# pthreadpool's BUILD passes GCC-style -std=c11. MSVC ignores that option,
+# leaving vcruntime_c11_stdatomic.h disabled. Apply MSVC's native C11 mode to
+# all C compilation actions instead of modifying the external dependency.
+$BazelArgs += '--conlyopt=/std:c11'
+Write-Host 'Using MSVC C11 mode for C dependencies'
+
 $BazelArgs += '--repo_env=HERMETIC_PYTHON_VERSION=3.12'
 Write-Host 'Using hermetic Python 3.12 for MediaPipe/TensorFlow repositories'
 if ($env:TEMP -and (Test-Path $env:TEMP)) {

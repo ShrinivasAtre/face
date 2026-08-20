@@ -153,11 +153,12 @@ $BazelArgs = @('build')
 $BazelArgs += '--compilation_mode=opt'
 Write-Host 'Using Bazel compilation mode: opt'
 
-# pthreadpool's BUILD passes GCC-style -std=c11. MSVC ignores that option,
-# leaving vcruntime_c11_stdatomic.h disabled. Apply MSVC's native C11 mode to
-# all C compilation actions instead of modifying the external dependency.
+# pthreadpool's BUILD passes GCC-style -std=c11. MSVC ignores that option.
+# MSVC requires both /std:c11 and /experimental:c11atomics to enable
+# <stdatomic.h> support used by pthreadpool.
 $BazelArgs += '--conlyopt=/std:c11'
-Write-Host 'Using MSVC C11 mode for C dependencies'
+$BazelArgs += '--conlyopt=/experimental:c11atomics'
+Write-Host 'Using MSVC C11 mode and C11 atomics for C dependencies'
 
 # MediaPipe's MP_ASSIGN_OR_RETURN / status macros rely on conforming variadic
 # macro expansion. MSVC's traditional preprocessor can leave helper tokens such

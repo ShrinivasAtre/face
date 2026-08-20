@@ -68,12 +68,20 @@ cc_binary(
 
 Push-Location $MediaPipeRoot
 try {
-    bazelisk build //face_bridge:FaceMediaPipe.dll
+    & bazelisk build //face_bridge:FaceMediaPipe.dll
+    if ($LASTEXITCODE -ne 0) {
+        throw "Bazel build failed with exit code $LASTEXITCODE."
+    }
 }
 finally {
     Pop-Location
 }
 
+$DllPath = Join-Path $MediaPipeRoot 'bazel-bin\face_bridge\FaceMediaPipe.dll'
+if (-not (Test-Path $DllPath)) {
+    throw "Bazel reported success but $DllPath was not produced."
+}
+
 Write-Host ""
-Write-Host "MediaPipe bridge build completed."
-Write-Host "Bazel output: $MediaPipeRoot\bazel-bin\face_bridge\"
+Write-Host "MediaPipe bridge build completed successfully."
+Write-Host "DLL: $DllPath"

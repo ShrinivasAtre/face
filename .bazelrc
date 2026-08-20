@@ -1,0 +1,4 @@
+# This repository uses the pinned MediaPipe WORKSPACE dependency graph.
+# Keep Bzlmod disabled so MediaPipe v0.10.33's legacy WORKSPACE setup is used.
+common --noenable_bzlmod
+common --enable_workspace

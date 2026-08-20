@@ -8,6 +8,7 @@ $TasksCoreBuild = Join-Path $MediaPipeRoot 'mediapipe\tasks\cc\core\BUILD'
 $TasksCoreSrc = Join-Path $MediaPipeRoot 'mediapipe\tasks\cc\core\task_runner.cc'
 $TasksLoggingBuild = Join-Path $MediaPipeRoot 'mediapipe\tasks\cc\core\logging\BUILD'
 $TasksDummyLogger = Join-Path $MediaPipeRoot 'mediapipe\tasks\cc\core\logging\tasks_dummy_logger.h'
+$GpuServiceSrc = Join-Path $MediaPipeRoot 'mediapipe\gpu\gpu_service.cc'
 
 if (-not (Test-Path (Join-Path $MediaPipeRoot 'WORKSPACE'))) {
     throw "MediaPipe workspace not found at $MediaPipeRoot. Run scripts\fetch_mediapipe.ps1 first."
@@ -39,6 +40,18 @@ Remove-LineContaining $TasksCoreSrc 'mediapipe/util/analytics/mediapipe_logging_
 Remove-LineContaining $TasksLoggingBuild '":logging_client"' 'Removing dummy logger dependency on unavailable analytics logging client...'
 Remove-LineContaining $TasksDummyLogger 'mediapipe/tasks/cc/core/logging/logging_client.h' 'Removing unused analytics logging_client include from dummy logger...'
 
+# MediaPipe declares kGpuService with ABSL_CONST_INIT in gpu_service.h but the
+# pinned v0.10.33 definition omits it. Newer MSVC rejects this declaration /
+# definition mismatch. Keep both sides consistent without changing semantics.
+$GpuServiceContent = Get-Content -Raw $GpuServiceSrc
+$GpuServiceOld = 'const GraphService<GpuResources> kGpuService('
+$GpuServiceNew = 'ABSL_CONST_INIT const GraphService<GpuResources> kGpuService('
+if ($GpuServiceContent.Contains($GpuServiceOld) -and -not $GpuServiceContent.Contains($GpuServiceNew)) {
+    Write-Host 'Applying MediaPipe GPU service constinit compatibility patch...'
+    $GpuServiceContent = $GpuServiceContent.Replace($GpuServiceOld, $GpuServiceNew)
+    Write-Utf8NoBom $GpuServiceSrc $GpuServiceContent
+}
+
 # Older revisions of this script used Set-Content -Encoding UTF8, which adds a
 # UTF-8 BOM under Windows PowerShell 5.1. Normalize every MediaPipe file we may
 # patch on every run so an existing checkout is repaired automatically.
@@ -46,10 +59,14 @@ Normalize-Utf8NoBom $TasksCoreBuild
 Normalize-Utf8NoBom $TasksCoreSrc
 Normalize-Utf8NoBom $TasksLoggingBuild
 Normalize-Utf8NoBom $TasksDummyLogger
+Normalize-Utf8NoBom $GpuServiceSrc
 
 if ((Get-Content -Raw $TasksCoreBuild).Contains('//mediapipe/util/analytics:mediapipe_logging_enums_cc_proto') -or
     (Get-Content -Raw $TasksCoreSrc).Contains('mediapipe/util/analytics/mediapipe_logging_enums.pb.h')) {
     throw 'MediaPipe analytics compatibility patch did not apply cleanly.'
+}
+if (-not (Get-Content -Raw $GpuServiceSrc).Contains($GpuServiceNew)) {
+    throw 'MediaPipe GPU service constinit compatibility patch did not apply cleanly.'
 }
 
 # MediaPipe v0.10.33's bundled @windows_opencv repository is hard-coded for

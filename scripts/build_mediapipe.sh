@@ -57,9 +57,15 @@ mkdir -p "${BRIDGE_ROOT}/api" "${BRIDGE_ROOT}/src"
 cp "${REPO_ROOT}/mediapipe/api/FaceMediaPipe.h" "${BRIDGE_ROOT}/api/FaceMediaPipe.h"
 cp "${REPO_ROOT}/mediapipe/src/FaceMediaPipe.cpp" "${BRIDGE_ROOT}/src/FaceMediaPipe.cpp"
 
+# A cc_library with linkstatic=False can produce a .so that still contains
+# unresolved references to its transitive MediaPipe dependencies. Build the
+# wrapper as an always-linked implementation library and then link a true
+# shared binary with linkstatic=True so MediaPipe/Abseil/TFLite objects are
+# pulled into libFaceMediaPipe.so. --no-undefined makes this property explicit
+# and causes the Bazel build itself to fail if anything is still unresolved.
 cat > "${BRIDGE_ROOT}/BUILD.bazel" <<'EOF'
 cc_library(
-    name = "FaceMediaPipe",
+    name = "FaceMediaPipe_impl",
     srcs = ["src/FaceMediaPipe.cpp"],
     hdrs = ["api/FaceMediaPipe.h"],
     deps = [
@@ -67,14 +73,22 @@ cc_library(
         "//mediapipe/tasks/cc/vision/face_landmarker:face_landmarker",
     ],
     copts = ["-DFACE_MEDIAPIPE_BUILD"],
-    linkstatic = False,
+    alwayslink = True,
+)
+
+cc_binary(
+    name = "libFaceMediaPipe.so",
+    deps = [":FaceMediaPipe_impl"],
+    linkshared = True,
+    linkstatic = True,
+    linkopts = ["-Wl,--no-undefined"],
     visibility = ["//visibility:public"],
 )
 EOF
 
 cd "${MEDIAPIPE_ROOT}"
 
-BAZEL_ARGS=("//face_bridge:FaceMediaPipe")
+BAZEL_ARGS=("//face_bridge:libFaceMediaPipe.so")
 
 # Jetson Orin systems commonly have 8 GiB RAM and no swap. The first
 # MediaPipe/TensorFlow build can otherwise start too many large C++ compiler
@@ -125,4 +139,4 @@ bazelisk build "${BAZEL_ARGS[@]}"
 
 echo
 echo "MediaPipe bridge build completed."
-echo "Bazel output: ${MEDIAPIPE_ROOT}/bazel-bin/face_bridge/"
+echo "Bazel output: ${MEDIAPIPE_ROOT}/bazel-bin/face_bridge/libFaceMediaPipe.so"

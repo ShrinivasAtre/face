@@ -17,6 +17,11 @@ function Write-Utf8NoBom([string]$Path, [string]$Content) {
     [System.IO.File]::WriteAllText($Path, $Content, $utf8NoBom)
 }
 
+function Normalize-Utf8NoBom([string]$Path) {
+    $content = [System.IO.File]::ReadAllText($Path)
+    Write-Utf8NoBom $Path $content
+}
+
 function Remove-LineContaining([string]$Path, [string]$Needle, [string]$Message) {
     $content = Get-Content -Raw $Path
     if ($content.Contains($Needle)) {
@@ -32,6 +37,16 @@ Remove-LineContaining $TasksCoreBuild '//mediapipe/util/analytics:mediapipe_logg
 Remove-LineContaining $TasksCoreSrc 'mediapipe/util/analytics/mediapipe_logging_enums.pb.h' 'Removing unused task_runner analytics enum include...'
 Remove-LineContaining $TasksLoggingBuild '":logging_client"' 'Removing dummy logger dependency on unavailable analytics logging client...'
 Remove-LineContaining $TasksDummyLogger 'mediapipe/tasks/cc/core/logging/logging_client.h' 'Removing unused analytics logging_client include from dummy logger...'
+
+# Older revisions of this script used Set-Content -Encoding UTF8, which adds a
+# UTF-8 BOM under Windows PowerShell 5.1. Once a compatibility patch had already
+# removed its target line, a later run would not rewrite that file and the BOM
+# would remain. Normalize every MediaPipe file we may patch on every run so an
+# existing checkout is repaired automatically without requiring a refetch.
+Normalize-Utf8NoBom $TasksCoreBuild
+Normalize-Utf8NoBom $TasksCoreSrc
+Normalize-Utf8NoBom $TasksLoggingBuild
+Normalize-Utf8NoBom $TasksDummyLogger
 
 if ((Get-Content -Raw $TasksCoreBuild).Contains('//mediapipe/util/analytics:mediapipe_logging_enums_cc_proto') -or
     (Get-Content -Raw $TasksCoreSrc).Contains('mediapipe/util/analytics/mediapipe_logging_enums.pb.h')) {

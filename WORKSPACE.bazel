@@ -1,0 +1,10 @@
+# Bazel workspace used only for building the self-contained MediaPipe bridge.
+#
+# The MediaPipe source tree is fetched into third_party/mediapipe by the
+# platform-specific preparation scripts. It is intentionally kept outside the
+# main CMake build and is not linked by yunet_demo.
+
+local_repository(
+    name = "mediapipe",
+    path = "third_party/mediapipe",
+)

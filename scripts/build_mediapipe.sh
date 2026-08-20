@@ -77,6 +77,42 @@ if [[ "$(uname -s)" == "Linux" && "$(uname -m)" == "aarch64" ]]; then
     BAZEL_ARGS+=("--jobs=2" "--local_ram_resources=4096")
 fi
 
+# MediaPipe v0.10.33's Linux OpenCV BUILD rule assumes an apt-style OpenCV 4
+# installation rooted under /usr, but its OpenCV 4 include entries are
+# commented out. Detect the actual header location instead of relying on a
+# potentially stale pkg-config cflags entry, then pass the include path to all
+# C++ compilations. Also preserve pkg-config's library search path when one is
+# supplied (for example /usr/local/lib on the Orin image).
+if [[ "$(uname -s)" == "Linux" ]]; then
+    OPENCV_INCLUDE=""
+    for candidate in \
+        /usr/include/opencv4 \
+        /usr/local/include/opencv4 \
+        /usr/local/opencv-4.8.0-contrib/include/opencv4; do
+        if [[ -f "${candidate}/opencv2/core/version.hpp" ]]; then
+            OPENCV_INCLUDE="${candidate}"
+            break
+        fi
+    done
+
+    if [[ -z "${OPENCV_INCLUDE}" ]]; then
+        echo "ERROR: Could not locate OpenCV header opencv2/core/version.hpp" >&2
+        exit 1
+    fi
+
+    echo "Using OpenCV headers from ${OPENCV_INCLUDE}"
+    BAZEL_ARGS+=("--copt=-I${OPENCV_INCLUDE}")
+
+    if command -v pkg-config >/dev/null 2>&1 && pkg-config --exists opencv4; then
+        while IFS= read -r token; do
+            if [[ "${token}" == -L* ]]; then
+                echo "Using OpenCV library search path ${token#-L}"
+                BAZEL_ARGS+=("--linkopt=${token}")
+            fi
+        done < <(pkg-config --libs-only-L opencv4 | tr ' ' '\n' | sed '/^$/d')
+    fi
+fi
+
 bazelisk build "${BAZEL_ARGS[@]}"
 
 echo

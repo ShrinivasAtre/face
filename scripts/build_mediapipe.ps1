@@ -39,10 +39,8 @@ Remove-LineContaining $TasksLoggingBuild '":logging_client"' 'Removing dummy log
 Remove-LineContaining $TasksDummyLogger 'mediapipe/tasks/cc/core/logging/logging_client.h' 'Removing unused analytics logging_client include from dummy logger...'
 
 # Older revisions of this script used Set-Content -Encoding UTF8, which adds a
-# UTF-8 BOM under Windows PowerShell 5.1. Once a compatibility patch had already
-# removed its target line, a later run would not rewrite that file and the BOM
-# would remain. Normalize every MediaPipe file we may patch on every run so an
-# existing checkout is repaired automatically without requiring a refetch.
+# UTF-8 BOM under Windows PowerShell 5.1. Normalize every MediaPipe file we may
+# patch on every run so an existing checkout is repaired automatically.
 Normalize-Utf8NoBom $TasksCoreBuild
 Normalize-Utf8NoBom $TasksCoreSrc
 Normalize-Utf8NoBom $TasksLoggingBuild
@@ -90,16 +88,19 @@ Write-Utf8NoBom (Join-Path $BridgeRoot 'BUILD.bazel') $BridgeBuild
 
 $BazelArgs = @('build')
 
+# MediaPipe's pinned Windows OpenCV rule selects libraries only for explicit
+# opt or dbg compilation modes. Build the production bridge in opt mode so the
+# select() in @windows_opencv//:opencv resolves deterministically.
+$BazelArgs += '--compilation_mode=opt'
+Write-Host 'Using Bazel compilation mode: opt'
+
 # TensorFlow in MediaPipe v0.10.33 only ships requirements lock files for
-# Python 3.9-3.12. New Windows hosts may otherwise default to 3.14, which
-# fails during repository initialization. Pin the hermetic Python repository
-# to the newest version supported by this checkout.
+# Python 3.9-3.12. New Windows hosts may otherwise default to 3.14.
 $BazelArgs += '--repo_env=HERMETIC_PYTHON_VERSION=3.12'
 Write-Host 'Using hermetic Python 3.12 for MediaPipe/TensorFlow repositories'
 
 # Bazel's Java downloader may time out on GitHub release assets even when
-# PowerShell can download them. Let Bazel reuse any matching archives that were
-# downloaded manually into TEMP before it attempts the network.
+# PowerShell can download them. Let Bazel reuse matching archives in TEMP.
 if ($env:TEMP -and (Test-Path $env:TEMP)) {
     Write-Host "Using Bazel distdir: $env:TEMP"
     $BazelArgs += "--distdir=$env:TEMP"

@@ -62,7 +62,7 @@ These requirements are non-negotiable throughout the program.
 | 11 | Pin/build MediaPipe dependency | COMPLETE | One machine-readable version file governs both platforms. Fresh and repeated fetches, dependency verification, and fail-fast build preflight checks passed on Windows x64 and Orin aarch64. |
 | 12 | Runtime DLL/SO loading | COMPLETE | A tested move-only RAII loader resolves and validates the five-function C ABI by path on Windows and Linux without a direct bridge dependency. |
 | 13 | CMake integration | COMPLETE | The existing CMake build now optionally validates and stages an accepted platform package while retaining a default-off legacy build and runtime-only bridge loading. |
-| 14 | Model deployment | NOT STARTED | The bridge accepts an external `.task` path, but the model is not deployed by the application build. |
+| 14 | Model deployment | IN PROGRESS | Pin and deploy the runtime Face Landmarker task asset reproducibly while keeping it external to the bridge library. |
 | 15 | Runtime backend selection | NOT STARTED | The application has no accepted `--backend=yunet` / `--backend=mediapipe` option. |
 | 16 | Final Windows/Orin deployment | NOT STARTED | Final application-level packaging and end-to-end deployment validation remain. |
 
@@ -262,6 +262,34 @@ For every step:
 Begin **Step 14 — Model deployment**.
 
 Do not redesign Steps 1–13. Define and validate explicit deployment of the runtime Face Landmarker `.task` model without embedding it in the bridge or selecting a runtime backend early.
+
+### Step 14 objective
+
+Make the Face Landmarker task model a reproducible application runtime asset. Commit the accepted model and a single CMake-readable filename/checksum contract, verify its exact bytes during enabled configuration, and deploy it to a deterministic executable-relative path while keeping legacy-only builds free of MediaPipe model files.
+
+### Step 14 stages
+
+1. Commit the validated `face_landmarker.task` asset and a machine-readable contract containing its filename and SHA-256.
+2. Replace broad model-directory copying with explicit deployment of the two existing YuNet/LBF model files.
+3. When MediaPipe runtime integration is enabled, verify the task model against the committed contract at configure time.
+4. Stage the verified task model at `models/mediapipe/face_landmarker.task` beside the application output.
+5. Validate missing or checksum-mismatched model rejection and byte-identical staging.
+6. Run the existing real-image MediaPipe smoke test using the staged bridge and staged model on Windows x64 and Orin aarch64.
+7. Confirm default-off builds stage no `.task`, the Step 10 bridge package still declares `model_bundled=false`, and no runtime backend selection is introduced.
+8. Re-run all focused and legacy still-image tests on both platforms and record evidence and commits before marking Step 14 complete.
+
+### Step 14 acceptance gate
+
+- The repository contains the accepted 3,758,596-byte `face_landmarker.task` with SHA-256 `64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff`.
+- One committed CMake-readable contract defines the deployed filename and expected SHA-256.
+- Enabled CMake configuration rejects a missing or checksum-mismatched model before generation completes.
+- Enabled builds stage the model at exactly `models/mediapipe/face_landmarker.task`, and its hash matches the committed source and contract.
+- Default-off builds stage only the established YuNet and LBF models and no `.task` file.
+- The model remains external to `FaceMediaPipe.dll`/`libFaceMediaPipe.so` and is not added to the Step 10 bridge package.
+- Existing MediaPipe still-image smoke tests pass from the CMake-staged bridge/model boundary with one face and 478 landmarks on Windows x64 and Orin aarch64.
+- All existing focused and YuNet/LBF still-image regression tests remain green on both platforms.
+- No `--backend` runtime selection is introduced before Step 15, and no live camera is required.
+- Validation evidence and implementation commits are recorded before Step 14 is marked `COMPLETE`.
 
 ### Step 13 objective (completed)
 

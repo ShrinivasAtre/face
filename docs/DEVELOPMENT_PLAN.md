@@ -58,7 +58,7 @@ These requirements are non-negotiable throughout the program.
 | 7 | Decouple blink tracker from LBF | COMPLETE | `LbfLandmarkDetector` owns model loading and fitting; `BlinkTracker` consumes supplied landmarks and reports processing success separately from eye state. Focused and real-image legacy integration tests pass on Windows x64 and Orin aarch64. |
 | 8 | Introduce semantic eye landmarks | COMPLETE | A six-point semantic eye contract and LBF-specific mapper isolate topology from `BlinkTracker`. Focused ordering/state tests and unchanged real-image regressions pass on Windows x64 and Orin aarch64. |
 | 9 | MediaPipe eye-landmark mapping | COMPLETE | A dedicated mapper converts the documented twelve indices from the 478-point topology into semantic right/left eyes. Focused tests and unchanged legacy regressions passed on Windows x64 and Orin aarch64. |
-| 10 | Self-contained DLL/SO | PARTIAL | The MediaPipe implementation is isolated in a shared library, but Windows depends on `opencv_world480.dll` and Orin uses system shared libraries. Packaging policy and validation remain. |
+| 10 | Self-contained DLL/SO | IN PROGRESS | Define the supported platform dependency boundary, add reproducible bridge-package scripts and manifests, and smoke-test clean deploy directories on Windows x64 and Orin aarch64. |
 | 11 | Pin/build MediaPipe dependency | PARTIAL | MediaPipe is pinned and clean fetch/build validation passed on both platforms. Retain this as a formal later gate until its complete acceptance criteria are recorded and passed. |
 | 12 | Runtime DLL/SO loading | NOT STARTED | The main application has no accepted `LoadLibrary`/`dlopen` abstraction and does not consume the C ABI. |
 | 13 | CMake integration | NOT STARTED | CMake builds the existing YuNet/LBF application but does not yet configure or stage the MediaPipe bridge. |
@@ -200,7 +200,39 @@ Begin **Step 10 — Self-contained DLL/SO**.
 
 Do not redesign Steps 1–9. Define the practical dependency-packaging boundary for `FaceMediaPipe.dll` and `libFaceMediaPipe.so`, then validate deployment from clean target layouts.
 
-### Step 9 objective
+### Step 10 objective
+
+Produce a reproducible deploy directory for the MediaPipe bridge on each target. MediaPipe, TFLite, Abseil, and other Bazel-built implementation dependencies must remain linked into the single bridge DLL/SO. Package non-system runtime files when practical, and explicitly document target-platform ABI prerequisites that must not be copied out of the operating system or JetPack installation.
+
+The Step 10 package boundary is:
+
+- Windows: `FaceMediaPipe.dll` plus the matching `opencv_world480.dll`; Windows system DLLs and the supported Microsoft Visual C++ runtime are platform prerequisites.
+- Orin: `libFaceMediaPipe.so`; the installed OpenCV 4.8 ABI, EGL/GLES, C/C++ runtime, and JetPack multimedia stack are target-platform prerequisites.
+- The runtime `face_landmarker.task` model is intentionally excluded until Step 14.
+
+### Step 10 stages
+
+1. Add Windows and Linux packaging scripts that fail clearly when the built bridge or required packaged runtime file is absent.
+2. Generate a deterministic package manifest containing file names, SHA-256 hashes, architecture, direct shared-library dependencies, and the documented platform prerequisites.
+3. Ensure Windows packages the matching OpenCV DLL beside the bridge and Orin records rather than copies its platform-owned shared-library ABI.
+4. Confirm no MediaPipe, TFLite, TensorFlow, Protobuf, or Abseil shared library is required at runtime.
+5. Run the existing smoke test from a clean deploy directory on Windows x64 and Orin aarch64 using the external model and still image.
+6. Verify the five C ABI exports, architecture, dependency resolution, deterministic re-packaging, and repository cleanliness on both platforms.
+7. Record validation evidence and commits before marking Step 10 complete.
+
+### Step 10 acceptance gate
+
+- Each committed packaging script produces a clean deploy directory using only explicit build outputs and documented platform inputs.
+- Windows output contains `FaceMediaPipe.dll`, `opencv_world480.dll`, and a manifest; the DLL is x64 and all direct dependencies resolve from the package or supported Windows platform/runtime locations.
+- Orin output contains `libFaceMediaPipe.so` and a manifest; the SO is ARM aarch64, has no unresolved dependency, and uses only documented OpenCV/JetPack/Linux platform libraries externally.
+- Neither bridge has a runtime dependency whose name identifies MediaPipe, TFLite, TensorFlow, Protobuf, or Abseil.
+- Both packaged bridges expose exactly the established five `face_mp_*` C ABI functions.
+- Re-running packaging from the same build produces the same payload hashes and manifest.
+- Existing still-image smoke tests pass from clean deploy directories with one face and 478 landmarks; no live camera is required.
+- The `.task` model is not silently bundled before the Step 14 deployment policy is defined.
+- Validation evidence and implementation commits are recorded before Step 10 is marked `COMPLETE`.
+
+### Step 9 objective (completed)
 
 Map the MediaPipe Face Landmarker 478-point output into the backend-neutral six-point semantic eye contract introduced in Step 8. Keep all MediaPipe topology indices inside a dedicated mapper and preserve the existing LBF path and `BlinkTracker` behavior.
 

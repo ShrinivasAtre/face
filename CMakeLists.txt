@@ -14,6 +14,122 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 
 # ============================================================
+# Optional packaged MediaPipe runtime
+#
+# Bazel remains responsible for producing the package. CMake
+# only validates and stages an explicitly supplied package.
+# ============================================================
+
+option(
+    FACE_ENABLE_MEDIAPIPE_RUNTIME
+    "Stage and enable the runtime-loaded FaceMediaPipe bridge"
+    OFF
+)
+
+set(FACE_MEDIAPIPE_PACKAGE_DIR
+    ""
+    CACHE PATH
+    "Path to a packaged FaceMediaPipe runtime directory"
+)
+
+if(FACE_ENABLE_MEDIAPIPE_RUNTIME)
+
+    if(FACE_MEDIAPIPE_PACKAGE_DIR STREQUAL "")
+        message(FATAL_ERROR
+            "FACE_MEDIAPIPE_PACKAGE_DIR is required when "
+            "FACE_ENABLE_MEDIAPIPE_RUNTIME=ON"
+        )
+    endif()
+
+    get_filename_component(
+        FACE_MEDIAPIPE_PACKAGE_DIR
+        "${FACE_MEDIAPIPE_PACKAGE_DIR}"
+        ABSOLUTE
+    )
+
+    if(WIN32)
+        set(FACE_MEDIAPIPE_PACKAGE_PLATFORM "windows-x64")
+        set(FACE_MEDIAPIPE_BRIDGE_NAME "FaceMediaPipe.dll")
+        set(FACE_MEDIAPIPE_PACKAGE_OPENCV
+            "${FACE_MEDIAPIPE_PACKAGE_DIR}/opencv_world480.dll"
+        )
+    elseif(
+        CMAKE_SYSTEM_NAME STREQUAL "Linux" AND
+        CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$"
+    )
+        set(FACE_MEDIAPIPE_PACKAGE_PLATFORM "linux-aarch64")
+        set(FACE_MEDIAPIPE_BRIDGE_NAME "libFaceMediaPipe.so")
+    else()
+        message(FATAL_ERROR
+            "Packaged MediaPipe runtime is supported only on "
+            "Windows x64 and Linux aarch64"
+        )
+    endif()
+
+    set(FACE_MEDIAPIPE_PACKAGE_BRIDGE
+        "${FACE_MEDIAPIPE_PACKAGE_DIR}/${FACE_MEDIAPIPE_BRIDGE_NAME}"
+    )
+    set(FACE_MEDIAPIPE_PACKAGE_MANIFEST
+        "${FACE_MEDIAPIPE_PACKAGE_DIR}/MANIFEST.txt"
+    )
+
+    foreach(required_file IN ITEMS
+        "${FACE_MEDIAPIPE_PACKAGE_BRIDGE}"
+        "${FACE_MEDIAPIPE_PACKAGE_MANIFEST}"
+    )
+        if(NOT EXISTS "${required_file}")
+            message(FATAL_ERROR
+                "Required MediaPipe package file is missing: ${required_file}"
+            )
+        endif()
+    endforeach()
+
+    if(WIN32 AND NOT EXISTS "${FACE_MEDIAPIPE_PACKAGE_OPENCV}")
+        message(FATAL_ERROR
+            "Required MediaPipe package OpenCV DLL is missing: "
+            "${FACE_MEDIAPIPE_PACKAGE_OPENCV}"
+        )
+    endif()
+
+    file(READ
+        "${FACE_MEDIAPIPE_PACKAGE_MANIFEST}"
+        FACE_MEDIAPIPE_MANIFEST_CONTENT
+    )
+    string(FIND
+        "${FACE_MEDIAPIPE_MANIFEST_CONTENT}"
+        "platform=${FACE_MEDIAPIPE_PACKAGE_PLATFORM}"
+        FACE_MEDIAPIPE_MANIFEST_PLATFORM_POSITION
+    )
+    if(FACE_MEDIAPIPE_MANIFEST_PLATFORM_POSITION EQUAL -1)
+        message(FATAL_ERROR
+            "MediaPipe package manifest does not declare "
+            "platform=${FACE_MEDIAPIPE_PACKAGE_PLATFORM}"
+        )
+    endif()
+
+    string(FIND
+        "${FACE_MEDIAPIPE_MANIFEST_CONTENT}"
+        "${FACE_MEDIAPIPE_BRIDGE_NAME}"
+        FACE_MEDIAPIPE_MANIFEST_BRIDGE_POSITION
+    )
+    if(FACE_MEDIAPIPE_MANIFEST_BRIDGE_POSITION EQUAL -1)
+        message(FATAL_ERROR
+            "MediaPipe package manifest does not list "
+            "${FACE_MEDIAPIPE_BRIDGE_NAME}"
+        )
+    endif()
+
+    message(STATUS
+        "MediaPipe runtime package: ${FACE_MEDIAPIPE_PACKAGE_DIR}"
+    )
+    message(STATUS
+        "MediaPipe runtime platform: ${FACE_MEDIAPIPE_PACKAGE_PLATFORM}"
+    )
+
+endif()
+
+
+# ============================================================
 # OpenCV
 # ============================================================
 
@@ -120,6 +236,35 @@ if(WIN32)
         "Path to OpenCV Windows DLL"
     )
 
+    if(FACE_ENABLE_MEDIAPIPE_RUNTIME)
+        if(OPENCV_DLL STREQUAL "")
+            set(OPENCV_DLL
+                "${FACE_MEDIAPIPE_PACKAGE_OPENCV}"
+                CACHE FILEPATH
+                "Path to OpenCV Windows DLL"
+                FORCE
+            )
+        else()
+            get_filename_component(
+                FACE_CONFIGURED_OPENCV_DLL
+                "${OPENCV_DLL}"
+                REALPATH
+            )
+            get_filename_component(
+                FACE_PACKAGED_OPENCV_DLL
+                "${FACE_MEDIAPIPE_PACKAGE_OPENCV}"
+                REALPATH
+            )
+            if(NOT FACE_CONFIGURED_OPENCV_DLL STREQUAL FACE_PACKAGED_OPENCV_DLL)
+                message(FATAL_ERROR
+                    "An enabled MediaPipe package must use its matching "
+                    "opencv_world480.dll. Remove OPENCV_DLL or set it to: "
+                    "${FACE_MEDIAPIPE_PACKAGE_OPENCV}"
+                )
+            endif()
+        endif()
+    endif()
+
 
     if(OPENCV_DLL STREQUAL "")
 
@@ -184,6 +329,35 @@ target_link_libraries(face_mediapipe_runtime
     PRIVATE
         ${CMAKE_DL_LIBS}
 )
+
+if(FACE_ENABLE_MEDIAPIPE_RUNTIME)
+
+    target_link_libraries(yunet_demo
+        PRIVATE
+            face_mediapipe_runtime
+    )
+
+    add_custom_command(
+        TARGET yunet_demo
+        POST_BUILD
+
+        COMMAND
+            ${CMAKE_COMMAND}
+            -E copy_if_different
+            "${FACE_MEDIAPIPE_PACKAGE_BRIDGE}"
+            "$<TARGET_FILE_DIR:yunet_demo>/${FACE_MEDIAPIPE_BRIDGE_NAME}"
+
+        COMMAND
+            ${CMAKE_COMMAND}
+            -E copy_if_different
+            "${FACE_MEDIAPIPE_PACKAGE_MANIFEST}"
+            "$<TARGET_FILE_DIR:yunet_demo>/FaceMediaPipe.MANIFEST.txt"
+
+        COMMENT
+            "Staging packaged MediaPipe runtime"
+    )
+
+endif()
 
 
 # ============================================================

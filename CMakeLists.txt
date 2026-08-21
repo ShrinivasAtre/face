@@ -168,6 +168,12 @@ endif()
 
 if(BUILD_TESTING)
 
+    set(FACE_TEST_IMAGE
+        ""
+        CACHE FILEPATH
+        "Optional face image used by the legacy blink integration test"
+    )
+
     add_executable(blink_tracker_test
         tests/blink_tracker_test.cpp
         src/BlinkTracker.cpp
@@ -188,5 +194,41 @@ if(BUILD_TESTING)
         NAME blink_tracker_test
         COMMAND blink_tracker_test
     )
+
+    add_executable(legacy_blink_integration_test
+        tests/legacy_blink_integration_test.cpp
+        src/FaceDetector.cpp
+        src/LbfLandmarkDetector.cpp
+        src/BlinkTracker.cpp
+    )
+
+    target_include_directories(legacy_blink_integration_test
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/include
+            ${OpenCV_INCLUDE_DIRS}
+    )
+
+    target_link_libraries(legacy_blink_integration_test
+        PRIVATE
+            ${OpenCV_LIBS}
+    )
+
+    if(NOT FACE_TEST_IMAGE STREQUAL "")
+
+        if(NOT EXISTS "${FACE_TEST_IMAGE}")
+            message(FATAL_ERROR
+                "FACE_TEST_IMAGE does not exist: ${FACE_TEST_IMAGE}"
+            )
+        endif()
+
+        add_test(
+            NAME legacy_blink_integration_test
+            COMMAND legacy_blink_integration_test
+                "${CMAKE_CURRENT_SOURCE_DIR}/models/face_detection_yunet_2026may.onnx"
+                "${CMAKE_CURRENT_SOURCE_DIR}/models/lbfmodel.yaml"
+                "${FACE_TEST_IMAGE}"
+        )
+
+    endif()
 
 endif()

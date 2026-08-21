@@ -15,13 +15,13 @@ Update it whenever a step changes state. Do not mark a step complete until its a
 
 - Repository: `ShrinivasAtre/face`
 - Branch: `feature/mediapipe-step1-backend-interface`
-- Last completed step: **Step 4**
-- Next formal step: **Step 5 — BGR to MediaPipe image conversion**
-- Step 4 completion commit: `09314d2d3c94ef257cf92097df131c9fa3508418`
+- Last completed step: **Step 5**
+- Next formal step: **Step 6 — Extract/normalize MediaPipe landmarks**
+- Step 5 implementation commit: `9f6f15dec59aced11da9656f9c1a0e238c288177`
 - Bazel: `7.4.1`
 - MediaPipe release: `v0.10.33`
 - Pinned MediaPipe commit: `3987048d4b390aa9ae675c796f6421bbeece6511`
-- Formal progress: **4 of 16 steps complete (25%)**
+- Formal progress: **5 of 16 steps complete (31.25%)**
 
 ## Baseline requirements
 
@@ -53,7 +53,7 @@ These requirements are non-negotiable throughout the program.
 | 2 | Preserve existing YuNet/LBF implementation | COMPLETE | The application still uses the existing YuNet detector and LBF `BlinkTracker`; the legacy path was deliberately preserved. |
 | 3 | Add MediaPipe C ABI | COMPLETE | Versioned C ABI with an opaque handle, caller-owned result storage, error reporting, and five validated exports. |
 | 4 | Implement MediaPipe backend | COMPLETE | Fresh-clone Windows x64 and Orin aarch64 builds and smoke tests passed. Linux script executable modes were corrected and committed in `09314d2`. |
-| 5 | BGR to MediaPipe image conversion | PARTIAL | The bridge already converts strided OpenCV-style BGR input to MediaPipe SRGB and both Step 4 smoke tests passed. Formal Step 5 edge-case validation remains. |
+| 5 | BGR to MediaPipe image conversion | COMPLETE | Private conversion helper and focused tests validate channel order, compact rows, padded strides, invalid inputs, and overflow. Bridge rebuilds and real-image regressions passed on Windows x64 and Orin aarch64. |
 | 6 | Extract/normalize MediaPipe landmarks | PARTIAL | The bridge extracts 478 landmarks, converts x/y to image pixels, preserves z, and derives a face bounding box. Formal contract and edge-case validation remain. |
 | 7 | Decouple blink tracker from LBF | NOT STARTED | `BlinkTracker` still owns `cv::face::Facemark`, loads the LBF model, and obtains landmarks internally. |
 | 8 | Introduce semantic eye landmarks | NOT STARTED | No backend-neutral semantic left/right eye representation exists yet. |
@@ -115,6 +115,15 @@ Both platforms used `IMG-20150331-WA0001.jpg`:
 - Bounding box: `x=243 y=491 w=350 h=410`
 - Result: `MediaPipe smoke test PASSED`
 
+### Step 5 — BGR to MediaPipe image conversion
+
+- Public C ABI remained unchanged.
+- Production conversion was isolated in a private helper used by focused tests.
+- Channel order, compact rows, independent padded strides, invalid inputs, and overflowing row sizes were validated.
+- Focused Bazel tests and bridge rebuilds passed on Windows x64 and Orin aarch64.
+- The established real-image regression passed on both platforms with one face, 478 landmarks, and the unchanged bounding box.
+- Implementation commit: `9f6f15dec59aced11da9656f9c1a0e238c288177`.
+
 ## Historical YuNet/LBF observations
 
 The repository contains earlier manual YuNet/LBF robustness results. They record blink over-counting, sensitivity to distance and lighting, and imperfect eye-landmark placement. These are historical observations about the legacy implementation and must not be misclassified as failures of the new MediaPipe bridge.
@@ -136,6 +145,6 @@ For every step:
 
 ## Next checkpoint
 
-Begin **Step 5 — BGR to MediaPipe image conversion**.
+Begin **Step 6 — Extract/normalize MediaPipe landmarks**.
 
-Do not redesign Steps 1–4. Start by defining Step 5 acceptance criteria around image dimensions, row stride, channel order, padded rows, invalid inputs, and consistent Windows/Orin results. Existing working conversion code should be validated and hardened rather than replaced without evidence.
+Do not redesign Steps 1–5. Start by defining and testing the landmark coordinate contract, landmark-capacity behavior, face bounding-box rules, no-face results, and consistent Windows/Orin output.

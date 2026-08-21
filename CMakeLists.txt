@@ -164,6 +164,29 @@ endif()
 
 
 # ============================================================
+# Runtime-loaded MediaPipe C ABI boundary
+#
+# The application does not link against FaceMediaPipe.dll or
+# libFaceMediaPipe.so. Step 13 will wire and stage this loader.
+# ============================================================
+
+add_library(face_mediapipe_runtime STATIC
+    src/FaceMediaPipeRuntime.cpp
+)
+
+target_include_directories(face_mediapipe_runtime
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/mediapipe/api
+)
+
+target_link_libraries(face_mediapipe_runtime
+    PRIVATE
+        ${CMAKE_DL_LIBS}
+)
+
+
+# ============================================================
 # Focused blink-processing tests
 # ============================================================
 
@@ -236,21 +259,6 @@ if(BUILD_TESTING)
     add_test(
         NAME mediapipe_eye_landmark_mapper_test
         COMMAND mediapipe_eye_landmark_mapper_test
-    )
-
-    add_library(face_mediapipe_runtime STATIC
-        src/FaceMediaPipeRuntime.cpp
-    )
-
-    target_include_directories(face_mediapipe_runtime
-        PUBLIC
-            ${CMAKE_CURRENT_SOURCE_DIR}/include
-            ${CMAKE_CURRENT_SOURCE_DIR}/mediapipe/api
-    )
-
-    target_link_libraries(face_mediapipe_runtime
-        PRIVATE
-            ${CMAKE_DL_LIBS}
     )
 
     foreach(mock_target IN ITEMS

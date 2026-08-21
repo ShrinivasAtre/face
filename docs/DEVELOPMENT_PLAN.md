@@ -15,13 +15,13 @@ Update it whenever a step changes state. Do not mark a step complete until its a
 
 - Repository: `ShrinivasAtre/face`
 - Branch: `feature/mediapipe-step1-backend-interface`
-- Last completed step: **Step 14**
-- Next formal step: **Step 15 — Runtime backend selection**
-- Step 14 implementation commit: `aa45ecc8efee4928890371e9df50b75a1ac33a71`
+- Last completed step: **Step 15**
+- Next formal step: **Step 16 — Final Windows/Orin deployment**
+- Step 15 implementation commit: `fc59d1f132b6da3ef4f5219c2838de71578188eb`
 - Bazel: `7.4.1`
 - MediaPipe release: `v0.10.33`
 - Pinned MediaPipe commit: `3987048d4b390aa9ae675c796f6421bbeece6511`
-- Formal progress: **14 of 16 steps complete (88%)**
+- Formal progress: **15 of 16 steps complete (94%)**
 
 ## Baseline requirements
 
@@ -63,7 +63,7 @@ These requirements are non-negotiable throughout the program.
 | 12 | Runtime DLL/SO loading | COMPLETE | A tested move-only RAII loader resolves and validates the five-function C ABI by path on Windows and Linux without a direct bridge dependency. |
 | 13 | CMake integration | COMPLETE | The existing CMake build now optionally validates and stages an accepted platform package while retaining a default-off legacy build and runtime-only bridge loading. |
 | 14 | Model deployment | COMPLETE | The pinned task asset is committed, checksum-verified at configure time, and staged only by enabled MediaPipe builds at a deterministic runtime path. |
-| 15 | Runtime backend selection | IN PROGRESS | Add explicit runtime selection between common-interface YuNet/LBF and MediaPipe implementations while preserving the legacy default. |
+| 15 | Runtime backend selection | COMPLETE | The application defaults to YuNet/LBF and strictly supports explicit YuNet or runtime-loaded MediaPipe selection through common backend and blink-processing paths. |
 | 16 | Final Windows/Orin deployment | NOT STARTED | Final application-level packaging and end-to-end deployment validation remain. |
 
 ## Completed-step evidence
@@ -252,6 +252,22 @@ Both platforms used `IMG-20150331-WA0001.jpg`:
 - No `--backend` selection was introduced and no live camera was required.
 - Implementation commit: `aa45ecc8efee4928890371e9df50b75a1ac33a71`.
 
+### Step 15 — Runtime backend selection
+
+- Added strict parsing for no argument, `--backend=yunet`, `--backend=mediapipe`, help, malformed values, unknown options, and duplicate selection.
+- No argument remains YuNet; invalid arguments and MediaPipe selection in a default-off build exit with clear diagnostics before camera access.
+- Added `YuNetLbfBackend`, which preserves the existing detector thresholds and LBF acquisition while normalizing its 68 landmarks into `FaceResult`.
+- Added `MediaPipeBackend`, which owns the Step 12 runtime loader and C-ABI handle, processes strided `CV_8UC3` BGR frames, and normalizes the bridge result into `FaceResult`.
+- Added backend-eye dispatch that delegates topology only to the established LBF and MediaPipe semantic mappers; `BlinkTracker` remains topology- and backend-neutral.
+- Refactored `yunet_demo` to construct one selected `FaceBackend` and feed either backend through the same semantic-eye and blink-processing path.
+- Enabled builds passed eight registered tests on Windows x64 and Orin aarch64; default-off builds passed seven tests on both platforms.
+- The default/explicit YuNet integration retained one face, 68 landmarks, bbox `x=246 y=437 w=338 h=452`, right EAR `0.225832`, and left EAR `0.238513`.
+- MediaPipe integration retained one face, 478 landmarks, and bbox `x=243 y=491 w=350 h=410`; semantic mapping and shared `BlinkTracker` processing passed on both platforms.
+- Invalid-frame tests confirmed both backend implementations reset common results on failure.
+- Windows import inspection and Orin `ldd` inspection confirmed `yunet_demo` has no direct FaceMediaPipe dependency; the Orin executable was confirmed ARM aarch64.
+- No live camera was required; live and final deployment validation remains Step 16.
+- Implementation commit: `fc59d1f132b6da3ef4f5219c2838de71578188eb`.
+
 ## Historical YuNet/LBF observations
 
 The repository contains earlier manual YuNet/LBF robustness results. They record blink over-counting, sensitivity to distance and lighting, and imperfect eye-landmark placement. These are historical observations about the legacy implementation and must not be misclassified as failures of the new MediaPipe bridge.
@@ -273,11 +289,11 @@ For every step:
 
 ## Next checkpoint
 
-Begin **Step 15 — Runtime backend selection**.
+Begin **Step 16 — Final Windows/Orin deployment**.
 
-Do not redesign Steps 1–14. Add explicit `--backend=yunet` and `--backend=mediapipe` runtime selection while preserving the established default and sharing the accepted blink-processing layer.
+Do not redesign Steps 1–15. Produce and validate final application deployment directories for Windows x64 and Orin aarch64, including both runtime-selectable backends and all accepted runtime assets.
 
-### Step 15 objective
+### Step 15 objective (completed)
 
 Make `yunet_demo` select a backend explicitly at runtime through the existing backend-independent contract. Preserve YuNet/LBF as the no-argument default, add the MediaPipe runtime implementation, normalize both outputs into `FaceResult`, map their topology-specific eye points outside `BlinkTracker`, and keep all blink state and EAR processing shared.
 
@@ -292,7 +308,7 @@ Make `yunet_demo` select a backend explicitly at runtime through the existing ba
 7. Validate default and explicit YuNet results remain unchanged and MediaPipe produces one face, 478 landmarks, and semantic eye input on Windows x64 and Orin aarch64.
 8. Confirm the application still has no direct bridge dependency, then record evidence and commits before marking Step 15 complete.
 
-### Step 15 acceptance gate
+### Step 15 acceptance gate (completed)
 
 - No argument and `--backend=yunet` select the existing YuNet/LBF behavior; `--backend=mediapipe` selects the runtime-loaded bridge.
 - Unsupported, malformed, or duplicate options fail before camera access with a clear usage diagnostic.

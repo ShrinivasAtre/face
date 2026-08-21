@@ -57,7 +57,7 @@ These requirements are non-negotiable throughout the program.
 | 6 | Extract/normalize MediaPipe landmarks | COMPLETE | A private, tested conversion layer converts normalized x/y to image pixels, preserves z, enforces caller capacity, computes a clamped bounding box from all source points, resets empty results, and rejects invalid/non-finite input. Focused tests, bridge builds, and real-image regressions passed on Windows x64 and Orin aarch64. |
 | 7 | Decouple blink tracker from LBF | COMPLETE | `LbfLandmarkDetector` owns model loading and fitting; `BlinkTracker` consumes supplied landmarks and reports processing success separately from eye state. Focused and real-image legacy integration tests pass on Windows x64 and Orin aarch64. |
 | 8 | Introduce semantic eye landmarks | COMPLETE | A six-point semantic eye contract and LBF-specific mapper isolate topology from `BlinkTracker`. Focused ordering/state tests and unchanged real-image regressions pass on Windows x64 and Orin aarch64. |
-| 9 | MediaPipe eye-landmark mapping | NOT STARTED | No accepted mapping from MediaPipe's 478-point topology to semantic eye landmarks exists. |
+| 9 | MediaPipe eye-landmark mapping | IN PROGRESS | Define, test, and validate the MediaPipe 478-point topology mapping into the established semantic eye contract on Windows x64 and Orin aarch64. |
 | 10 | Self-contained DLL/SO | PARTIAL | The MediaPipe implementation is isolated in a shared library, but Windows depends on `opencv_world480.dll` and Orin uses system shared libraries. Packaging policy and validation remain. |
 | 11 | Pin/build MediaPipe dependency | PARTIAL | MediaPipe is pinned and clean fetch/build validation passed on both platforms. Retain this as a formal later gate until its complete acceptance criteria are recorded and passed. |
 | 12 | Runtime DLL/SO loading | NOT STARTED | The main application has no accepted `LoadLibrary`/`dlopen` abstraction and does not consume the C ABI. |
@@ -186,7 +186,36 @@ Begin **Step 9 — MediaPipe eye-landmark mapping**.
 
 Do not redesign Steps 1–8. Define and validate the MediaPipe 478-point indices that map into the established semantic right/left eye contract.
 
-### Step 8 objective
+### Step 9 objective
+
+Map the MediaPipe Face Landmarker 478-point output into the backend-neutral six-point semantic eye contract introduced in Step 8. Keep all MediaPipe topology indices inside a dedicated mapper and preserve the existing LBF path and `BlinkTracker` behavior.
+
+The selected subject-eye mappings, expressed in semantic outer-to-inner order, are:
+
+- right eye: `33, 160, 158, 133, 153, 144`;
+- left eye: `263, 387, 385, 362, 380, 373`.
+
+### Step 9 stages
+
+1. Add a MediaPipe-specific mapper that accepts backend-neutral pixel landmarks and produces `SemanticEyeLandmarks`.
+2. Confine all twelve MediaPipe topology indices to that mapper.
+3. Add focused tests for exact semantic ordering, the required 478-point topology, non-finite selected coordinates, ignored non-selected coordinates, result reset, and EAR compatibility.
+4. Build and run the CMake application and all focused tests on Windows x64 and Orin aarch64.
+5. Run the established YuNet/LBF real-image regression to prove the legacy path is unchanged.
+6. Record validation evidence and commits before marking Step 9 complete.
+
+### Step 9 acceptance gate
+
+- The MediaPipe mapper produces the established right/left semantic ordering using the documented twelve indices.
+- MediaPipe topology indices exist only in the MediaPipe mapper and its focused test.
+- The mapper rejects source results with fewer than 478 landmarks and rejects non-finite selected coordinates, resetting its output on every failure.
+- Non-selected MediaPipe coordinates, including optional non-finite depth values, cannot corrupt the 2D eye mapping.
+- `BlinkTracker` remains backend-neutral and unchanged.
+- The existing YuNet/LBF application path and real-image regression remain unchanged.
+- The CMake application and all focused tests pass on Windows x64 and Orin aarch64 without a live camera.
+- Validation evidence and implementation commits are recorded before Step 9 is marked `COMPLETE`.
+
+### Step 8 objective (completed)
 
 Introduce a backend-neutral eye-landmark contract that expresses the six points required by the existing EAR calculation without exposing LBF or MediaPipe topology indices to `BlinkTracker`.
 

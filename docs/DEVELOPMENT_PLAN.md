@@ -15,13 +15,13 @@ Update it whenever a step changes state. Do not mark a step complete until its a
 
 - Repository: `ShrinivasAtre/face`
 - Branch: `feature/mediapipe-step1-backend-interface`
-- Last completed step: **Step 11**
-- Next formal step: **Step 12 — Runtime DLL/SO loading**
-- Step 11 implementation commits: `afa87abba37e17a346402efde3076070f4f8b991`, `202c838a007eabcfbeea5ffc049288135aa171f3`
+- Last completed step: **Step 12**
+- Next formal step: **Step 13 — CMake integration**
+- Step 12 implementation commits: `36f849623f163d93d5c8b02aa842ecac0ed9deea`, `ebea4514ba912d821f149240c770260d4233f7d3`
 - Bazel: `7.4.1`
 - MediaPipe release: `v0.10.33`
 - Pinned MediaPipe commit: `3987048d4b390aa9ae675c796f6421bbeece6511`
-- Formal progress: **11 of 16 steps complete (69%)**
+- Formal progress: **12 of 16 steps complete (75%)**
 
 ## Baseline requirements
 
@@ -60,7 +60,7 @@ These requirements are non-negotiable throughout the program.
 | 9 | MediaPipe eye-landmark mapping | COMPLETE | A dedicated mapper converts the documented twelve indices from the 478-point topology into semantic right/left eyes. Focused tests and unchanged legacy regressions passed on Windows x64 and Orin aarch64. |
 | 10 | Self-contained DLL/SO | COMPLETE | Deterministic packaging scripts stage the bridge boundary and manifests. Clean packaged-runtime smoke tests passed on Windows x64 and Orin aarch64 with no external MediaPipe/TFLite/Abseil libraries. |
 | 11 | Pin/build MediaPipe dependency | COMPLETE | One machine-readable version file governs both platforms. Fresh and repeated fetches, dependency verification, and fail-fast build preflight checks passed on Windows x64 and Orin aarch64. |
-| 12 | Runtime DLL/SO loading | IN PROGRESS | Add and validate a cross-platform RAII loader for the five-function C ABI without linking the application directly to the bridge. |
+| 12 | Runtime DLL/SO loading | COMPLETE | A tested move-only RAII loader resolves and validates the five-function C ABI by path on Windows and Linux without a direct bridge dependency. |
 | 13 | CMake integration | NOT STARTED | CMake builds the existing YuNet/LBF application but does not yet configure or stage the MediaPipe bridge. |
 | 14 | Model deployment | NOT STARTED | The bridge accepts an external `.task` path, but the model is not deployed by the application build. |
 | 15 | Runtime backend selection | NOT STARTED | The application has no accepted `--backend=yunet` / `--backend=mediapipe` option. |
@@ -207,6 +207,22 @@ Both platforms used `IMG-20150331-WA0001.jpg`:
 - No live camera or runtime model deployment was required.
 - Implementation commits: `afa87abba37e17a346402efde3076070f4f8b991`, `202c838a007eabcfbeea5ffc049288135aa171f3`.
 
+### Step 12 — Runtime DLL/SO loading
+
+- Added `FaceMediaPipeRuntime`, a move-only RAII loader whose public interface exposes the stable bridge C types but no native module handle or MediaPipe SDK type.
+- Windows uses `LoadLibraryW`/`GetProcAddress`; Linux uses `dlopen` with `RTLD_NOW | RTLD_LOCAL` and `dlsym`.
+- Loading resolves all five `face_mp_*` functions and accepts the module only when `face_mp_api_version()` returns `1`.
+- Every failed load closes the candidate module and clears all function pointers while retaining an actionable diagnostic; explicit unload and ownership moves were also validated.
+- Focused mock-library tests covered empty and missing paths, a missing required export, API version `99`, resolved function calls, reload/unload, move construction and assignment, failed-reload cleanup, and recovery.
+- Windows x64 and Orin aarch64 built the unchanged application plus all Step 12 targets; all four registered CTests passed on both platforms.
+- The production loader target also built successfully with `BUILD_TESTING=OFF` on both platforms.
+- Model-free probes loaded the real packaged Step 10 `FaceMediaPipe.dll` and `libFaceMediaPipe.so` and reported API version `1` on both platforms.
+- Windows import inspection and Orin `ldd` inspection confirmed the loader tests/probes have no direct runtime dependency on the FaceMediaPipe bridge. Orin test/probe executables were confirmed ARM aarch64.
+- The established YuNet/LBF still-image regression remained identical on both platforms: one face, 68 landmarks, bbox `x=246 y=437 w=338 h=452`, right EAR `0.225832`, and left EAR `0.238513`.
+- The production `yunet_demo` target was not wired to the loader, and bridge staging, model deployment, and backend selection remain Steps 13–15 respectively.
+- No live camera or runtime `.task` model was required.
+- Implementation commits: `36f849623f163d93d5c8b02aa842ecac0ed9deea`, `ebea4514ba912d821f149240c770260d4233f7d3`.
+
 ## Historical YuNet/LBF observations
 
 The repository contains earlier manual YuNet/LBF robustness results. They record blink over-counting, sensitivity to distance and lighting, and imperfect eye-landmark placement. These are historical observations about the legacy implementation and must not be misclassified as failures of the new MediaPipe bridge.
@@ -228,11 +244,11 @@ For every step:
 
 ## Next checkpoint
 
-Begin **Step 12 — Runtime DLL/SO loading**.
+Begin **Step 13 — CMake integration**.
 
-Do not redesign Steps 1–11. Add an application-side cross-platform runtime-loading boundary for the existing C ABI without directly linking the main executable to MediaPipe.
+Do not redesign Steps 1–12. Integrate the accepted runtime loader and packaged bridge boundary into the existing CMake application build without replacing it with Bazel or implementing model deployment and backend selection early.
 
-### Step 12 objective
+### Step 12 objective (completed)
 
 Provide a small application-side, cross-platform runtime loader for the existing versioned FaceMediaPipe C ABI. The loader must open only an explicitly supplied DLL/SO path, resolve all five required functions, reject an incompatible API version, report actionable errors, and release the native module safely without exposing operating-system handles or MediaPipe SDK types through its public interface.
 
@@ -246,7 +262,7 @@ Provide a small application-side, cross-platform runtime loader for the existing
 6. Confirm the loader and probe do not link directly against `FaceMediaPipe.dll` or `libFaceMediaPipe.so`, and that no MediaPipe SDK header enters the application interface.
 7. Re-run the existing CMake tests on both platforms and record validation evidence and commits before marking Step 12 complete.
 
-### Step 12 acceptance gate
+### Step 12 acceptance gate (completed)
 
 - Windows uses `LoadLibrary`/`GetProcAddress`; Linux uses `dlopen`/`dlsym` with local, immediate symbol resolution.
 - The public loader interface exposes neither native module handles nor MediaPipe SDK classes or headers.

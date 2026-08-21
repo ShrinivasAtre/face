@@ -147,14 +147,24 @@ if (Test-Path $BridgeRoot) {
 }
 New-Item -ItemType Directory -Force (Join-Path $BridgeRoot 'api') | Out-Null
 New-Item -ItemType Directory -Force (Join-Path $BridgeRoot 'src') | Out-Null
+New-Item -ItemType Directory -Force (Join-Path $BridgeRoot 'tests') | Out-Null
 Copy-Item (Join-Path $RepoRoot 'mediapipe\api\FaceMediaPipe.h') (Join-Path $BridgeRoot 'api\FaceMediaPipe.h')
 Copy-Item (Join-Path $RepoRoot 'mediapipe\src\FaceMediaPipe.cpp') (Join-Path $BridgeRoot 'src\FaceMediaPipe.cpp')
+Copy-Item (Join-Path $RepoRoot 'mediapipe\src\BgrToRgb.cpp') (Join-Path $BridgeRoot 'src\BgrToRgb.cpp')
+Copy-Item (Join-Path $RepoRoot 'mediapipe\src\BgrToRgb.h') (Join-Path $BridgeRoot 'src\BgrToRgb.h')
+Copy-Item (Join-Path $RepoRoot 'tests\bgr_to_rgb_test.cpp') (Join-Path $BridgeRoot 'tests\bgr_to_rgb_test.cpp')
 
 $BridgeBuild = @'
 cc_library(
     name = "FaceMediaPipe_impl",
-    srcs = ["src/FaceMediaPipe.cpp"],
-    hdrs = ["api/FaceMediaPipe.h"],
+    srcs = [
+        "src/BgrToRgb.cpp",
+        "src/FaceMediaPipe.cpp",
+    ],
+    hdrs = [
+        "api/FaceMediaPipe.h",
+        "src/BgrToRgb.h",
+    ],
     deps = [
         "//mediapipe/framework/formats:image_frame",
         "//mediapipe/tasks/cc/vision/face_landmarker:face_landmarker",
@@ -170,6 +180,15 @@ cc_binary(
     linkshared = True,
     linkstatic = True,
     visibility = ["//visibility:public"],
+)
+cc_test(
+    name = "bgr_to_rgb_test",
+    srcs = [
+        "src/BgrToRgb.cpp",
+        "src/BgrToRgb.h",
+        "tests/bgr_to_rgb_test.cpp",
+    ],
+    includes = ["src"],
 )
 '@
 Write-Utf8NoBom (Join-Path $BridgeRoot 'BUILD.bazel') $BridgeBuild

@@ -52,10 +52,13 @@ if grep -Fq '//mediapipe/util/analytics:mediapipe_logging_enums_cc_proto' "${TAS
 fi
 
 rm -rf "${BRIDGE_ROOT}"
-mkdir -p "${BRIDGE_ROOT}/api" "${BRIDGE_ROOT}/src"
+mkdir -p "${BRIDGE_ROOT}/api" "${BRIDGE_ROOT}/src" "${BRIDGE_ROOT}/tests"
 
 cp "${REPO_ROOT}/mediapipe/api/FaceMediaPipe.h" "${BRIDGE_ROOT}/api/FaceMediaPipe.h"
 cp "${REPO_ROOT}/mediapipe/src/FaceMediaPipe.cpp" "${BRIDGE_ROOT}/src/FaceMediaPipe.cpp"
+cp "${REPO_ROOT}/mediapipe/src/BgrToRgb.cpp" "${BRIDGE_ROOT}/src/BgrToRgb.cpp"
+cp "${REPO_ROOT}/mediapipe/src/BgrToRgb.h" "${BRIDGE_ROOT}/src/BgrToRgb.h"
+cp "${REPO_ROOT}/tests/bgr_to_rgb_test.cpp" "${BRIDGE_ROOT}/tests/bgr_to_rgb_test.cpp"
 
 # A cc_library with linkstatic=False can produce a .so that still contains
 # unresolved references to its transitive MediaPipe dependencies. Build the
@@ -66,8 +69,14 @@ cp "${REPO_ROOT}/mediapipe/src/FaceMediaPipe.cpp" "${BRIDGE_ROOT}/src/FaceMediaP
 cat > "${BRIDGE_ROOT}/BUILD.bazel" <<'EOF'
 cc_library(
     name = "FaceMediaPipe_impl",
-    srcs = ["src/FaceMediaPipe.cpp"],
-    hdrs = ["api/FaceMediaPipe.h"],
+    srcs = [
+        "src/BgrToRgb.cpp",
+        "src/FaceMediaPipe.cpp",
+    ],
+    hdrs = [
+        "api/FaceMediaPipe.h",
+        "src/BgrToRgb.h",
+    ],
     deps = [
         "//mediapipe/framework/formats:image_frame",
         "//mediapipe/tasks/cc/vision/face_landmarker:face_landmarker",
@@ -83,6 +92,15 @@ cc_binary(
     linkstatic = True,
     linkopts = ["-Wl,--no-undefined"],
     visibility = ["//visibility:public"],
+)
+cc_test(
+    name = "bgr_to_rgb_test",
+    srcs = [
+        "src/BgrToRgb.cpp",
+        "src/BgrToRgb.h",
+        "tests/bgr_to_rgb_test.cpp",
+    ],
+    includes = ["src"],
 )
 EOF
 

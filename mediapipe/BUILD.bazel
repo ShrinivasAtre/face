@@ -2,12 +2,28 @@ package(default_visibility = ["//visibility:public"])
 
 cc_library(
     name = "FaceMediaPipe",
-    srcs = ["src/FaceMediaPipe.cpp"],
-    hdrs = ["api/FaceMediaPipe.h"],
+    srcs = [
+        "src/BgrToRgb.cpp",
+        "src/FaceMediaPipe.cpp",
+    ],
+    hdrs = [
+        "api/FaceMediaPipe.h",
+        "src/BgrToRgb.h",
+    ],
     includes = ["api"],
     deps = [
         "@mediapipe//mediapipe/framework/formats:image_frame",
         "@mediapipe//mediapipe/tasks/cc/vision/face_landmarker:face_landmarker",
     ],
     linkstatic = False,
+)
+
+cc_test(
+    name = "bgr_to_rgb_test",
+    srcs = [
+        "src/BgrToRgb.cpp",
+        "src/BgrToRgb.h",
+        "../tests/bgr_to_rgb_test.cpp",
+    ],
+    includes = ["src"],
 )

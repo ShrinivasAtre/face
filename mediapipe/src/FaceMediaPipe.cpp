@@ -1,4 +1,5 @@
 #include "../api/FaceMediaPipe.h"
+#include "BgrToRgb.h"
 
 #include <algorithm>
 #include <cmath>
@@ -74,8 +75,10 @@ extern "C" FACE_MEDIAPIPE_API int32_t face_mp_process_bgr(
     FaceMPResult* result)
 {
     if (handle == nullptr || handle->landmarker == nullptr ||
-        bgr == nullptr || result == nullptr || width <= 0 || height <= 0 ||
-        stride < width * 3 || result->landmarks == nullptr ||
+        result == nullptr ||
+        !face_mp_internal::is_valid_bgr_image(
+            bgr, width, height, stride) ||
+        result->landmarks == nullptr ||
         result->landmark_capacity <= 0)
     {
         return 0;
@@ -101,17 +104,16 @@ extern "C" FACE_MEDIAPIPE_API int32_t face_mp_process_bgr(
     uint8_t* rgb = rgb_frame.MutablePixelData();
     const int rgb_stride = rgb_frame.WidthStep();
 
-    for (int y = 0; y < height; ++y)
+    if (!face_mp_internal::copy_bgr_to_rgb(
+            bgr,
+            width,
+            height,
+            stride,
+            rgb,
+            rgb_stride))
     {
-        const uint8_t* src = bgr + static_cast<size_t>(y) * stride;
-        uint8_t* dst = rgb + static_cast<size_t>(y) * rgb_stride;
-
-        for (int x = 0; x < width; ++x)
-        {
-            dst[3 * x + 0] = src[3 * x + 2];
-            dst[3 * x + 1] = src[3 * x + 1];
-            dst[3 * x + 2] = src[3 * x + 0];
-        }
+        handle->last_error = "BGR to RGB conversion failed";
+        return 0;
     }
 
     mediapipe::Image image(

@@ -64,7 +64,7 @@ These requirements are non-negotiable throughout the program.
 | 13 | CMake integration | COMPLETE | The existing CMake build now optionally validates and stages an accepted platform package while retaining a default-off legacy build and runtime-only bridge loading. |
 | 14 | Model deployment | COMPLETE | The pinned task asset is committed, checksum-verified at configure time, and staged only by enabled MediaPipe builds at a deterministic runtime path. |
 | 15 | Runtime backend selection | COMPLETE | The application defaults to YuNet/LBF and strictly supports explicit YuNet or runtime-loaded MediaPipe selection through common backend and blink-processing paths. |
-| 16 | Final Windows/Orin deployment | NOT STARTED | Final application-level packaging and end-to-end deployment validation remain. |
+| 16 | Final Windows/Orin deployment | IN PROGRESS | Produce deterministic allowlisted application packages and complete end-to-end still-image and live-camera validation on both target platforms. |
 
 ## Completed-step evidence
 
@@ -292,6 +292,34 @@ For every step:
 Begin **Step 16 — Final Windows/Orin deployment**.
 
 Do not redesign Steps 1–15. Produce and validate final application deployment directories for Windows x64 and Orin aarch64, including both runtime-selectable backends and all accepted runtime assets.
+
+### Step 16 objective
+
+Deliver reproducible, self-contained application deployment directories for Windows x64 and NVIDIA Orin aarch64 using the accepted CMake output and runtime package boundary. Each deployment must contain only the application, required bridge/runtime payloads, pinned models, manifests, and a simple backend-aware launcher, and must run both accepted backends end to end.
+
+### Step 16 stages
+
+1. Add Windows and Linux final-application packaging scripts with an explicit payload allowlist and clear missing-input failures.
+2. Add platform launch helpers that run the deployed executable with either `yunet` or `mediapipe` from its own directory.
+3. Generate deterministic application manifests containing platform, payload hashes, architecture/dependency evidence, backend commands, and platform prerequisites.
+4. Build enabled Release application outputs from fresh `p16` clones and package them twice on each platform.
+5. Verify byte-identical payloads/manifests, architecture, dependency resolution, bridge separation, model checksums, and repository cleanliness.
+6. Run all focused and still-image backend tests against the final source/build revision on Windows x64 and Orin aarch64.
+7. Run the deployed application briefly with both backends and a live camera on Windows, then on Orin, confirming initialization, face/eye overlay behavior, and clean exit.
+8. Record final evidence and commits before marking Step 16 and the 16-step program complete.
+
+### Step 16 acceptance gate
+
+- Each committed packaging script creates a clean deployment directory from an enabled CMake Release output using only an explicit file allowlist.
+- Windows contains `yunet_demo.exe`, `FaceMediaPipe.dll`, matching `opencv_world480.dll`, all three models, bridge/application manifests, and a launcher; Orin contains the corresponding executable, SO, models, manifests, and launcher.
+- The task model remains at `models/mediapipe/face_landmarker.task` with SHA-256 `64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff`.
+- Application binaries are x64 on Windows and ARM aarch64 on Orin, all direct dependencies resolve from the package or documented platform prerequisites, and neither executable links directly to FaceMediaPipe.
+- Repeating packaging from the same build produces identical payload hashes and application manifest.
+- Launch helpers accept only `yunet` or `mediapipe`, preserve the deployed working directory, and reject invalid selection before starting the application.
+- All focused tests and still-image backend integrations pass from the final revision on both platforms.
+- Deployed live-camera runs initialize and operate with both backends on Windows x64 and Orin aarch64 and exit cleanly on user request.
+- Both fresh `p16` repositories are clean and synchronized at the final commit.
+- Validation evidence and implementation commits are recorded before Step 16 and the overall program are marked `COMPLETE`.
 
 ### Step 15 objective (completed)
 

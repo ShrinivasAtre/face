@@ -173,6 +173,41 @@ Begin **Step 8 — Introduce semantic eye landmarks**.
 
 Do not redesign Steps 1–7. Define a backend-neutral semantic representation for the six ordered points of each eye, then make blink processing consume that representation instead of raw 68-point topology indices.
 
+### Step 8 objective
+
+Introduce a backend-neutral eye-landmark contract that expresses the six points required by the existing EAR calculation without exposing LBF or MediaPipe topology indices to `BlinkTracker`.
+
+For each subject eye, the ordered semantic points are:
+
+1. outer corner;
+2. upper outer lid;
+3. upper inner lid;
+4. inner corner;
+5. lower inner lid;
+6. lower outer lid.
+
+The ordering preserves the current EAR pairs `(1,5)`, `(2,4)`, and horizontal pair `(0,3)` while giving each position an explicit meaning.
+
+### Step 8 stages
+
+1. Add a small common type representing the ordered right and left semantic eye points.
+2. Move LBF indices `36–47` into an LBF-specific mapper that produces the common type.
+3. Change `BlinkTracker` to accept only the semantic eye type.
+4. Update the legacy application and integration test to compose LBF acquisition, LBF semantic mapping, and blink processing.
+5. Add focused tests for semantic ordering, invalid source topology, non-finite coordinates, EAR equivalence, blink transitions, and recovery.
+6. Build and run focused and real-image regression tests on Windows x64 and Orin aarch64.
+
+### Step 8 acceptance gate
+
+- `BlinkTracker` contains no raw facial-topology indices such as `36–47` and does not accept a full 68-point landmark vector.
+- The common eye type has exactly six explicitly documented ordered points for each subject eye.
+- LBF-specific indices exist only in the LBF semantic mapper.
+- Existing EAR values, eye-state transitions, blink counts, and invalid-input recovery remain unchanged.
+- The established real-image YuNet/LBF regression produces the same face box, 68 source landmarks, and EAR values on Windows and Orin.
+- No MediaPipe indices or MediaPipe-specific headers/types are introduced; MediaPipe mapping remains Step 9.
+- The existing CMake application and all focused tests pass on Windows x64 and Orin aarch64.
+- Validation evidence and implementation commits are recorded before Step 8 is marked `COMPLETE`.
+
 ### Step 7 acceptance gate (completed)
 
 - Move LBF model loading and `cv::face::Facemark::fit()` into a dedicated landmark-acquisition component.

@@ -2,6 +2,7 @@
 #include "FaceDetector.hpp"
 #include "BlinkTracker.hpp"
 #include "LbfLandmarkDetector.hpp"
+#include "LbfEyeLandmarkMapper.hpp"
 
 #include <opencv2/opencv.hpp>
 
@@ -247,11 +248,18 @@ int main()
                         faceBox,
                         landmarks))
                 {
-                    landmarkSuccess =
-                        blinkTracker.process(
-                            frame,
-                            landmarks
-                        );
+                    SemanticEyeLandmarks eyeLandmarks;
+
+                    if (mapLbfEyeLandmarks(
+                            landmarks,
+                            eyeLandmarks))
+                    {
+                        landmarkSuccess =
+                            blinkTracker.process(
+                                frame,
+                                eyeLandmarks
+                            );
+                    }
                 }
 
                 cv::rectangle(

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "EyeLandmarks.hpp"
+
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 
@@ -14,11 +16,11 @@ public:
     explicit BlinkTracker(
         double earThreshold);
 
-    // Process one frame using caller-supplied 68-point landmarks.
+    // Process one frame using backend-neutral semantic eye landmarks.
     // Returns true when the landmarks were valid and processed.
     bool process(
         cv::Mat& frame,
-        const std::vector<cv::Point2f>& landmarks);
+        const SemanticEyeLandmarks& landmarks);
 
     // Compatibility API used by existing main.cpp.
     double getEAR() const;
@@ -34,11 +36,11 @@ public:
 
 private:
     double calculateEAR(
-        const std::vector<cv::Point2f>& eyePoints) const;
+        const EyeLandmarks& eye) const;
 
     void drawEyeLandmarks(
         cv::Mat& frame,
-        const std::vector<cv::Point2f>& eyePoints,
+        const EyeLandmarks& eye,
         const std::string& label,
         bool rightEye) const;
 

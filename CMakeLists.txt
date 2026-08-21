@@ -36,6 +36,7 @@ add_executable(yunet_demo
     src/AppPaths.cpp
     src/FaceDetector.cpp
     src/LbfLandmarkDetector.cpp
+    src/LbfEyeLandmarkMapper.cpp
     src/BlinkTracker.cpp
 )
 
@@ -195,10 +196,32 @@ if(BUILD_TESTING)
         COMMAND blink_tracker_test
     )
 
+    add_executable(lbf_eye_landmark_mapper_test
+        tests/lbf_eye_landmark_mapper_test.cpp
+        src/LbfEyeLandmarkMapper.cpp
+    )
+
+    target_include_directories(lbf_eye_landmark_mapper_test
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/include
+            ${OpenCV_INCLUDE_DIRS}
+    )
+
+    target_link_libraries(lbf_eye_landmark_mapper_test
+        PRIVATE
+            ${OpenCV_LIBS}
+    )
+
+    add_test(
+        NAME lbf_eye_landmark_mapper_test
+        COMMAND lbf_eye_landmark_mapper_test
+    )
+
     add_executable(legacy_blink_integration_test
         tests/legacy_blink_integration_test.cpp
         src/FaceDetector.cpp
         src/LbfLandmarkDetector.cpp
+        src/LbfEyeLandmarkMapper.cpp
         src/BlinkTracker.cpp
     )
 

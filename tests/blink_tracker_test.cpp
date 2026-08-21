@@ -9,23 +9,22 @@
 
 namespace
 {
-std::vector<cv::Point2f> makeLandmarks(float halfEyeHeight)
+EyeLandmarks makeEye(float halfEyeHeight, float xOffset)
 {
-    std::vector<cv::Point2f> points(68, cv::Point2f(100.0f, 100.0f));
+    return {
+        cv::Point2f(xOffset + 0.0f, 100.0f),
+        cv::Point2f(xOffset + 2.0f, 100.0f - halfEyeHeight),
+        cv::Point2f(xOffset + 8.0f, 100.0f - halfEyeHeight),
+        cv::Point2f(xOffset + 10.0f, 100.0f),
+        cv::Point2f(xOffset + 8.0f, 100.0f + halfEyeHeight),
+        cv::Point2f(xOffset + 2.0f, 100.0f + halfEyeHeight)};
+}
 
-    const auto setEye = [&](int start, float xOffset)
-    {
-        points[start + 0] = cv::Point2f(xOffset + 0.0f, 100.0f);
-        points[start + 1] = cv::Point2f(xOffset + 2.0f, 100.0f - halfEyeHeight);
-        points[start + 2] = cv::Point2f(xOffset + 8.0f, 100.0f - halfEyeHeight);
-        points[start + 3] = cv::Point2f(xOffset + 10.0f, 100.0f);
-        points[start + 4] = cv::Point2f(xOffset + 8.0f, 100.0f + halfEyeHeight);
-        points[start + 5] = cv::Point2f(xOffset + 2.0f, 100.0f + halfEyeHeight);
-    };
-
-    setEye(36, 100.0f);
-    setEye(42, 140.0f);
-    return points;
+SemanticEyeLandmarks makeLandmarks(float halfEyeHeight)
+{
+    return {
+        makeEye(halfEyeHeight, 100.0f),
+        makeEye(halfEyeHeight, 140.0f)};
 }
 
 bool near(double actual, double expected)
@@ -76,17 +75,9 @@ int main()
         return 1;
     }
 
-    std::vector<cv::Point2f> tooShort(47);
-    if (!check(!tracker.process(frame, tooShort), "short landmarks should fail") ||
-        !check(!tracker.isLandmarkValid(), "short landmarks should be invalid") ||
-        !check(!tracker.isEyeClosed(), "invalid landmarks should clear closed state") ||
-        !check(near(tracker.getAverageEAR(), 0.0), "invalid landmarks should clear EAR"))
-    {
-        return 1;
-    }
-
     auto nonFinite = open;
-    nonFinite[36].x = std::numeric_limits<float>::quiet_NaN();
+    nonFinite.rightEye.outerCorner.x =
+        std::numeric_limits<float>::quiet_NaN();
     if (!check(!tracker.process(frame, nonFinite), "non-finite landmarks should fail") ||
         !check(tracker.process(frame, open), "valid landmarks should recover") ||
         !check(tracker.isLandmarkValid(), "recovered landmarks should be valid") ||

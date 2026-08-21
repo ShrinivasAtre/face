@@ -52,25 +52,22 @@ BlinkTracker::BlinkTracker(
 
 
 double BlinkTracker::calculateEAR(
-    const std::vector<cv::Point2f>& eyePoints) const
+    const EyeLandmarks& eye) const
 {
-    if (eyePoints.size() != 6)
-        return 0.0;
-
     const double vertical1 =
         cv::norm(
-            eyePoints[1] -
-            eyePoints[5]);
+            eye.upperOuterLid -
+            eye.lowerOuterLid);
 
     const double vertical2 =
         cv::norm(
-            eyePoints[2] -
-            eyePoints[4]);
+            eye.upperInnerLid -
+            eye.lowerInnerLid);
 
     const double horizontal =
         cv::norm(
-            eyePoints[0] -
-            eyePoints[3]);
+            eye.outerCorner -
+            eye.innerCorner);
 
     if (horizontal < 1e-6)
         return 0.0;
@@ -83,12 +80,17 @@ double BlinkTracker::calculateEAR(
 
 void BlinkTracker::drawEyeLandmarks(
     cv::Mat& frame,
-    const std::vector<cv::Point2f>& eyePoints,
+    const EyeLandmarks& eye,
     const std::string& label,
     bool rightEye) const
 {
-    if (eyePoints.size() != 6)
-        return;
+    const cv::Point2f eyePoints[] = {
+        eye.outerCorner,
+        eye.upperOuterLid,
+        eye.upperInnerLid,
+        eye.innerCorner,
+        eye.lowerInnerLid,
+        eye.lowerOuterLid};
 
     const cv::Scalar pointColor =
         rightEye
@@ -101,7 +103,7 @@ void BlinkTracker::drawEyeLandmarks(
             : cv::Scalar(200, 200, 0);
 
     for (size_t i = 0;
-         i < eyePoints.size();
+         i < 6;
          ++i)
     {
         const cv::Point2f& p =
@@ -142,7 +144,7 @@ void BlinkTracker::drawEyeLandmarks(
 
 bool BlinkTracker::process(
     cv::Mat& frame,
-    const std::vector<cv::Point2f>& points)
+    const SemanticEyeLandmarks& landmarks)
 {
     landmarkValid_ = false;
 
@@ -150,11 +152,25 @@ bool BlinkTracker::process(
     leftEAR_ = 0.0;
     averageEAR_ = 0.0;
 
-    if (frame.empty() || points.size() < 48)
+    if (frame.empty())
     {
         eyeClosed_ = false;
         return false;
     }
+
+    const cv::Point2f points[] = {
+        landmarks.rightEye.outerCorner,
+        landmarks.rightEye.upperOuterLid,
+        landmarks.rightEye.upperInnerLid,
+        landmarks.rightEye.innerCorner,
+        landmarks.rightEye.lowerInnerLid,
+        landmarks.rightEye.lowerOuterLid,
+        landmarks.leftEye.outerCorner,
+        landmarks.leftEye.upperOuterLid,
+        landmarks.leftEye.upperInnerLid,
+        landmarks.leftEye.innerCorner,
+        landmarks.leftEye.lowerInnerLid,
+        landmarks.leftEye.lowerOuterLid};
 
     for (const cv::Point2f& point : points)
     {
@@ -165,24 +181,11 @@ bool BlinkTracker::process(
         }
     }
 
-    // Standard 68-point facial landmark layout:
-    //
-    // Right eye: 36 - 41
-    // Left eye : 42 - 47
-
-    std::vector<cv::Point2f> rightEye(
-        points.begin() + 36,
-        points.begin() + 42);
-
-    std::vector<cv::Point2f> leftEye(
-        points.begin() + 42,
-        points.begin() + 48);
-
     rightEAR_ =
-        calculateEAR(rightEye);
+        calculateEAR(landmarks.rightEye);
 
     leftEAR_ =
-        calculateEAR(leftEye);
+        calculateEAR(landmarks.leftEye);
 
     averageEAR_ =
         (rightEAR_ + leftEAR_) / 2.0;
@@ -216,13 +219,13 @@ bool BlinkTracker::process(
     // Draw eye landmarks.
     drawEyeLandmarks(
         frame,
-        rightEye,
+        landmarks.rightEye,
         "R",
         true);
 
     drawEyeLandmarks(
         frame,
-        leftEye,
+        landmarks.leftEye,
         "L",
         false);
 

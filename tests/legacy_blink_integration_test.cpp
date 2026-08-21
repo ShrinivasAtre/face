@@ -1,6 +1,7 @@
 #include "BlinkTracker.hpp"
 #include "FaceDetector.hpp"
 #include "LbfLandmarkDetector.hpp"
+#include "LbfEyeLandmarkMapper.hpp"
 
 #include <opencv2/imgcodecs.hpp>
 
@@ -53,7 +54,9 @@ int main(int argc, char** argv)
     }
 
     BlinkTracker blinkTracker(0.27);
-    if (!blinkTracker.process(frame, landmarks) ||
+    SemanticEyeLandmarks eyeLandmarks;
+    if (!mapLbfEyeLandmarks(landmarks, eyeLandmarks) ||
+        !blinkTracker.process(frame, eyeLandmarks) ||
         !blinkTracker.isLandmarkValid())
     {
         std::cerr << "BlinkTracker rejected LBF landmarks" << std::endl;

@@ -15,13 +15,13 @@ Update it whenever a step changes state. Do not mark a step complete until its a
 
 - Repository: `ShrinivasAtre/face`
 - Branch: `feature/mediapipe-step1-backend-interface`
-- Last completed step: **Step 7**
-- Next formal step: **Step 8 — Introduce semantic eye landmarks**
-- Step 7 implementation commits: `b66b3e12a776f2d7f2d6ee3e4eec53d3178dffc0`, `24a08950f7677158949d4fc6c6b415ecfd479be4`
+- Last completed step: **Step 8**
+- Next formal step: **Step 9 — MediaPipe eye-landmark mapping**
+- Step 8 implementation commit: `2bfb63fa3abc96d8fa26aee91d1eba7e61083b90`
 - Bazel: `7.4.1`
 - MediaPipe release: `v0.10.33`
 - Pinned MediaPipe commit: `3987048d4b390aa9ae675c796f6421bbeece6511`
-- Formal progress: **7 of 16 steps complete (43.75%)**
+- Formal progress: **8 of 16 steps complete (50%)**
 
 ## Baseline requirements
 
@@ -56,7 +56,7 @@ These requirements are non-negotiable throughout the program.
 | 5 | BGR to MediaPipe image conversion | COMPLETE | Private conversion helper and focused tests validate channel order, compact rows, padded strides, invalid inputs, and overflow. Bridge rebuilds and real-image regressions passed on Windows x64 and Orin aarch64. |
 | 6 | Extract/normalize MediaPipe landmarks | COMPLETE | A private, tested conversion layer converts normalized x/y to image pixels, preserves z, enforces caller capacity, computes a clamped bounding box from all source points, resets empty results, and rejects invalid/non-finite input. Focused tests, bridge builds, and real-image regressions passed on Windows x64 and Orin aarch64. |
 | 7 | Decouple blink tracker from LBF | COMPLETE | `LbfLandmarkDetector` owns model loading and fitting; `BlinkTracker` consumes supplied landmarks and reports processing success separately from eye state. Focused and real-image legacy integration tests pass on Windows x64 and Orin aarch64. |
-| 8 | Introduce semantic eye landmarks | PARTIAL | A six-point semantic eye contract and LBF-specific mapper are implemented; `BlinkTracker` consumes only semantic eyes. Windows build and all focused/real-image tests pass. Orin validation remains. |
+| 8 | Introduce semantic eye landmarks | COMPLETE | A six-point semantic eye contract and LBF-specific mapper isolate topology from `BlinkTracker`. Focused ordering/state tests and unchanged real-image regressions pass on Windows x64 and Orin aarch64. |
 | 9 | MediaPipe eye-landmark mapping | NOT STARTED | No accepted mapping from MediaPipe's 478-point topology to semantic eye landmarks exists. |
 | 10 | Self-contained DLL/SO | PARTIAL | The MediaPipe implementation is isolated in a shared library, but Windows depends on `opencv_world480.dll` and Orin uses system shared libraries. Packaging policy and validation remain. |
 | 11 | Pin/build MediaPipe dependency | PARTIAL | MediaPipe is pinned and clean fetch/build validation passed on both platforms. Retain this as a formal later gate until its complete acceptance criteria are recorded and passed. |
@@ -148,6 +148,19 @@ Both platforms used `IMG-20150331-WA0001.jpg`:
 - Both platforms detected one face, produced 68 LBF landmarks, and reported identical bbox `x=246 y=437 w=338 h=452`, right EAR `0.225832`, and left EAR `0.238513` on the established test image.
 - Implementation commits: `b66b3e12a776f2d7f2d6ee3e4eec53d3178dffc0`, `24a08950f7677158949d4fc6c6b415ecfd479be4`.
 
+### Step 8 — Introduce semantic eye landmarks
+
+- Added a backend-neutral six-point semantic contract for each subject eye: outer corner, upper outer lid, upper inner lid, inner corner, lower inner lid, and lower outer lid.
+- `BlinkTracker` now consumes only the semantic right/left eye representation and contains no raw facial-topology indices or full 68-point input API.
+- LBF indices `36–47` are confined to `LbfEyeLandmarkMapper`.
+- The LBF left eye is deliberately reordered from topology order `42–47` to semantic outer-to-inner order `45,44,43,42,47,46`; EAR pairings remain equivalent.
+- Focused tests validate semantic EAR/state behavior, exact LBF ordering, short source topology, non-finite coordinates, result reset, blink transitions, and recovery.
+- Windows x64 and Orin aarch64 CMake builds and all three CTests passed without requiring a live camera.
+- The established real-image regression remained identical on both platforms: one face, 68 LBF landmarks, bbox `x=246 y=437 w=338 h=452`, right EAR `0.225832`, and left EAR `0.238513`.
+- Orin application and test binaries were confirmed as ARM aarch64 with no unresolved dependencies.
+- No MediaPipe topology or type was introduced; MediaPipe semantic mapping remains Step 9.
+- Implementation commit: `2bfb63fa3abc96d8fa26aee91d1eba7e61083b90`.
+
 ## Historical YuNet/LBF observations
 
 The repository contains earlier manual YuNet/LBF robustness results. They record blink over-counting, sensitivity to distance and lighting, and imperfect eye-landmark placement. These are historical observations about the legacy implementation and must not be misclassified as failures of the new MediaPipe bridge.
@@ -169,9 +182,9 @@ For every step:
 
 ## Next checkpoint
 
-Begin **Step 8 — Introduce semantic eye landmarks**.
+Begin **Step 9 — MediaPipe eye-landmark mapping**.
 
-Do not redesign Steps 1–7. Define a backend-neutral semantic representation for the six ordered points of each eye, then make blink processing consume that representation instead of raw 68-point topology indices.
+Do not redesign Steps 1–8. Define and validate the MediaPipe 478-point indices that map into the established semantic right/left eye contract.
 
 ### Step 8 objective
 
@@ -197,7 +210,7 @@ The ordering preserves the current EAR pairs `(1,5)`, `(2,4)`, and horizontal pa
 5. Add focused tests for semantic ordering, invalid source topology, non-finite coordinates, EAR equivalence, blink transitions, and recovery.
 6. Build and run focused and real-image regression tests on Windows x64 and Orin aarch64.
 
-### Step 8 acceptance gate
+### Step 8 acceptance gate (completed)
 
 - `BlinkTracker` contains no raw facial-topology indices such as `36–47` and does not accept a full 68-point landmark vector.
 - The common eye type has exactly six explicitly documented ordered points for each subject eye.

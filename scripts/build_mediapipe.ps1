@@ -152,18 +152,23 @@ Copy-Item (Join-Path $RepoRoot 'mediapipe\api\FaceMediaPipe.h') (Join-Path $Brid
 Copy-Item (Join-Path $RepoRoot 'mediapipe\src\FaceMediaPipe.cpp') (Join-Path $BridgeRoot 'src\FaceMediaPipe.cpp')
 Copy-Item (Join-Path $RepoRoot 'mediapipe\src\BgrToRgb.cpp') (Join-Path $BridgeRoot 'src\BgrToRgb.cpp')
 Copy-Item (Join-Path $RepoRoot 'mediapipe\src\BgrToRgb.h') (Join-Path $BridgeRoot 'src\BgrToRgb.h')
+Copy-Item (Join-Path $RepoRoot 'mediapipe\src\LandmarkConversion.cpp') (Join-Path $BridgeRoot 'src\LandmarkConversion.cpp')
+Copy-Item (Join-Path $RepoRoot 'mediapipe\src\LandmarkConversion.h') (Join-Path $BridgeRoot 'src\LandmarkConversion.h')
 Copy-Item (Join-Path $RepoRoot 'tests\bgr_to_rgb_test.cpp') (Join-Path $BridgeRoot 'tests\bgr_to_rgb_test.cpp')
+Copy-Item (Join-Path $RepoRoot 'tests\landmark_conversion_test.cpp') (Join-Path $BridgeRoot 'tests\landmark_conversion_test.cpp')
 
 $BridgeBuild = @'
 cc_library(
     name = "FaceMediaPipe_impl",
     srcs = [
         "src/BgrToRgb.cpp",
+        "src/LandmarkConversion.cpp",
         "src/FaceMediaPipe.cpp",
     ],
     hdrs = [
         "api/FaceMediaPipe.h",
         "src/BgrToRgb.h",
+        "src/LandmarkConversion.h",
     ],
     deps = [
         "//mediapipe/framework/formats:image_frame",
@@ -189,6 +194,18 @@ cc_test(
         "tests/bgr_to_rgb_test.cpp",
     ],
     includes = ["src"],
+)
+cc_test(
+    name = "landmark_conversion_test",
+    srcs = [
+        "src/LandmarkConversion.cpp",
+        "src/LandmarkConversion.h",
+        "tests/landmark_conversion_test.cpp",
+    ],
+    includes = [
+        "api",
+        "src",
+    ],
 )
 '@
 Write-Utf8NoBom (Join-Path $BridgeRoot 'BUILD.bazel') $BridgeBuild

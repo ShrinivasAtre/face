@@ -1,10 +1,12 @@
 #include "../api/FaceMediaPipe.h"
 #include "BgrToRgb.h"
+#include "LandmarkConversion.h"
 
 #include <algorithm>
 #include <cmath>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "mediapipe/framework/formats/image.h"
 #include "mediapipe/framework/formats/image_frame.h"
@@ -136,45 +138,28 @@ extern "C" FACE_MEDIAPIPE_API int32_t face_mp_process_bgr(
     }
 
     const auto& landmarks = detection.face_landmarks.front().landmarks;
-    const int count = std::min<int>(
-        static_cast<int>(landmarks.size()),
-        result->landmark_capacity);
 
-    float min_x = static_cast<float>(width);
-    float min_y = static_cast<float>(height);
-    float max_x = 0.0f;
-    float max_y = 0.0f;
+    std::vector<face_mp_internal::NormalizedLandmark> normalized;
+    normalized.reserve(landmarks.size());
 
-    for (int i = 0; i < count; ++i)
+    for (const auto& landmark : landmarks)
     {
-        const auto& landmark = landmarks[i];
-
-        const float x =
-            landmark.x * static_cast<float>(width);
-        const float y =
-            landmark.y * static_cast<float>(height);
-
-        result->landmarks[i].x = x;
-        result->landmarks[i].y = y;
-        result->landmarks[i].z = landmark.z;
-
-        min_x = std::min(min_x, x);
-        min_y = std::min(min_y, y);
-        max_x = std::max(max_x, x);
-        max_y = std::max(max_y, y);
+        normalized.push_back({
+            landmark.x,
+            landmark.y,
+            landmark.z,
+        });
     }
 
-    result->landmark_count = count;
-    result->detected = count > 0 ? 1 : 0;
-
-    if (result->detected)
+    if (!face_mp_internal::write_face_result(
+            normalized.data(),
+            static_cast<int32_t>(normalized.size()),
+            width,
+            height,
+            result))
     {
-        result->face_x = static_cast<int32_t>(std::floor(min_x));
-        result->face_y = static_cast<int32_t>(std::floor(min_y));
-        result->face_width = static_cast<int32_t>(
-            std::ceil(max_x) - std::floor(min_x));
-        result->face_height = static_cast<int32_t>(
-            std::ceil(max_y) - std::floor(min_y));
+        handle->last_error = "Landmark conversion failed";
+        return 0;
     }
 
     handle->last_error.clear();

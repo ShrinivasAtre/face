@@ -58,7 +58,10 @@ cp "${REPO_ROOT}/mediapipe/api/FaceMediaPipe.h" "${BRIDGE_ROOT}/api/FaceMediaPip
 cp "${REPO_ROOT}/mediapipe/src/FaceMediaPipe.cpp" "${BRIDGE_ROOT}/src/FaceMediaPipe.cpp"
 cp "${REPO_ROOT}/mediapipe/src/BgrToRgb.cpp" "${BRIDGE_ROOT}/src/BgrToRgb.cpp"
 cp "${REPO_ROOT}/mediapipe/src/BgrToRgb.h" "${BRIDGE_ROOT}/src/BgrToRgb.h"
+cp "${REPO_ROOT}/mediapipe/src/LandmarkConversion.cpp" "${BRIDGE_ROOT}/src/LandmarkConversion.cpp"
+cp "${REPO_ROOT}/mediapipe/src/LandmarkConversion.h" "${BRIDGE_ROOT}/src/LandmarkConversion.h"
 cp "${REPO_ROOT}/tests/bgr_to_rgb_test.cpp" "${BRIDGE_ROOT}/tests/bgr_to_rgb_test.cpp"
+cp "${REPO_ROOT}/tests/landmark_conversion_test.cpp" "${BRIDGE_ROOT}/tests/landmark_conversion_test.cpp"
 
 # A cc_library with linkstatic=False can produce a .so that still contains
 # unresolved references to its transitive MediaPipe dependencies. Build the
@@ -71,11 +74,13 @@ cc_library(
     name = "FaceMediaPipe_impl",
     srcs = [
         "src/BgrToRgb.cpp",
+        "src/LandmarkConversion.cpp",
         "src/FaceMediaPipe.cpp",
     ],
     hdrs = [
         "api/FaceMediaPipe.h",
         "src/BgrToRgb.h",
+        "src/LandmarkConversion.h",
     ],
     deps = [
         "//mediapipe/framework/formats:image_frame",
@@ -101,6 +106,18 @@ cc_test(
         "tests/bgr_to_rgb_test.cpp",
     ],
     includes = ["src"],
+)
+cc_test(
+    name = "landmark_conversion_test",
+    srcs = [
+        "src/LandmarkConversion.cpp",
+        "src/LandmarkConversion.h",
+        "tests/landmark_conversion_test.cpp",
+    ],
+    includes = [
+        "api",
+        "src",
+    ],
 )
 EOF
 

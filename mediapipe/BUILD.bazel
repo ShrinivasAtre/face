@@ -4,11 +4,13 @@ cc_library(
     name = "FaceMediaPipe",
     srcs = [
         "src/BgrToRgb.cpp",
+        "src/LandmarkConversion.cpp",
         "src/FaceMediaPipe.cpp",
     ],
     hdrs = [
         "api/FaceMediaPipe.h",
         "src/BgrToRgb.h",
+        "src/LandmarkConversion.h",
     ],
     includes = ["api"],
     deps = [
@@ -26,4 +28,17 @@ cc_test(
         "../tests/bgr_to_rgb_test.cpp",
     ],
     includes = ["src"],
+)
+
+cc_test(
+    name = "landmark_conversion_test",
+    srcs = [
+        "src/LandmarkConversion.cpp",
+        "src/LandmarkConversion.h",
+        "../tests/landmark_conversion_test.cpp",
+    ],
+    includes = [
+        "api",
+        "src",
+    ],
 )

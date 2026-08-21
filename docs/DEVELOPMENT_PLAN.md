@@ -15,13 +15,13 @@ Update it whenever a step changes state. Do not mark a step complete until its a
 
 - Repository: `ShrinivasAtre/face`
 - Branch: `feature/mediapipe-step1-backend-interface`
-- Last completed step: **Step 9**
-- Next formal step: **Step 10 — Self-contained DLL/SO**
-- Step 9 implementation commit: `94dc7ab02d0cf8f15ba732a841ff7622af2334d5`
+- Last completed step: **Step 10**
+- Next formal step: **Step 11 — Pin/build MediaPipe dependency**
+- Step 10 implementation commits: `b029605919e90ebe30fda7164c1327895552cb61`, `beb495a3323211ae76e741e9608179c7fc5f0a72`
 - Bazel: `7.4.1`
 - MediaPipe release: `v0.10.33`
 - Pinned MediaPipe commit: `3987048d4b390aa9ae675c796f6421bbeece6511`
-- Formal progress: **9 of 16 steps complete (56%)**
+- Formal progress: **10 of 16 steps complete (63%)**
 
 ## Baseline requirements
 
@@ -58,7 +58,7 @@ These requirements are non-negotiable throughout the program.
 | 7 | Decouple blink tracker from LBF | COMPLETE | `LbfLandmarkDetector` owns model loading and fitting; `BlinkTracker` consumes supplied landmarks and reports processing success separately from eye state. Focused and real-image legacy integration tests pass on Windows x64 and Orin aarch64. |
 | 8 | Introduce semantic eye landmarks | COMPLETE | A six-point semantic eye contract and LBF-specific mapper isolate topology from `BlinkTracker`. Focused ordering/state tests and unchanged real-image regressions pass on Windows x64 and Orin aarch64. |
 | 9 | MediaPipe eye-landmark mapping | COMPLETE | A dedicated mapper converts the documented twelve indices from the 478-point topology into semantic right/left eyes. Focused tests and unchanged legacy regressions passed on Windows x64 and Orin aarch64. |
-| 10 | Self-contained DLL/SO | IN PROGRESS | Define the supported platform dependency boundary, add reproducible bridge-package scripts and manifests, and smoke-test clean deploy directories on Windows x64 and Orin aarch64. |
+| 10 | Self-contained DLL/SO | COMPLETE | Deterministic packaging scripts stage the bridge boundary and manifests. Clean packaged-runtime smoke tests passed on Windows x64 and Orin aarch64 with no external MediaPipe/TFLite/Abseil libraries. |
 | 11 | Pin/build MediaPipe dependency | PARTIAL | MediaPipe is pinned and clean fetch/build validation passed on both platforms. Retain this as a formal later gate until its complete acceptance criteria are recorded and passed. |
 | 12 | Runtime DLL/SO loading | NOT STARTED | The main application has no accepted `LoadLibrary`/`dlopen` abstraction and does not consume the C ABI. |
 | 13 | CMake integration | NOT STARTED | CMake builds the existing YuNet/LBF application but does not yet configure or stage the MediaPipe bridge. |
@@ -175,6 +175,24 @@ Both platforms used `IMG-20150331-WA0001.jpg`:
 - `BlinkTracker` and the legacy application path were not changed, and no live camera was required.
 - Implementation commit: `94dc7ab02d0cf8f15ba732a841ff7622af2334d5`.
 
+### Step 10 — Self-contained DLL/SO
+
+- Added committed Windows and Linux packaging scripts with deterministic manifests, payload SHA-256 hashes, architecture checks, direct dependency inspection, exact C ABI export checks, and forbidden MediaPipe/TFLite/TensorFlow/Protobuf/Abseil runtime-dependency checks.
+- Added optional packaged-runtime inputs to the existing smoke scripts so validation uses staged payloads rather than silently loading the Bazel output.
+- The package boundary retains MediaPipe, TFLite, Abseil, and other Bazel implementation code inside the single bridge library.
+- Windows packages `FaceMediaPipe.dll` and matching `opencv_world480.dll`; Windows system DLLs and the compatible Microsoft Visual C++ runtime remain documented platform prerequisites.
+- Orin packages `libFaceMediaPipe.so`; OpenCV 4.8, EGL/GLES, the GNU C/C++ runtime, and the JetPack multimedia stack remain documented target-platform ABI prerequisites.
+- Fresh Windows MediaPipe fetch/build passed at pinned commit `3987048d4b390aa9ae675c796f6421bbeece6511`; the build completed 4,530 actions in 3,929 seconds.
+- Windows package reproduction produced identical manifest and payload hashes. Manifest SHA-256: `43b1a67a8d309e58a8e795c5eaa5a983817d6b7d728e6d2e0afcc7f848a36246`; bridge SHA-256: `7da6154bd7c51addf1a80fb9dfbd8122269c82030f90049ee56ef36cbfce89f4`.
+- The packaged Windows runtime smoke test passed with one face, 478 landmarks, and bbox `x=243 y=491 w=350 h=410`.
+- Fresh Orin MediaPipe fetch/build passed at the same pinned commit; the conservative build completed 3,217 actions in 3,752 seconds.
+- Orin package reproduction passed byte-for-byte. Manifest SHA-256: `f57839c5deabb2919e393f6f449fa5339410d28a1fdefcec530d52d7ede204cf`; bridge SHA-256: `f216082eb9f8b36809e2531f3e4c8c0c4a28effb6515ea55a262bae2da18822e`.
+- The packaged Orin runtime was confirmed ARM aarch64 with no unresolved dependency, and its smoke test passed with one face, 478 landmarks, and the same bbox.
+- Both packages expose exactly the established five `face_mp_*` functions and contain no `.task` model; model deployment remains Step 14.
+- Generated `dist/` output is ignored so re-packaging leaves both fresh validation repositories clean.
+- No live camera was required.
+- Implementation commits: `b029605919e90ebe30fda7164c1327895552cb61`, `beb495a3323211ae76e741e9608179c7fc5f0a72`.
+
 ## Historical YuNet/LBF observations
 
 The repository contains earlier manual YuNet/LBF robustness results. They record blink over-counting, sensitivity to distance and lighting, and imperfect eye-landmark placement. These are historical observations about the legacy implementation and must not be misclassified as failures of the new MediaPipe bridge.
@@ -196,9 +214,9 @@ For every step:
 
 ## Next checkpoint
 
-Begin **Step 10 — Self-contained DLL/SO**.
+Begin **Step 11 — Pin/build MediaPipe dependency**.
 
-Do not redesign Steps 1–9. Define the practical dependency-packaging boundary for `FaceMediaPipe.dll` and `libFaceMediaPipe.so`, then validate deployment from clean target layouts.
+Do not redesign Steps 1–10. Consolidate the already-pinned dependency and platform build procedure into its formal Step 11 acceptance gate without replacing the application's CMake build system.
 
 ### Step 10 objective
 
@@ -220,7 +238,7 @@ The Step 10 package boundary is:
 6. Verify the five C ABI exports, architecture, dependency resolution, deterministic re-packaging, and repository cleanliness on both platforms.
 7. Record validation evidence and commits before marking Step 10 complete.
 
-### Step 10 acceptance gate
+### Step 10 acceptance gate (completed)
 
 - Each committed packaging script produces a clean deploy directory using only explicit build outputs and documented platform inputs.
 - Windows output contains `FaceMediaPipe.dll`, `opencv_world480.dll`, and a manifest; the DLL is x64 and all direct dependencies resolve from the package or supported Windows platform/runtime locations.

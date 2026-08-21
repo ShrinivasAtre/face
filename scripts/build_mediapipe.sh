@@ -16,6 +16,8 @@ if [[ ! -f "${MEDIAPIPE_ROOT}/WORKSPACE" ]]; then
     exit 1
 fi
 
+"${SCRIPT_DIR}/verify_mediapipe_dependency.sh"
+
 # MediaPipe v0.10.33 references internal analytics protos that are not shipped
 # in the OSS checkout. The Face Landmarker path uses the dummy logger, which
 # does not need those analytics types. Apply the smallest compatibility patch:

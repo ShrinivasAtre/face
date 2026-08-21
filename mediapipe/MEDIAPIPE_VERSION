@@ -1,7 +1,2 @@
-# MediaPipe revision selected for the Face Landmarker C++ backend.
-#
-# Release: v0.10.33
-# Commit: 3987048
-#
-# This is intentionally pinned. Do not replace it with MediaPipe master without
-# re-validating the C++ API and Windows/Orin builds.
+MEDIAPIPE_TAG=v0.10.33
+MEDIAPIPE_COMMIT=3987048d4b390aa9ae675c796f6421bbeece6511

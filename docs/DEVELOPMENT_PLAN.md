@@ -235,7 +235,7 @@ Make the MediaPipe dependency selection and bridge build procedure mechanically 
 
 ### Step 11 acceptance gate
 
-- `mediapipe/MEDIAPIPE_VERSION` is the only repository source of the MediaPipe tag and full commit hash used by fetch/build automation.
+- `mediapipe/MEDIAPIPE_VERSION` is the only automation source of the MediaPipe tag and full commit hash used by fetch/build scripts.
 - `.bazelversion` pins Bazel `7.4.1`, and verification rejects a different effective Bazel version.
 - Windows and Linux verification reject an unexpected MediaPipe origin, tag target, checkout commit, missing workspace, or malformed version file.
 - Both fetch scripts are idempotent and finish detached at exact commit `3987048d4b390aa9ae675c796f6421bbeece6511` for tag `v0.10.33`.

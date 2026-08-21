@@ -10,10 +10,13 @@ $TasksLoggingBuild = Join-Path $MediaPipeRoot 'mediapipe\tasks\cc\core\logging\B
 $TasksDummyLogger = Join-Path $MediaPipeRoot 'mediapipe\tasks\cc\core\logging\tasks_dummy_logger.h'
 $GpuServiceSrc = Join-Path $MediaPipeRoot 'mediapipe\gpu\gpu_service.cc'
 $Api3PatchScript = Join-Path $PSScriptRoot 'patch_mediapipe_windows_api3.ps1'
+$VerifyDependencyScript = Join-Path $PSScriptRoot 'verify_mediapipe_dependency.ps1'
 
 if (-not (Test-Path (Join-Path $MediaPipeRoot 'WORKSPACE'))) {
     throw "MediaPipe workspace not found at $MediaPipeRoot. Run scripts\fetch_mediapipe.ps1 first."
 }
+
+& $VerifyDependencyScript
 
 # Keep all Windows compatibility patches inside the normal build flow so a
 # fresh clone needs only fetch_mediapipe.ps1 followed by build_mediapipe.ps1.

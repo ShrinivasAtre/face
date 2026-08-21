@@ -15,13 +15,13 @@ Update it whenever a step changes state. Do not mark a step complete until its a
 
 - Repository: `ShrinivasAtre/face`
 - Branch: `feature/mediapipe-step1-backend-interface`
-- Last completed step: **Step 6**
-- Next formal step: **Step 7 — Decouple blink tracker from LBF**
-- Step 6 implementation commits: `d1617b1cba10c714290ee912a170b58bff9bdd2e`, `86b84e99f7af5c1c41d2617f8817d8f008e88028`
+- Last completed step: **Step 7**
+- Next formal step: **Step 8 — Introduce semantic eye landmarks**
+- Step 7 implementation commits: `b66b3e12a776f2d7f2d6ee3e4eec53d3178dffc0`, `24a08950f7677158949d4fc6c6b415ecfd479be4`
 - Bazel: `7.4.1`
 - MediaPipe release: `v0.10.33`
 - Pinned MediaPipe commit: `3987048d4b390aa9ae675c796f6421bbeece6511`
-- Formal progress: **6 of 16 steps complete (37.5%)**
+- Formal progress: **7 of 16 steps complete (43.75%)**
 
 ## Baseline requirements
 
@@ -55,7 +55,7 @@ These requirements are non-negotiable throughout the program.
 | 4 | Implement MediaPipe backend | COMPLETE | Fresh-clone Windows x64 and Orin aarch64 builds and smoke tests passed. Linux script executable modes were corrected and committed in `09314d2`. |
 | 5 | BGR to MediaPipe image conversion | COMPLETE | Private conversion helper and focused tests validate channel order, compact rows, padded strides, invalid inputs, and overflow. Bridge rebuilds and real-image regressions passed on Windows x64 and Orin aarch64. |
 | 6 | Extract/normalize MediaPipe landmarks | COMPLETE | A private, tested conversion layer converts normalized x/y to image pixels, preserves z, enforces caller capacity, computes a clamped bounding box from all source points, resets empty results, and rejects invalid/non-finite input. Focused tests, bridge builds, and real-image regressions passed on Windows x64 and Orin aarch64. |
-| 7 | Decouple blink tracker from LBF | PARTIAL | LBF acquisition is separated from `BlinkTracker`, processing success is distinct from eye state, and focused Windows build/tests pass. Orin build/tests and legacy-path runtime validation remain. |
+| 7 | Decouple blink tracker from LBF | COMPLETE | `LbfLandmarkDetector` owns model loading and fitting; `BlinkTracker` consumes supplied landmarks and reports processing success separately from eye state. Focused and real-image legacy integration tests pass on Windows x64 and Orin aarch64. |
 | 8 | Introduce semantic eye landmarks | NOT STARTED | No backend-neutral semantic left/right eye representation exists yet. |
 | 9 | MediaPipe eye-landmark mapping | NOT STARTED | No accepted mapping from MediaPipe's 478-point topology to semantic eye landmarks exists. |
 | 10 | Self-contained DLL/SO | PARTIAL | The MediaPipe implementation is isolated in a shared library, but Windows depends on `opencv_world480.dll` and Orin uses system shared libraries. Packaging policy and validation remain. |
@@ -136,6 +136,18 @@ Both platforms used `IMG-20150331-WA0001.jpg`:
 - The established real-image regression passed on both platforms with one face, 478 landmarks, and bounding box `x=243 y=491 w=350 h=410`.
 - Implementation commits: `d1617b1cba10c714290ee912a170b58bff9bdd2e`, `86b84e99f7af5c1c41d2617f8817d8f008e88028`.
 
+### Step 7 — Decouple blink tracker from LBF
+
+- LBF model loading and `cv::face::Facemark::fit()` moved into `LbfLandmarkDetector`.
+- `BlinkTracker` no longer includes OpenCV face headers, owns a Facemark object, loads a model, or fits landmarks.
+- `BlinkTracker` consumes caller-supplied landmarks and returns processing success independently of `isEyeClosed()`.
+- The existing YuNet/LBF application path now explicitly composes face detection, landmark acquisition, and blink processing.
+- Focused tests validate open/closed EAR values, transition-only blink counting, repeated closed frames, invalid and non-finite landmarks, state clearing, and recovery.
+- A reusable optional CTest exercises the real-image YuNet to LBF to `BlinkTracker` chain without requiring a camera or GUI.
+- Windows x64 and Orin aarch64 CMake application builds passed with OpenCV 4.8.0.
+- Both platforms detected one face, produced 68 LBF landmarks, and reported identical bbox `x=246 y=437 w=338 h=452`, right EAR `0.225832`, and left EAR `0.238513` on the established test image.
+- Implementation commits: `b66b3e12a776f2d7f2d6ee3e4eec53d3178dffc0`, `24a08950f7677158949d4fc6c6b415ecfd479be4`.
+
 ## Historical YuNet/LBF observations
 
 The repository contains earlier manual YuNet/LBF robustness results. They record blink over-counting, sensitivity to distance and lighting, and imperfect eye-landmark placement. These are historical observations about the legacy implementation and must not be misclassified as failures of the new MediaPipe bridge.
@@ -157,11 +169,11 @@ For every step:
 
 ## Next checkpoint
 
-Begin **Step 7 — Decouple blink tracker from LBF**.
+Begin **Step 8 — Introduce semantic eye landmarks**.
 
-Do not redesign Steps 1–6. Start by documenting the current `BlinkTracker` responsibilities and defining a backend-independent boundary that allows externally supplied landmarks while preserving the existing YuNet/LBF behavior.
+Do not redesign Steps 1–7. Define a backend-neutral semantic representation for the six ordered points of each eye, then make blink processing consume that representation instead of raw 68-point topology indices.
 
-### Step 7 acceptance gate
+### Step 7 acceptance gate (completed)
 
 - Move LBF model loading and `cv::face::Facemark::fit()` into a dedicated landmark-acquisition component.
 - Remove `opencv2/face.hpp`, `cv::face::Facemark`, model loading, and landmark fitting from `BlinkTracker`.

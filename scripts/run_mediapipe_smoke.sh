@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -ne 2 ]]; then
-    echo "Usage: bash scripts/run_mediapipe_smoke.sh <face_landmarker.task> <image>" >&2
+if [[ $# -lt 2 || $# -gt 3 ]]; then
+    echo "Usage: bash scripts/run_mediapipe_smoke.sh <face_landmarker.task> <image> [bridge-dir]" >&2
     exit 2
 fi
 
@@ -10,7 +10,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 MODEL_PATH="$(realpath "$1")"
 IMAGE_PATH="$(realpath "$2")"
-SO_DIR="${REPO_ROOT}/third_party/mediapipe/bazel-bin/face_bridge"
+SO_DIR="${3:-${REPO_ROOT}/third_party/mediapipe/bazel-bin/face_bridge}"
+SO_DIR="$(realpath "${SO_DIR}")"
 SO_PATH="${SO_DIR}/libFaceMediaPipe.so"
 TEST_BIN="${REPO_ROOT}/build/mediapipe_smoke"
 
@@ -55,6 +56,7 @@ if [[ -z "${OPENCV_INCLUDE}" ]]; then
 fi
 
 echo "Using OpenCV headers from ${OPENCV_INCLUDE}"
+echo "Using MediaPipe runtime from ${SO_DIR}"
 
 mkdir -p "${REPO_ROOT}/build"
 

@@ -3,7 +3,9 @@ param(
     [string]$ModelPath,
 
     [Parameter(Mandatory = $true)]
-    [string]$ImagePath
+    [string]$ImagePath,
+
+    [string]$RuntimeDir = ""
 )
 
 $ErrorActionPreference = 'Stop'
@@ -14,7 +16,19 @@ $SmokeSource = Join-Path $RepoRoot 'tests\mediapipe_smoke.cpp'
 $BridgeDir = Join-Path $RepoRoot 'third_party\mediapipe\bazel-bin\face_bridge'
 $BridgeDll = Join-Path $BridgeDir 'FaceMediaPipe.dll'
 $BridgeImportLib = Join-Path $BridgeDir 'FaceMediaPipe.dll.if.lib'
-$SmokeExe = Join-Path $BuildDir 'mediapipe_smoke.exe'
+$SmokeOutputDir = $BuildDir
+if ($RuntimeDir) {
+    $RuntimeDir = (Resolve-Path $RuntimeDir).Path
+    $RuntimeBridgeDll = Join-Path $RuntimeDir 'FaceMediaPipe.dll'
+    $RuntimeOpenCvDll = Join-Path $RuntimeDir 'opencv_world480.dll'
+    foreach ($required in @($RuntimeBridgeDll, $RuntimeOpenCvDll)) {
+        if (-not (Test-Path $required -PathType Leaf)) {
+            throw "Required packaged runtime file not found: $required"
+        }
+    }
+    $SmokeOutputDir = Join-Path $BuildDir 'mediapipe_package_smoke'
+}
+$SmokeExe = Join-Path $SmokeOutputDir 'mediapipe_smoke.exe'
 
 $OpenCvRoot = $env:OPENCV_ROOT
 if (-not $OpenCvRoot) {
@@ -58,7 +72,7 @@ if (-not $cl) {
 Write-Host "Using compiler: $($cl.Source)"
 Write-Host "Using OpenCV 4.8.0 from: $OpenCvRoot"
 
-New-Item -ItemType Directory -Force $BuildDir | Out-Null
+New-Item -ItemType Directory -Force $SmokeOutputDir | Out-Null
 
 $CompileArgs = @(
     '/nologo',
@@ -80,8 +94,15 @@ if ($LASTEXITCODE -ne 0) {
     throw "Smoke-test compilation failed with exit code $LASTEXITCODE."
 }
 
-Copy-Item -Force $BridgeDll (Join-Path $BuildDir 'FaceMediaPipe.dll')
-Copy-Item -Force $OpenCvDll (Join-Path $BuildDir 'opencv_world480.dll')
+if ($RuntimeDir) {
+    Copy-Item -Force $RuntimeBridgeDll (Join-Path $SmokeOutputDir 'FaceMediaPipe.dll')
+    Copy-Item -Force $RuntimeOpenCvDll (Join-Path $SmokeOutputDir 'opencv_world480.dll')
+    Write-Host "Using packaged runtime from: $RuntimeDir"
+}
+else {
+    Copy-Item -Force $BridgeDll (Join-Path $SmokeOutputDir 'FaceMediaPipe.dll')
+    Copy-Item -Force $OpenCvDll (Join-Path $SmokeOutputDir 'opencv_world480.dll')
+}
 
 Write-Host "Running MediaPipe smoke test..."
 & $SmokeExe (Resolve-Path $ModelPath).Path (Resolve-Path $ImagePath).Path

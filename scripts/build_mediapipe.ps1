@@ -198,6 +198,7 @@ cc_test(
 cc_test(
     name = "landmark_conversion_test",
     srcs = [
+        "api/FaceMediaPipe.h",
         "src/LandmarkConversion.cpp",
         "src/LandmarkConversion.h",
         "tests/landmark_conversion_test.cpp",

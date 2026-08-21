@@ -15,13 +15,13 @@ Update it whenever a step changes state. Do not mark a step complete until its a
 
 - Repository: `ShrinivasAtre/face`
 - Branch: `feature/mediapipe-step1-backend-interface`
-- Last completed step: **Step 10**
-- Next formal step: **Step 11 — Pin/build MediaPipe dependency**
-- Step 10 implementation commits: `b029605919e90ebe30fda7164c1327895552cb61`, `beb495a3323211ae76e741e9608179c7fc5f0a72`
+- Last completed step: **Step 11**
+- Next formal step: **Step 12 — Runtime DLL/SO loading**
+- Step 11 implementation commits: `afa87abba37e17a346402efde3076070f4f8b991`, `202c838a007eabcfbeea5ffc049288135aa171f3`
 - Bazel: `7.4.1`
 - MediaPipe release: `v0.10.33`
 - Pinned MediaPipe commit: `3987048d4b390aa9ae675c796f6421bbeece6511`
-- Formal progress: **10 of 16 steps complete (63%)**
+- Formal progress: **11 of 16 steps complete (69%)**
 
 ## Baseline requirements
 
@@ -59,7 +59,7 @@ These requirements are non-negotiable throughout the program.
 | 8 | Introduce semantic eye landmarks | COMPLETE | A six-point semantic eye contract and LBF-specific mapper isolate topology from `BlinkTracker`. Focused ordering/state tests and unchanged real-image regressions pass on Windows x64 and Orin aarch64. |
 | 9 | MediaPipe eye-landmark mapping | COMPLETE | A dedicated mapper converts the documented twelve indices from the 478-point topology into semantic right/left eyes. Focused tests and unchanged legacy regressions passed on Windows x64 and Orin aarch64. |
 | 10 | Self-contained DLL/SO | COMPLETE | Deterministic packaging scripts stage the bridge boundary and manifests. Clean packaged-runtime smoke tests passed on Windows x64 and Orin aarch64 with no external MediaPipe/TFLite/Abseil libraries. |
-| 11 | Pin/build MediaPipe dependency | IN PROGRESS | Consolidate the full MediaPipe revision into one machine-readable source, verify Bazel/tag/commit/origin consistently, and validate idempotent fetch/build entry points on Windows x64 and Orin aarch64. |
+| 11 | Pin/build MediaPipe dependency | COMPLETE | One machine-readable version file governs both platforms. Fresh and repeated fetches, dependency verification, and fail-fast build preflight checks passed on Windows x64 and Orin aarch64. |
 | 12 | Runtime DLL/SO loading | NOT STARTED | The main application has no accepted `LoadLibrary`/`dlopen` abstraction and does not consume the C ABI. |
 | 13 | CMake integration | NOT STARTED | CMake builds the existing YuNet/LBF application but does not yet configure or stage the MediaPipe bridge. |
 | 14 | Model deployment | NOT STARTED | The bridge accepts an external `.task` path, but the model is not deployed by the application build. |
@@ -193,6 +193,20 @@ Both platforms used `IMG-20150331-WA0001.jpg`:
 - No live camera was required.
 - Implementation commits: `b029605919e90ebe30fda7164c1327895552cb61`, `beb495a3323211ae76e741e9608179c7fc5f0a72`.
 
+### Step 11 — Pin/build MediaPipe dependency
+
+- `mediapipe/MEDIAPIPE_VERSION` is the single automation source for tag `v0.10.33` and full commit `3987048d4b390aa9ae675c796f6421bbeece6511`.
+- Windows and Linux verification scripts validate the version file, effective Bazel `7.4.1`, canonical MediaPipe origin, tag target, exact detached checkout, and required workspace file.
+- Both fetch scripts consume the shared version file, check out the full commit detached, and invoke verification.
+- Both build scripts invoke dependency verification before applying compatibility patches or invoking Bazel.
+- Fresh fetches and repeated idempotent fetches passed from dedicated `p11` checkouts on Windows x64 and Orin aarch64.
+- Controlled wrong-origin tests were rejected by standalone verification and by both build entry points. The build preflight rejection occurred before any fetched-workspace modification; canonical origins were restored and verification then passed.
+- The fetched MediaPipe worktrees remained clean after validation.
+- No bridge source, Bazel bridge target, application source, test, or CMake build input changed after the immediately preceding fresh Step 10 builds. Their accepted Windows x64 DLL and Orin aarch64 SO architecture, five-export, and full-build evidence therefore applies unchanged to this gate.
+- Repository inspection confirmed the application CMake inputs remain independent of Bazel and do not include MediaPipe headers.
+- No live camera or runtime model deployment was required.
+- Implementation commits: `afa87abba37e17a346402efde3076070f4f8b991`, `202c838a007eabcfbeea5ffc049288135aa171f3`.
+
 ## Historical YuNet/LBF observations
 
 The repository contains earlier manual YuNet/LBF robustness results. They record blink over-counting, sensitivity to distance and lighting, and imperfect eye-landmark placement. These are historical observations about the legacy implementation and must not be misclassified as failures of the new MediaPipe bridge.
@@ -214,11 +228,11 @@ For every step:
 
 ## Next checkpoint
 
-Begin **Step 11 — Pin/build MediaPipe dependency**.
+Begin **Step 12 — Runtime DLL/SO loading**.
 
-Do not redesign Steps 1–10. Consolidate the already-pinned dependency and platform build procedure into its formal Step 11 acceptance gate without replacing the application's CMake build system.
+Do not redesign Steps 1–11. Add an application-side cross-platform runtime-loading boundary for the existing C ABI without directly linking the main executable to MediaPipe.
 
-### Step 11 objective
+### Step 11 objective (completed)
 
 Make the MediaPipe dependency selection and bridge build procedure mechanically reproducible from the repository. A single committed version file must define the release tag and full commit hash, and every platform fetch/build path must reject mismatched tools, origins, tags, commits, or checkouts before compiling.
 
@@ -233,7 +247,7 @@ Make the MediaPipe dependency selection and bridge build procedure mechanically 
 7. Confirm the main CMake application remains independent of Bazel and MediaPipe headers.
 8. Record validation evidence and commits before marking Step 11 complete.
 
-### Step 11 acceptance gate
+### Step 11 acceptance gate (completed)
 
 - `mediapipe/MEDIAPIPE_VERSION` is the only automation source of the MediaPipe tag and full commit hash used by fetch/build scripts.
 - `.bazelversion` pins Bazel `7.4.1`, and verification rejects a different effective Bazel version.

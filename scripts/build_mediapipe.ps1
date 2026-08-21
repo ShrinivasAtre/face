@@ -9,10 +9,18 @@ $TasksCoreSrc = Join-Path $MediaPipeRoot 'mediapipe\tasks\cc\core\task_runner.cc
 $TasksLoggingBuild = Join-Path $MediaPipeRoot 'mediapipe\tasks\cc\core\logging\BUILD'
 $TasksDummyLogger = Join-Path $MediaPipeRoot 'mediapipe\tasks\cc\core\logging\tasks_dummy_logger.h'
 $GpuServiceSrc = Join-Path $MediaPipeRoot 'mediapipe\gpu\gpu_service.cc'
+$Api3PatchScript = Join-Path $PSScriptRoot 'patch_mediapipe_windows_api3.ps1'
 
 if (-not (Test-Path (Join-Path $MediaPipeRoot 'WORKSPACE'))) {
     throw "MediaPipe workspace not found at $MediaPipeRoot. Run scripts\fetch_mediapipe.ps1 first."
 }
+
+# Keep all Windows compatibility patches inside the normal build flow so a
+# fresh clone needs only fetch_mediapipe.ps1 followed by build_mediapipe.ps1.
+if (-not (Test-Path $Api3PatchScript)) {
+    throw "Required Windows MediaPipe API3 patch script not found: $Api3PatchScript"
+}
+& $Api3PatchScript
 
 function Write-Utf8NoBom([string]$Path, [string]$Content) {
     $utf8NoBom = New-Object System.Text.UTF8Encoding($false)

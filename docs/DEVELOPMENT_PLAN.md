@@ -61,7 +61,7 @@ These requirements are non-negotiable throughout the program.
 | 10 | Self-contained DLL/SO | COMPLETE | Deterministic packaging scripts stage the bridge boundary and manifests. Clean packaged-runtime smoke tests passed on Windows x64 and Orin aarch64 with no external MediaPipe/TFLite/Abseil libraries. |
 | 11 | Pin/build MediaPipe dependency | COMPLETE | One machine-readable version file governs both platforms. Fresh and repeated fetches, dependency verification, and fail-fast build preflight checks passed on Windows x64 and Orin aarch64. |
 | 12 | Runtime DLL/SO loading | COMPLETE | A tested move-only RAII loader resolves and validates the five-function C ABI by path on Windows and Linux without a direct bridge dependency. |
-| 13 | CMake integration | NOT STARTED | CMake builds the existing YuNet/LBF application but does not yet configure or stage the MediaPipe bridge. |
+| 13 | CMake integration | IN PROGRESS | Add opt-in validation and staging of an accepted packaged bridge through the existing CMake application build. |
 | 14 | Model deployment | NOT STARTED | The bridge accepts an external `.task` path, but the model is not deployed by the application build. |
 | 15 | Runtime backend selection | NOT STARTED | The application has no accepted `--backend=yunet` / `--backend=mediapipe` option. |
 | 16 | Final Windows/Orin deployment | NOT STARTED | Final application-level packaging and end-to-end deployment validation remain. |
@@ -247,6 +247,33 @@ For every step:
 Begin **Step 13 — CMake integration**.
 
 Do not redesign Steps 1–12. Integrate the accepted runtime loader and packaged bridge boundary into the existing CMake application build without replacing it with Bazel or implementing model deployment and backend selection early.
+
+### Step 13 objective
+
+Extend the existing CMake application build with an opt-in MediaPipe runtime package boundary. When enabled, configuration must validate an explicitly supplied Step 10 package for the target platform, link the Step 12 runtime-loader component into `yunet_demo`, and stage the packaged bridge and manifest beside the executable without linking the executable directly to the bridge or invoking Bazel.
+
+### Step 13 stages
+
+1. Add a default-off CMake option and cache path for an externally built, packaged MediaPipe runtime.
+2. Validate the package directory, platform-specific bridge name, manifest platform marker, and required Windows OpenCV runtime before generation succeeds.
+3. Link `face_mediapipe_runtime` into `yunet_demo` only when integration is enabled.
+4. Stage the bridge and package manifest beside `yunet_demo`; on Windows also stage the package's matching `opencv_world480.dll` through the existing OpenCV deployment path.
+5. Verify default-off builds remain legacy-only and enabled builds reproduce the package payload bytes on Windows x64 and Orin aarch64.
+6. Confirm enabled application binaries have no direct DLL/SO dependency on FaceMediaPipe and that CMake never fetches or builds MediaPipe with Bazel.
+7. Re-run focused and legacy still-image tests on both platforms and record evidence and commits before marking Step 13 complete.
+
+### Step 13 acceptance gate
+
+- The integration is disabled by default and the existing YuNet/LBF build behavior remains available unchanged.
+- Enabling integration requires an explicit packaged-runtime directory and rejects missing files or a manifest for the wrong target platform at configure time.
+- Windows stages `FaceMediaPipe.dll`, its matching packaged `opencv_world480.dll`, and the package manifest; Orin stages `libFaceMediaPipe.so` and the package manifest.
+- Staged bridge and OpenCV payload hashes exactly match their package inputs.
+- `yunet_demo` links the Step 12 loader component but has no direct import or dynamic dependency on the FaceMediaPipe bridge.
+- CMake does not fetch MediaPipe, invoke Bazel, or compile MediaPipe SDK sources.
+- No `.task` model is staged before Step 14, and no `--backend` selection is introduced before Step 15.
+- Default-off and enabled CMake builds plus all existing focused and still-image regression tests pass on Windows x64 and Orin aarch64.
+- No live camera is required for this integration gate.
+- Validation evidence and implementation commits are recorded before Step 13 is marked `COMPLETE`.
 
 ### Step 12 objective (completed)
 

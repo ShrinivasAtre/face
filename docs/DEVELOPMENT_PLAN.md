@@ -15,13 +15,13 @@ Update it whenever a step changes state. Do not mark a step complete until its a
 
 - Repository: `ShrinivasAtre/face`
 - Branch: `feature/mediapipe-step1-backend-interface`
-- Last completed step: **Step 5**
-- Next formal step: **Step 6 — Extract/normalize MediaPipe landmarks**
-- Step 5 implementation commit: `9f6f15dec59aced11da9656f9c1a0e238c288177`
+- Last completed step: **Step 6**
+- Next formal step: **Step 7 — Decouple blink tracker from LBF**
+- Step 6 implementation commits: `d1617b1cba10c714290ee912a170b58bff9bdd2e`, `86b84e99f7af5c1c41d2617f8817d8f008e88028`
 - Bazel: `7.4.1`
 - MediaPipe release: `v0.10.33`
 - Pinned MediaPipe commit: `3987048d4b390aa9ae675c796f6421bbeece6511`
-- Formal progress: **5 of 16 steps complete (31.25%)**
+- Formal progress: **6 of 16 steps complete (37.5%)**
 
 ## Baseline requirements
 
@@ -54,7 +54,7 @@ These requirements are non-negotiable throughout the program.
 | 3 | Add MediaPipe C ABI | COMPLETE | Versioned C ABI with an opaque handle, caller-owned result storage, error reporting, and five validated exports. |
 | 4 | Implement MediaPipe backend | COMPLETE | Fresh-clone Windows x64 and Orin aarch64 builds and smoke tests passed. Linux script executable modes were corrected and committed in `09314d2`. |
 | 5 | BGR to MediaPipe image conversion | COMPLETE | Private conversion helper and focused tests validate channel order, compact rows, padded strides, invalid inputs, and overflow. Bridge rebuilds and real-image regressions passed on Windows x64 and Orin aarch64. |
-| 6 | Extract/normalize MediaPipe landmarks | PARTIAL | The bridge extracts 478 landmarks, converts x/y to image pixels, preserves z, and derives a face bounding box. Formal contract and edge-case validation remain. |
+| 6 | Extract/normalize MediaPipe landmarks | COMPLETE | A private, tested conversion layer converts normalized x/y to image pixels, preserves z, enforces caller capacity, computes a clamped bounding box from all source points, resets empty results, and rejects invalid/non-finite input. Focused tests, bridge builds, and real-image regressions passed on Windows x64 and Orin aarch64. |
 | 7 | Decouple blink tracker from LBF | NOT STARTED | `BlinkTracker` still owns `cv::face::Facemark`, loads the LBF model, and obtains landmarks internally. |
 | 8 | Introduce semantic eye landmarks | NOT STARTED | No backend-neutral semantic left/right eye representation exists yet. |
 | 9 | MediaPipe eye-landmark mapping | NOT STARTED | No accepted mapping from MediaPipe's 478-point topology to semantic eye landmarks exists. |
@@ -124,6 +124,18 @@ Both platforms used `IMG-20150331-WA0001.jpg`:
 - The established real-image regression passed on both platforms with one face, 478 landmarks, and the unchanged bounding box.
 - Implementation commit: `9f6f15dec59aced11da9656f9c1a0e238c288177`.
 
+### Step 6 — Extract/normalize MediaPipe landmarks
+
+- Public C ABI remained unchanged.
+- Production landmark conversion was isolated in a private helper used by focused tests.
+- Normalized x/y coordinates are converted to image pixels; z is preserved unchanged.
+- Caller capacity truncates the number of written landmarks without changing the bounding-box source set.
+- The face bounding box is derived from all source landmarks and clamped to image bounds; landmark coordinates themselves remain unclamped.
+- Empty results are reset, and invalid dimensions, pointers, counts, and non-finite coordinates are rejected.
+- Fresh Step 6 bridge builds and the focused `landmark_conversion_test` passed on Windows x64 and Orin aarch64.
+- The established real-image regression passed on both platforms with one face, 478 landmarks, and bounding box `x=243 y=491 w=350 h=410`.
+- Implementation commits: `d1617b1cba10c714290ee912a170b58bff9bdd2e`, `86b84e99f7af5c1c41d2617f8817d8f008e88028`.
+
 ## Historical YuNet/LBF observations
 
 The repository contains earlier manual YuNet/LBF robustness results. They record blink over-counting, sensitivity to distance and lighting, and imperfect eye-landmark placement. These are historical observations about the legacy implementation and must not be misclassified as failures of the new MediaPipe bridge.
@@ -145,6 +157,6 @@ For every step:
 
 ## Next checkpoint
 
-Begin **Step 6 — Extract/normalize MediaPipe landmarks**.
+Begin **Step 7 — Decouple blink tracker from LBF**.
 
-Do not redesign Steps 1–5. Start by defining and testing the landmark coordinate contract, landmark-capacity behavior, face bounding-box rules, no-face results, and consistent Windows/Orin output.
+Do not redesign Steps 1–6. Start by documenting the current `BlinkTracker` responsibilities and defining a backend-independent boundary that allows externally supplied landmarks while preserving the existing YuNet/LBF behavior.

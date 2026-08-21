@@ -1,12 +1,14 @@
 #include "AppPaths.hpp"
 #include "FaceDetector.hpp"
 #include "BlinkTracker.hpp"
+#include "LbfLandmarkDetector.hpp"
 
 #include <opencv2/opencv.hpp>
 
 #include <chrono>
 #include <iostream>
 #include <string>
+#include <vector>
 
 int main()
 {
@@ -150,10 +152,11 @@ int main()
         // Blink tracker
         // --------------------------------------------------
 
-        BlinkTracker blinkTracker(
-            lbfModel.string(),
-            0.27
+        LbfLandmarkDetector landmarkDetector(
+            lbfModel.string()
         );
+
+        BlinkTracker blinkTracker(0.27);
 
         std::cout
             << "Memory-locked engine initialized. Ready."
@@ -237,11 +240,19 @@ int main()
 
             if (faceFound)
             {
-                landmarkSuccess =
-                    blinkTracker.process(
+                std::vector<cv::Point2f> landmarks;
+
+                if (landmarkDetector.detect(
                         frame,
-                        faceBox
-                    );
+                        faceBox,
+                        landmarks))
+                {
+                    landmarkSuccess =
+                        blinkTracker.process(
+                            frame,
+                            landmarks
+                        );
+                }
 
                 cv::rectangle(
                     frame,

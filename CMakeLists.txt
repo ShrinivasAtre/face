@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.10)
 
 project(YuNetFaceDetection LANGUAGES CXX)
 
+include(CTest)
+
 # ============================================================
 # C++ standard
 # ============================================================
@@ -33,6 +35,7 @@ add_executable(yunet_demo
     src/main.cpp
     src/AppPaths.cpp
     src/FaceDetector.cpp
+    src/LbfLandmarkDetector.cpp
     src/BlinkTracker.cpp
 )
 
@@ -154,6 +157,36 @@ if(WIN32)
 
         COMMENT
             "Copying OpenCV DLL to executable directory"
+    )
+
+endif()
+
+
+# ============================================================
+# Focused blink-processing tests
+# ============================================================
+
+if(BUILD_TESTING)
+
+    add_executable(blink_tracker_test
+        tests/blink_tracker_test.cpp
+        src/BlinkTracker.cpp
+    )
+
+    target_include_directories(blink_tracker_test
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/include
+            ${OpenCV_INCLUDE_DIRS}
+    )
+
+    target_link_libraries(blink_tracker_test
+        PRIVATE
+            ${OpenCV_LIBS}
+    )
+
+    add_test(
+        NAME blink_tracker_test
+        COMMAND blink_tracker_test
     )
 
 endif()

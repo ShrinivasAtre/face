@@ -55,7 +55,7 @@ These requirements are non-negotiable throughout the program.
 | 4 | Implement MediaPipe backend | COMPLETE | Fresh-clone Windows x64 and Orin aarch64 builds and smoke tests passed. Linux script executable modes were corrected and committed in `09314d2`. |
 | 5 | BGR to MediaPipe image conversion | COMPLETE | Private conversion helper and focused tests validate channel order, compact rows, padded strides, invalid inputs, and overflow. Bridge rebuilds and real-image regressions passed on Windows x64 and Orin aarch64. |
 | 6 | Extract/normalize MediaPipe landmarks | COMPLETE | A private, tested conversion layer converts normalized x/y to image pixels, preserves z, enforces caller capacity, computes a clamped bounding box from all source points, resets empty results, and rejects invalid/non-finite input. Focused tests, bridge builds, and real-image regressions passed on Windows x64 and Orin aarch64. |
-| 7 | Decouple blink tracker from LBF | NOT STARTED | `BlinkTracker` still owns `cv::face::Facemark`, loads the LBF model, and obtains landmarks internally. |
+| 7 | Decouple blink tracker from LBF | PARTIAL | LBF acquisition is separated from `BlinkTracker`, processing success is distinct from eye state, and focused Windows build/tests pass. Orin build/tests and legacy-path runtime validation remain. |
 | 8 | Introduce semantic eye landmarks | NOT STARTED | No backend-neutral semantic left/right eye representation exists yet. |
 | 9 | MediaPipe eye-landmark mapping | NOT STARTED | No accepted mapping from MediaPipe's 478-point topology to semantic eye landmarks exists. |
 | 10 | Self-contained DLL/SO | PARTIAL | The MediaPipe implementation is isolated in a shared library, but Windows depends on `opencv_world480.dll` and Orin uses system shared libraries. Packaging policy and validation remain. |
@@ -160,3 +160,14 @@ For every step:
 Begin **Step 7 — Decouple blink tracker from LBF**.
 
 Do not redesign Steps 1–6. Start by documenting the current `BlinkTracker` responsibilities and defining a backend-independent boundary that allows externally supplied landmarks while preserving the existing YuNet/LBF behavior.
+
+### Step 7 acceptance gate
+
+- Move LBF model loading and `cv::face::Facemark::fit()` into a dedicated landmark-acquisition component.
+- Remove `opencv2/face.hpp`, `cv::face::Facemark`, model loading, and landmark fitting from `BlinkTracker`.
+- Make `BlinkTracker` consume caller-supplied landmarks while retaining the current EAR, drawing, calibration, eye-state, and blink-count behavior.
+- Keep processing success distinct from the open/closed eye state.
+- Preserve the existing YuNet/LBF application path by composing face detection, LBF landmark acquisition, and blink processing in `main.cpp`.
+- Add focused tests for valid open/closed landmarks, blink transitions, repeated closed frames, invalid landmarks, and recovery.
+- Do not introduce MediaPipe-specific types or perform the semantic-eye mapping reserved for Steps 8–9.
+- Build and test the CMake application on Windows x64 and NVIDIA Orin/Linux aarch64, then record validation evidence before marking Step 7 complete.

@@ -29,7 +29,6 @@ BlinkTracker::BlinkTracker()
 
 
 BlinkTracker::BlinkTracker(
-    const std::string& modelPath,
     double earThreshold)
     : rightEAR_(0.0),
       leftEAR_(0.0),
@@ -49,42 +48,6 @@ BlinkTracker::BlinkTracker(
       blinkCount_(0),
       earCloseThreshold_(earThreshold)
 {
-    initialize(modelPath);
-}
-
-
-bool BlinkTracker::initialize(
-    const std::string& modelPath)
-{
-    std::cout
-        << "Loading LBF landmark model: "
-        << modelPath
-        << std::endl;
-
-    try
-    {
-        facemark_ =
-            cv::face::FacemarkLBF::create();
-
-        facemark_->loadModel(modelPath);
-    }
-    catch (const cv::Exception& e)
-    {
-        std::cerr
-            << "ERROR: Failed to load LBF model: "
-            << e.what()
-            << std::endl;
-
-        facemark_.release();
-
-        return false;
-    }
-
-    std::cout
-        << "LBF landmark detector initialized."
-        << std::endl;
-
-    return true;
 }
 
 
@@ -179,7 +142,7 @@ void BlinkTracker::drawEyeLandmarks(
 
 bool BlinkTracker::process(
     cv::Mat& frame,
-    const cv::Rect& faceBox)
+    const std::vector<cv::Point2f>& points)
 {
     landmarkValid_ = false;
 
@@ -187,47 +150,20 @@ bool BlinkTracker::process(
     leftEAR_ = 0.0;
     averageEAR_ = 0.0;
 
-    if (!facemark_)
-        return false;
-
-    if (faceBox.width <= 0 ||
-        faceBox.height <= 0)
-        return false;
-
-    std::vector<cv::Rect> boxes;
-    boxes.push_back(faceBox);
-
-    std::vector<std::vector<cv::Point2f>> landmarks;
-
-    bool success = false;
-
-    try
+    if (frame.empty() || points.size() < 48)
     {
-        success =
-            facemark_->fit(
-                frame,
-                boxes,
-                landmarks);
-    }
-    catch (const cv::Exception& e)
-    {
-        std::cerr
-            << "LBF fit error: "
-            << e.what()
-            << std::endl;
-
+        eyeClosed_ = false;
         return false;
     }
 
-    if (!success ||
-        landmarks.empty() ||
-        landmarks[0].size() < 48)
+    for (const cv::Point2f& point : points)
     {
-        return false;
+        if (!std::isfinite(point.x) || !std::isfinite(point.y))
+        {
+            eyeClosed_ = false;
+            return false;
+        }
     }
-
-    const auto& points =
-        landmarks[0];
 
     // Standard 68-point facial landmark layout:
     //
@@ -421,7 +357,7 @@ bool BlinkTracker::process(
         cv::LINE_AA);
 
 
-    return eyeClosed_;
+    return true;
 }
 
 

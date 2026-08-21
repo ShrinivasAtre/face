@@ -1,7 +1,7 @@
 #pragma once
 
-#include <opencv2/opencv.hpp>
-#include <opencv2/face.hpp>
+#include <opencv2/core.hpp>
+#include <opencv2/imgproc.hpp>
 
 #include <string>
 #include <vector>
@@ -11,19 +11,14 @@ class BlinkTracker
 public:
     BlinkTracker();
 
-    // Constructor compatible with existing main.cpp.
-    BlinkTracker(
-        const std::string& modelPath,
+    explicit BlinkTracker(
         double earThreshold);
 
-    bool initialize(
-        const std::string& modelPath);
-
-    // Process one frame using the supplied face bounding box.
-    // Returns true when the current eye state is considered closed.
+    // Process one frame using caller-supplied 68-point landmarks.
+    // Returns true when the landmarks were valid and processed.
     bool process(
         cv::Mat& frame,
-        const cv::Rect& faceBox);
+        const std::vector<cv::Point2f>& landmarks);
 
     // Compatibility API used by existing main.cpp.
     double getEAR() const;
@@ -48,8 +43,6 @@ private:
         bool rightEye) const;
 
 private:
-    cv::Ptr<cv::face::Facemark> facemark_;
-
     double rightEAR_;
     double leftEAR_;
     double averageEAR_;

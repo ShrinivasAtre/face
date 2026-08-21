@@ -63,7 +63,7 @@ These requirements are non-negotiable throughout the program.
 | 12 | Runtime DLL/SO loading | COMPLETE | A tested move-only RAII loader resolves and validates the five-function C ABI by path on Windows and Linux without a direct bridge dependency. |
 | 13 | CMake integration | COMPLETE | The existing CMake build now optionally validates and stages an accepted platform package while retaining a default-off legacy build and runtime-only bridge loading. |
 | 14 | Model deployment | COMPLETE | The pinned task asset is committed, checksum-verified at configure time, and staged only by enabled MediaPipe builds at a deterministic runtime path. |
-| 15 | Runtime backend selection | NOT STARTED | The application has no accepted `--backend=yunet` / `--backend=mediapipe` option. |
+| 15 | Runtime backend selection | IN PROGRESS | Add explicit runtime selection between common-interface YuNet/LBF and MediaPipe implementations while preserving the legacy default. |
 | 16 | Final Windows/Orin deployment | NOT STARTED | Final application-level packaging and end-to-end deployment validation remain. |
 
 ## Completed-step evidence
@@ -276,6 +276,35 @@ For every step:
 Begin **Step 15 — Runtime backend selection**.
 
 Do not redesign Steps 1–14. Add explicit `--backend=yunet` and `--backend=mediapipe` runtime selection while preserving the established default and sharing the accepted blink-processing layer.
+
+### Step 15 objective
+
+Make `yunet_demo` select a backend explicitly at runtime through the existing backend-independent contract. Preserve YuNet/LBF as the no-argument default, add the MediaPipe runtime implementation, normalize both outputs into `FaceResult`, map their topology-specific eye points outside `BlinkTracker`, and keep all blink state and EAR processing shared.
+
+### Step 15 stages
+
+1. Add a focused command-line parser for default selection, `--backend=yunet`, `--backend=mediapipe`, help, and invalid/duplicate arguments.
+2. Wrap the existing YuNet detector plus LBF landmark acquisition in a `FaceBackend` implementation without changing their thresholds or landmark behavior.
+3. Add a `FaceBackend` implementation that loads the staged bridge, owns its C-ABI handle, processes BGR frames, and converts results into the common types.
+4. Refactor `yunet_demo` to instantiate the selected backend and route either LBF or MediaPipe landmarks through the accepted semantic eye mappers into one `BlinkTracker`.
+5. Make MediaPipe selection fail clearly when the CMake runtime integration is disabled or when staged runtime/model initialization fails.
+6. Add focused parser, backend, and still-image integration tests for both selections.
+7. Validate default and explicit YuNet results remain unchanged and MediaPipe produces one face, 478 landmarks, and semantic eye input on Windows x64 and Orin aarch64.
+8. Confirm the application still has no direct bridge dependency, then record evidence and commits before marking Step 15 complete.
+
+### Step 15 acceptance gate
+
+- No argument and `--backend=yunet` select the existing YuNet/LBF behavior; `--backend=mediapipe` selects the runtime-loaded bridge.
+- Unsupported, malformed, or duplicate options fail before camera access with a clear usage diagnostic.
+- Both concrete implementations satisfy `FaceBackend` and return backend-neutral `FaceResult` data.
+- YuNet/LBF and MediaPipe topology indices remain confined to their accepted semantic mapper components.
+- A single `BlinkTracker` path consumes `SemanticEyeLandmarks` regardless of selected backend.
+- A build with MediaPipe integration disabled rejects `--backend=mediapipe` clearly instead of silently falling back.
+- Enabled Windows x64 and Orin aarch64 builds pass focused tests and still-image end-to-end backend tests for both selections.
+- Explicit/default YuNet results retain 68 landmarks, bbox `x=246 y=437 w=338 h=452`, right EAR `0.225832`, and left EAR `0.238513`; MediaPipe retains 478 landmarks and bbox `x=243 y=491 w=350 h=410` on the established image.
+- `yunet_demo` has no direct runtime dependency on `FaceMediaPipe.dll` or `libFaceMediaPipe.so`.
+- No live camera is required for this selection gate; live deployment remains Step 16.
+- Validation evidence and implementation commits are recorded before Step 15 is marked `COMPLETE`.
 
 ### Step 14 objective (completed)
 

@@ -189,9 +189,13 @@ add_executable(yunet_demo
 
     src/main.cpp
     src/AppPaths.cpp
+    src/BackendOptions.cpp
+    src/BackendEyeMapper.cpp
     src/FaceDetector.cpp
     src/LbfLandmarkDetector.cpp
     src/LbfEyeLandmarkMapper.cpp
+    src/MediaPipeEyeLandmarkMapper.cpp
+    src/YuNetLbfBackend.cpp
     src/BlinkTracker.cpp
 )
 
@@ -407,6 +411,16 @@ target_link_libraries(face_mediapipe_runtime
 
 if(FACE_ENABLE_MEDIAPIPE_RUNTIME)
 
+    target_sources(yunet_demo
+        PRIVATE
+            src/MediaPipeBackend.cpp
+    )
+
+    target_compile_definitions(yunet_demo
+        PRIVATE
+            FACE_MEDIAPIPE_RUNTIME_ENABLED=1
+    )
+
     target_link_libraries(yunet_demo
         PRIVATE
             face_mediapipe_runtime
@@ -510,6 +524,19 @@ if(BUILD_TESTING)
         COMMAND mediapipe_eye_landmark_mapper_test
     )
 
+    add_executable(backend_options_test
+        tests/backend_options_test.cpp
+        src/BackendOptions.cpp
+    )
+    target_include_directories(backend_options_test
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    add_test(
+        NAME backend_options_test
+        COMMAND backend_options_test
+    )
+
     foreach(mock_target IN ITEMS
         face_mediapipe_mock_valid
         face_mediapipe_mock_missing_symbol
@@ -557,6 +584,42 @@ if(BUILD_TESTING)
         PRIVATE face_mediapipe_runtime
     )
 
+    add_executable(face_backend_integration_test
+        tests/face_backend_integration_test.cpp
+        src/BackendOptions.cpp
+        src/BackendEyeMapper.cpp
+        src/FaceDetector.cpp
+        src/LbfLandmarkDetector.cpp
+        src/LbfEyeLandmarkMapper.cpp
+        src/MediaPipeEyeLandmarkMapper.cpp
+        src/YuNetLbfBackend.cpp
+        src/BlinkTracker.cpp
+    )
+    target_include_directories(face_backend_integration_test
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/include
+            ${OpenCV_INCLUDE_DIRS}
+    )
+    target_link_libraries(face_backend_integration_test
+        PRIVATE
+            ${OpenCV_LIBS}
+    )
+
+    if(FACE_ENABLE_MEDIAPIPE_RUNTIME)
+        target_sources(face_backend_integration_test
+            PRIVATE
+                src/MediaPipeBackend.cpp
+        )
+        target_compile_definitions(face_backend_integration_test
+            PRIVATE
+                FACE_MEDIAPIPE_RUNTIME_ENABLED=1
+        )
+        target_link_libraries(face_backend_integration_test
+            PRIVATE
+                face_mediapipe_runtime
+        )
+    endif()
+
     add_executable(legacy_blink_integration_test
         tests/legacy_blink_integration_test.cpp
         src/FaceDetector.cpp
@@ -591,6 +654,26 @@ if(BUILD_TESTING)
                 "${CMAKE_CURRENT_SOURCE_DIR}/models/lbfmodel.yaml"
                 "${FACE_TEST_IMAGE}"
         )
+
+        add_test(
+            NAME yunet_backend_integration_test
+            COMMAND face_backend_integration_test
+                yunet
+                "${FACE_TEST_IMAGE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/models/face_detection_yunet_2026may.onnx"
+                "${CMAKE_CURRENT_SOURCE_DIR}/models/lbfmodel.yaml"
+        )
+
+        if(FACE_ENABLE_MEDIAPIPE_RUNTIME)
+            add_test(
+                NAME mediapipe_backend_integration_test
+                COMMAND face_backend_integration_test
+                    mediapipe
+                    "${FACE_TEST_IMAGE}"
+                    "$<TARGET_FILE_DIR:yunet_demo>/${FACE_MEDIAPIPE_BRIDGE_NAME}"
+                    "$<TARGET_FILE_DIR:yunet_demo>/models/mediapipe/${FACE_MEDIAPIPE_MODEL_FILENAME}"
+            )
+        endif()
 
     endif()
 

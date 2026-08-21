@@ -17,12 +17,9 @@ struct FaceLandmark
 
 // Common result produced by a face-processing backend.
 //
-// The initial YuNet/LBF implementation currently exposes the face box and
-// landmarks through two existing classes (FaceDetector and BlinkTracker).
-// This structure establishes the common contract without changing that
-// existing implementation yet. Wiring the existing classes into this
-// contract is intentionally deferred until the landmark/blink separation
-// stage of the MediaPipe integration.
+// Both runtime-selectable implementations normalize their face box and
+// source-topology landmarks into this contract. Topology-specific eye
+// mapping remains outside this result and outside BlinkTracker.
 struct FaceResult
 {
     bool detected = false;
@@ -32,7 +29,7 @@ struct FaceResult
     std::vector<FaceLandmark> landmarks;
 };
 
-// Backend-independent interface used by the application.
+// Backend-independent interface used by the runtime-selectable application.
 //
 // Implementations must not expose backend-specific types (for example,
 // MediaPipe classes) through this interface.

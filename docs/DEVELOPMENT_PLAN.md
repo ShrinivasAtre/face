@@ -15,13 +15,13 @@ Update it whenever a step changes state. Do not mark a step complete until its a
 
 - Repository: `ShrinivasAtre/face`
 - Branch: `feature/mediapipe-step1-backend-interface`
-- Last completed step: **Step 8**
-- Next formal step: **Step 9 — MediaPipe eye-landmark mapping**
-- Step 8 implementation commit: `2bfb63fa3abc96d8fa26aee91d1eba7e61083b90`
+- Last completed step: **Step 9**
+- Next formal step: **Step 10 — Self-contained DLL/SO**
+- Step 9 implementation commit: `94dc7ab02d0cf8f15ba732a841ff7622af2334d5`
 - Bazel: `7.4.1`
 - MediaPipe release: `v0.10.33`
 - Pinned MediaPipe commit: `3987048d4b390aa9ae675c796f6421bbeece6511`
-- Formal progress: **8 of 16 steps complete (50%)**
+- Formal progress: **9 of 16 steps complete (56%)**
 
 ## Baseline requirements
 
@@ -57,7 +57,7 @@ These requirements are non-negotiable throughout the program.
 | 6 | Extract/normalize MediaPipe landmarks | COMPLETE | A private, tested conversion layer converts normalized x/y to image pixels, preserves z, enforces caller capacity, computes a clamped bounding box from all source points, resets empty results, and rejects invalid/non-finite input. Focused tests, bridge builds, and real-image regressions passed on Windows x64 and Orin aarch64. |
 | 7 | Decouple blink tracker from LBF | COMPLETE | `LbfLandmarkDetector` owns model loading and fitting; `BlinkTracker` consumes supplied landmarks and reports processing success separately from eye state. Focused and real-image legacy integration tests pass on Windows x64 and Orin aarch64. |
 | 8 | Introduce semantic eye landmarks | COMPLETE | A six-point semantic eye contract and LBF-specific mapper isolate topology from `BlinkTracker`. Focused ordering/state tests and unchanged real-image regressions pass on Windows x64 and Orin aarch64. |
-| 9 | MediaPipe eye-landmark mapping | IN PROGRESS | Define, test, and validate the MediaPipe 478-point topology mapping into the established semantic eye contract on Windows x64 and Orin aarch64. |
+| 9 | MediaPipe eye-landmark mapping | COMPLETE | A dedicated mapper converts the documented twelve indices from the 478-point topology into semantic right/left eyes. Focused tests and unchanged legacy regressions passed on Windows x64 and Orin aarch64. |
 | 10 | Self-contained DLL/SO | PARTIAL | The MediaPipe implementation is isolated in a shared library, but Windows depends on `opencv_world480.dll` and Orin uses system shared libraries. Packaging policy and validation remain. |
 | 11 | Pin/build MediaPipe dependency | PARTIAL | MediaPipe is pinned and clean fetch/build validation passed on both platforms. Retain this as a formal later gate until its complete acceptance criteria are recorded and passed. |
 | 12 | Runtime DLL/SO loading | NOT STARTED | The main application has no accepted `LoadLibrary`/`dlopen` abstraction and does not consume the C ABI. |
@@ -161,6 +161,20 @@ Both platforms used `IMG-20150331-WA0001.jpg`:
 - No MediaPipe topology or type was introduced; MediaPipe semantic mapping remains Step 9.
 - Implementation commit: `2bfb63fa3abc96d8fa26aee91d1eba7e61083b90`.
 
+### Step 9 — MediaPipe eye-landmark mapping
+
+- Added `MediaPipeEyeLandmarkMapper`, which consumes backend-neutral pixel landmarks and produces the Step 8 semantic eye representation without exposing MediaPipe headers or C-ABI types.
+- Confined the selected MediaPipe 478-point topology indices to the mapper and its focused test.
+- Mapped the subject right eye as `33,160,158,133,153,144` and reordered the subject left eye into semantic outer-to-inner order as `263,387,385,362,380,373`.
+- Enforced a minimum 478-point source topology and reset output on short input or non-finite selected x/y coordinates.
+- Deliberately ignored z and non-selected coordinates because the shared EAR calculation uses only the twelve selected 2D points.
+- Focused tests validate exact ordering, short topology, output reset, selected and non-selected non-finite values, optional non-finite z, and right/left EAR compatibility.
+- Windows x64 built successfully and all four CTests passed; the new test executable was confirmed as x64.
+- Orin built successfully at the exact implementation commit, all four CTests passed, and the relevant executables were confirmed ARM aarch64 with no unresolved application dependencies.
+- The established YuNet/LBF real-image regression remained identical on both platforms: one face, 68 LBF landmarks, bbox `x=246 y=437 w=338 h=452`, right EAR `0.225832`, and left EAR `0.238513`.
+- `BlinkTracker` and the legacy application path were not changed, and no live camera was required.
+- Implementation commit: `94dc7ab02d0cf8f15ba732a841ff7622af2334d5`.
+
 ## Historical YuNet/LBF observations
 
 The repository contains earlier manual YuNet/LBF robustness results. They record blink over-counting, sensitivity to distance and lighting, and imperfect eye-landmark placement. These are historical observations about the legacy implementation and must not be misclassified as failures of the new MediaPipe bridge.
@@ -182,9 +196,9 @@ For every step:
 
 ## Next checkpoint
 
-Begin **Step 9 — MediaPipe eye-landmark mapping**.
+Begin **Step 10 — Self-contained DLL/SO**.
 
-Do not redesign Steps 1–8. Define and validate the MediaPipe 478-point indices that map into the established semantic right/left eye contract.
+Do not redesign Steps 1–9. Define the practical dependency-packaging boundary for `FaceMediaPipe.dll` and `libFaceMediaPipe.so`, then validate deployment from clean target layouts.
 
 ### Step 9 objective
 
@@ -204,7 +218,7 @@ The selected subject-eye mappings, expressed in semantic outer-to-inner order, a
 5. Run the established YuNet/LBF real-image regression to prove the legacy path is unchanged.
 6. Record validation evidence and commits before marking Step 9 complete.
 
-### Step 9 acceptance gate
+### Step 9 acceptance gate (completed)
 
 - The MediaPipe mapper produces the established right/left semantic ordering using the documented twelve indices.
 - MediaPipe topology indices exist only in the MediaPipe mapper and its focused test.

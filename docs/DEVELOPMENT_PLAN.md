@@ -15,13 +15,13 @@ Update it whenever a step changes state. Do not mark a step complete until its a
 
 - Repository: `ShrinivasAtre/face`
 - Branch: `feature/mediapipe-step1-backend-interface`
-- Last completed step: **Step 13**
-- Next formal step: **Step 14 — Model deployment**
-- Step 13 implementation commit: `5307081b37777620d86af82998166e46370de7c1`
+- Last completed step: **Step 14**
+- Next formal step: **Step 15 — Runtime backend selection**
+- Step 14 implementation commit: `aa45ecc8efee4928890371e9df50b75a1ac33a71`
 - Bazel: `7.4.1`
 - MediaPipe release: `v0.10.33`
 - Pinned MediaPipe commit: `3987048d4b390aa9ae675c796f6421bbeece6511`
-- Formal progress: **13 of 16 steps complete (81%)**
+- Formal progress: **14 of 16 steps complete (88%)**
 
 ## Baseline requirements
 
@@ -62,7 +62,7 @@ These requirements are non-negotiable throughout the program.
 | 11 | Pin/build MediaPipe dependency | COMPLETE | One machine-readable version file governs both platforms. Fresh and repeated fetches, dependency verification, and fail-fast build preflight checks passed on Windows x64 and Orin aarch64. |
 | 12 | Runtime DLL/SO loading | COMPLETE | A tested move-only RAII loader resolves and validates the five-function C ABI by path on Windows and Linux without a direct bridge dependency. |
 | 13 | CMake integration | COMPLETE | The existing CMake build now optionally validates and stages an accepted platform package while retaining a default-off legacy build and runtime-only bridge loading. |
-| 14 | Model deployment | IN PROGRESS | Pin and deploy the runtime Face Landmarker task asset reproducibly while keeping it external to the bridge library. |
+| 14 | Model deployment | COMPLETE | The pinned task asset is committed, checksum-verified at configure time, and staged only by enabled MediaPipe builds at a deterministic runtime path. |
 | 15 | Runtime backend selection | NOT STARTED | The application has no accepted `--backend=yunet` / `--backend=mediapipe` option. |
 | 16 | Final Windows/Orin deployment | NOT STARTED | Final application-level packaging and end-to-end deployment validation remain. |
 
@@ -238,6 +238,20 @@ Both platforms used `IMG-20150331-WA0001.jpg`:
 - No `.task` model was staged, no backend-selection option was introduced, and no live camera was required.
 - Implementation commit: `5307081b37777620d86af82998166e46370de7c1`.
 
+### Step 14 — Model deployment
+
+- Committed the accepted 3,758,596-byte `models/mediapipe/face_landmarker.task` runtime asset.
+- Added the CMake-readable `mediapipe/FaceLandmarkerModel.cmake` contract containing the deployed filename and SHA-256 `64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff`.
+- Enabled configuration verifies the model file and checksum before generation; controlled missing-file and wrong-hash inputs were rejected on Windows and Orin.
+- Replaced broad `models/` directory copying with explicit deployment of the existing YuNet and LBF assets, preventing default-off builds from silently staging MediaPipe files.
+- Enabled builds stage the verified model at `models/mediapipe/face_landmarker.task` relative to `yunet_demo` on both platforms.
+- Source and staged model SHA-256 values matched exactly on Windows x64 and Orin aarch64.
+- Real-image smoke tests used the CMake-staged bridge and model on both platforms and passed with one face, 478 landmarks, and bbox `x=243 y=491 w=350 h=410`.
+- All five registered CTests passed on both platforms, including the unchanged YuNet/LBF still-image regression.
+- Fresh default-off outputs contained no `.task` file, while the separate Step 10 bridge packages continued to declare `model_bundled=false`.
+- No `--backend` selection was introduced and no live camera was required.
+- Implementation commit: `aa45ecc8efee4928890371e9df50b75a1ac33a71`.
+
 ## Historical YuNet/LBF observations
 
 The repository contains earlier manual YuNet/LBF robustness results. They record blink over-counting, sensitivity to distance and lighting, and imperfect eye-landmark placement. These are historical observations about the legacy implementation and must not be misclassified as failures of the new MediaPipe bridge.
@@ -259,11 +273,11 @@ For every step:
 
 ## Next checkpoint
 
-Begin **Step 14 — Model deployment**.
+Begin **Step 15 — Runtime backend selection**.
 
-Do not redesign Steps 1–13. Define and validate explicit deployment of the runtime Face Landmarker `.task` model without embedding it in the bridge or selecting a runtime backend early.
+Do not redesign Steps 1–14. Add explicit `--backend=yunet` and `--backend=mediapipe` runtime selection while preserving the established default and sharing the accepted blink-processing layer.
 
-### Step 14 objective
+### Step 14 objective (completed)
 
 Make the Face Landmarker task model a reproducible application runtime asset. Commit the accepted model and a single CMake-readable filename/checksum contract, verify its exact bytes during enabled configuration, and deploy it to a deterministic executable-relative path while keeping legacy-only builds free of MediaPipe model files.
 
@@ -278,7 +292,7 @@ Make the Face Landmarker task model a reproducible application runtime asset. Co
 7. Confirm default-off builds stage no `.task`, the Step 10 bridge package still declares `model_bundled=false`, and no runtime backend selection is introduced.
 8. Re-run all focused and legacy still-image tests on both platforms and record evidence and commits before marking Step 14 complete.
 
-### Step 14 acceptance gate
+### Step 14 acceptance gate (completed)
 
 - The repository contains the accepted 3,758,596-byte `face_landmarker.task` with SHA-256 `64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff`.
 - One committed CMake-readable contract defines the deployed filename and expected SHA-256.

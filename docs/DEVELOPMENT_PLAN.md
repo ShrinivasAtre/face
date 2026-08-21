@@ -15,13 +15,13 @@ Update it whenever a step changes state. Do not mark a step complete until its a
 
 - Repository: `ShrinivasAtre/face`
 - Branch: `feature/mediapipe-step1-backend-interface`
-- Last completed step: **Step 12**
-- Next formal step: **Step 13 — CMake integration**
-- Step 12 implementation commits: `36f849623f163d93d5c8b02aa842ecac0ed9deea`, `ebea4514ba912d821f149240c770260d4233f7d3`
+- Last completed step: **Step 13**
+- Next formal step: **Step 14 — Model deployment**
+- Step 13 implementation commit: `5307081b37777620d86af82998166e46370de7c1`
 - Bazel: `7.4.1`
 - MediaPipe release: `v0.10.33`
 - Pinned MediaPipe commit: `3987048d4b390aa9ae675c796f6421bbeece6511`
-- Formal progress: **12 of 16 steps complete (75%)**
+- Formal progress: **13 of 16 steps complete (81%)**
 
 ## Baseline requirements
 
@@ -61,7 +61,7 @@ These requirements are non-negotiable throughout the program.
 | 10 | Self-contained DLL/SO | COMPLETE | Deterministic packaging scripts stage the bridge boundary and manifests. Clean packaged-runtime smoke tests passed on Windows x64 and Orin aarch64 with no external MediaPipe/TFLite/Abseil libraries. |
 | 11 | Pin/build MediaPipe dependency | COMPLETE | One machine-readable version file governs both platforms. Fresh and repeated fetches, dependency verification, and fail-fast build preflight checks passed on Windows x64 and Orin aarch64. |
 | 12 | Runtime DLL/SO loading | COMPLETE | A tested move-only RAII loader resolves and validates the five-function C ABI by path on Windows and Linux without a direct bridge dependency. |
-| 13 | CMake integration | IN PROGRESS | Add opt-in validation and staging of an accepted packaged bridge through the existing CMake application build. |
+| 13 | CMake integration | COMPLETE | The existing CMake build now optionally validates and stages an accepted platform package while retaining a default-off legacy build and runtime-only bridge loading. |
 | 14 | Model deployment | NOT STARTED | The bridge accepts an external `.task` path, but the model is not deployed by the application build. |
 | 15 | Runtime backend selection | NOT STARTED | The application has no accepted `--backend=yunet` / `--backend=mediapipe` option. |
 | 16 | Final Windows/Orin deployment | NOT STARTED | Final application-level packaging and end-to-end deployment validation remain. |
@@ -223,6 +223,21 @@ Both platforms used `IMG-20150331-WA0001.jpg`:
 - No live camera or runtime `.task` model was required.
 - Implementation commits: `36f849623f163d93d5c8b02aa842ecac0ed9deea`, `ebea4514ba912d821f149240c770260d4233f7d3`.
 
+### Step 13 — CMake integration
+
+- Added default-off `FACE_ENABLE_MEDIAPIPE_RUNTIME` and explicit `FACE_MEDIAPIPE_PACKAGE_DIR` CMake inputs; no machine-specific package path is committed.
+- Enabled configuration validates the platform-specific bridge, `MANIFEST.txt`, manifest platform marker, bridge listing, and the matching packaged Windows `opencv_world480.dll`.
+- Missing-package configuration was rejected on Windows and Orin, and a complete Windows-shaped package carrying an Orin manifest was rejected as the wrong platform.
+- Enabled builds link the Step 12 runtime-loader target into `yunet_demo` and stage the bridge plus `FaceMediaPipe.MANIFEST.txt`; Windows obtains its OpenCV DLL from the same accepted package.
+- Fresh default-off builds on both platforms produced no staged FaceMediaPipe bridge or manifest.
+- Windows staged DLL, OpenCV DLL, and manifest SHA-256 values exactly matched the Step 10 package inputs; Orin staged SO and manifest hashes also matched exactly.
+- Staged-library probes passed with API version `1` on Windows x64 and Orin aarch64.
+- Windows import inspection and Orin `ldd` inspection confirmed `yunet_demo` has no direct FaceMediaPipe dependency. Orin application and staged SO were confirmed ARM aarch64.
+- CMake does not fetch MediaPipe, invoke Bazel, or compile MediaPipe SDK sources.
+- All five registered CTests passed in enabled builds on both platforms, including the unchanged YuNet/LBF still-image regression.
+- No `.task` model was staged, no backend-selection option was introduced, and no live camera was required.
+- Implementation commit: `5307081b37777620d86af82998166e46370de7c1`.
+
 ## Historical YuNet/LBF observations
 
 The repository contains earlier manual YuNet/LBF robustness results. They record blink over-counting, sensitivity to distance and lighting, and imperfect eye-landmark placement. These are historical observations about the legacy implementation and must not be misclassified as failures of the new MediaPipe bridge.
@@ -244,11 +259,11 @@ For every step:
 
 ## Next checkpoint
 
-Begin **Step 13 — CMake integration**.
+Begin **Step 14 — Model deployment**.
 
-Do not redesign Steps 1–12. Integrate the accepted runtime loader and packaged bridge boundary into the existing CMake application build without replacing it with Bazel or implementing model deployment and backend selection early.
+Do not redesign Steps 1–13. Define and validate explicit deployment of the runtime Face Landmarker `.task` model without embedding it in the bridge or selecting a runtime backend early.
 
-### Step 13 objective
+### Step 13 objective (completed)
 
 Extend the existing CMake application build with an opt-in MediaPipe runtime package boundary. When enabled, configuration must validate an explicitly supplied Step 10 package for the target platform, link the Step 12 runtime-loader component into `yunet_demo`, and stage the packaged bridge and manifest beside the executable without linking the executable directly to the bridge or invoking Bazel.
 
@@ -262,7 +277,7 @@ Extend the existing CMake application build with an opt-in MediaPipe runtime pac
 6. Confirm enabled application binaries have no direct DLL/SO dependency on FaceMediaPipe and that CMake never fetches or builds MediaPipe with Bazel.
 7. Re-run focused and legacy still-image tests on both platforms and record evidence and commits before marking Step 13 complete.
 
-### Step 13 acceptance gate
+### Step 13 acceptance gate (completed)
 
 - The integration is disabled by default and the existing YuNet/LBF build behavior remains available unchanged.
 - Enabling integration requires an explicit packaged-runtime directory and rejects missing files or a manifest for the wrong target platform at configure time.

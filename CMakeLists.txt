@@ -126,6 +126,45 @@ if(FACE_ENABLE_MEDIAPIPE_RUNTIME)
         "MediaPipe runtime platform: ${FACE_MEDIAPIPE_PACKAGE_PLATFORM}"
     )
 
+    include(
+        "${CMAKE_CURRENT_SOURCE_DIR}/mediapipe/FaceLandmarkerModel.cmake"
+    )
+    set(FACE_MEDIAPIPE_MODEL_FILE
+        "${CMAKE_CURRENT_SOURCE_DIR}/models/mediapipe/${FACE_MEDIAPIPE_MODEL_FILENAME}"
+        CACHE FILEPATH
+        "Path to the pinned MediaPipe Face Landmarker task model"
+    )
+
+    if(NOT EXISTS "${FACE_MEDIAPIPE_MODEL_FILE}")
+        message(FATAL_ERROR
+            "Required MediaPipe model is missing: "
+            "${FACE_MEDIAPIPE_MODEL_FILE}"
+        )
+    endif()
+
+    file(SHA256
+        "${FACE_MEDIAPIPE_MODEL_FILE}"
+        FACE_MEDIAPIPE_MODEL_ACTUAL_SHA256
+    )
+    if(NOT
+        FACE_MEDIAPIPE_MODEL_ACTUAL_SHA256 STREQUAL
+        FACE_MEDIAPIPE_MODEL_SHA256
+    )
+        message(FATAL_ERROR
+            "MediaPipe model SHA-256 mismatch. Expected "
+            "${FACE_MEDIAPIPE_MODEL_SHA256}, got "
+            "${FACE_MEDIAPIPE_MODEL_ACTUAL_SHA256}: "
+            "${FACE_MEDIAPIPE_MODEL_FILE}"
+        )
+    endif()
+
+    message(STATUS
+        "MediaPipe model: ${FACE_MEDIAPIPE_MODEL_FILE}"
+    )
+    message(STATUS
+        "MediaPipe model SHA-256: ${FACE_MEDIAPIPE_MODEL_SHA256}"
+    )
+
 endif()
 
 
@@ -185,7 +224,7 @@ target_link_libraries(yunet_demo
 # ============================================================
 # Model deployment
 #
-# Models are copied next to the executable:
+# Legacy models are always copied next to the executable:
 #
 # Windows:
 #   build/Release/models/
@@ -194,9 +233,19 @@ target_link_libraries(yunet_demo
 #   build/models/
 # ============================================================
 
-set(MODEL_SOURCE_DIR
-    "${CMAKE_CURRENT_SOURCE_DIR}/models"
+set(FACE_LEGACY_MODEL_FILES
+    face_detection_yunet_2026may.onnx
+    lbfmodel.yaml
 )
+
+foreach(model_file IN LISTS FACE_LEGACY_MODEL_FILES)
+    if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/models/${model_file}")
+        message(FATAL_ERROR
+            "Required legacy model is missing: "
+            "${CMAKE_CURRENT_SOURCE_DIR}/models/${model_file}"
+        )
+    endif()
+endforeach()
 
 add_custom_command(
     TARGET yunet_demo
@@ -207,15 +256,41 @@ add_custom_command(
         -E make_directory
         "$<TARGET_FILE_DIR:yunet_demo>/models"
 
-    COMMAND
-        ${CMAKE_COMMAND}
-        -E copy_directory
-        "${MODEL_SOURCE_DIR}"
-        "$<TARGET_FILE_DIR:yunet_demo>/models"
-
     COMMENT
-        "Copying model files to executable directory"
+        "Creating legacy model deployment directory"
 )
+
+foreach(model_file IN LISTS FACE_LEGACY_MODEL_FILES)
+    add_custom_command(
+        TARGET yunet_demo
+        POST_BUILD
+        COMMAND
+            ${CMAKE_COMMAND}
+            -E copy_if_different
+            "${CMAKE_CURRENT_SOURCE_DIR}/models/${model_file}"
+            "$<TARGET_FILE_DIR:yunet_demo>/models/${model_file}"
+        COMMENT
+            "Deploying legacy model ${model_file}"
+    )
+endforeach()
+
+if(FACE_ENABLE_MEDIAPIPE_RUNTIME)
+    add_custom_command(
+        TARGET yunet_demo
+        POST_BUILD
+        COMMAND
+            ${CMAKE_COMMAND}
+            -E make_directory
+            "$<TARGET_FILE_DIR:yunet_demo>/models/mediapipe"
+        COMMAND
+            ${CMAKE_COMMAND}
+            -E copy_if_different
+            "${FACE_MEDIAPIPE_MODEL_FILE}"
+            "$<TARGET_FILE_DIR:yunet_demo>/models/mediapipe/${FACE_MEDIAPIPE_MODEL_FILENAME}"
+        COMMENT
+            "Deploying verified MediaPipe model"
+    )
+endif()
 
 
 # ============================================================

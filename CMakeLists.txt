@@ -238,6 +238,68 @@ if(BUILD_TESTING)
         COMMAND mediapipe_eye_landmark_mapper_test
     )
 
+    add_library(face_mediapipe_runtime STATIC
+        src/FaceMediaPipeRuntime.cpp
+    )
+
+    target_include_directories(face_mediapipe_runtime
+        PUBLIC
+            ${CMAKE_CURRENT_SOURCE_DIR}/include
+            ${CMAKE_CURRENT_SOURCE_DIR}/mediapipe/api
+    )
+
+    target_link_libraries(face_mediapipe_runtime
+        PRIVATE
+            ${CMAKE_DL_LIBS}
+    )
+
+    foreach(mock_target IN ITEMS
+        face_mediapipe_mock_valid
+        face_mediapipe_mock_missing_symbol
+        face_mediapipe_mock_wrong_version
+    )
+        add_library(${mock_target} SHARED
+            tests/face_mediapipe_mock.cpp
+        )
+        target_include_directories(${mock_target}
+            PRIVATE
+                ${CMAKE_CURRENT_SOURCE_DIR}/mediapipe/api
+        )
+        target_compile_definitions(${mock_target}
+            PRIVATE
+                FACE_MEDIAPIPE_BUILD
+        )
+    endforeach()
+
+    target_compile_definitions(face_mediapipe_mock_missing_symbol
+        PRIVATE FACE_MP_MOCK_MISSING_DESTROY
+    )
+    target_compile_definitions(face_mediapipe_mock_wrong_version
+        PRIVATE FACE_MP_MOCK_WRONG_VERSION
+    )
+
+    add_executable(face_mediapipe_runtime_test
+        tests/face_mediapipe_runtime_test.cpp
+    )
+    target_link_libraries(face_mediapipe_runtime_test
+        PRIVATE face_mediapipe_runtime
+    )
+
+    add_test(
+        NAME face_mediapipe_runtime_test
+        COMMAND face_mediapipe_runtime_test
+            $<TARGET_FILE:face_mediapipe_mock_valid>
+            $<TARGET_FILE:face_mediapipe_mock_missing_symbol>
+            $<TARGET_FILE:face_mediapipe_mock_wrong_version>
+    )
+
+    add_executable(face_mediapipe_runtime_probe
+        tests/face_mediapipe_runtime_probe.cpp
+    )
+    target_link_libraries(face_mediapipe_runtime_probe
+        PRIVATE face_mediapipe_runtime
+    )
+
     add_executable(legacy_blink_integration_test
         tests/legacy_blink_integration_test.cpp
         src/FaceDetector.cpp

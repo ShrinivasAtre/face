@@ -217,6 +217,27 @@ if(BUILD_TESTING)
         COMMAND lbf_eye_landmark_mapper_test
     )
 
+    add_executable(mediapipe_eye_landmark_mapper_test
+        tests/mediapipe_eye_landmark_mapper_test.cpp
+        src/MediaPipeEyeLandmarkMapper.cpp
+    )
+
+    target_include_directories(mediapipe_eye_landmark_mapper_test
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/include
+            ${OpenCV_INCLUDE_DIRS}
+    )
+
+    target_link_libraries(mediapipe_eye_landmark_mapper_test
+        PRIVATE
+            ${OpenCV_LIBS}
+    )
+
+    add_test(
+        NAME mediapipe_eye_landmark_mapper_test
+        COMMAND mediapipe_eye_landmark_mapper_test
+    )
+
     add_executable(legacy_blink_integration_test
         tests/legacy_blink_integration_test.cpp
         src/FaceDetector.cpp

@@ -4,9 +4,33 @@
 
 - Baseline: `main` at `f135a4acda184a4f4ce8f58d2a9d689e6b9602f2`
 - Completed predecessor: 16-step MediaPipe integration program
+- Plan state: **ACCEPTED AND FROZEN**
+- Plan accepted by the user: **2026-08-22**
 - Current formal stage: **Stage 17 — performance characterization and MediaPipe video-path optimization**
 - Stage 17 status: **PLANNED**
 - Later stages in this document are architectural commitments or benchmark gates, not accepted implementations.
+
+## Plan governance
+
+This document is the accepted scope and acceptance contract for the follow-on DMS program. Implementation may not silently weaken, omit, or redefine a stage objective, architecture constraint, acceptance criterion, or required platform gate.
+
+The plan may be amended when measurements, target limitations, dataset evidence, licensing, safety considerations, or product decisions require it. Every amendment must:
+
+1. state the evidence or decision that requires the change;
+2. identify the affected scope and acceptance criteria;
+3. preserve completed-stage evidence;
+4. be reviewed with the user when it materially changes product behavior, platform scope, safety/accuracy expectations, privacy, or required physical action; and
+5. be committed before implementation proceeds under the amended contract.
+
+Minor clarifications that do not change scope or acceptance may be committed with their implementation evidence.
+
+## User-interaction legend
+
+- **USER ACTION — CAMERA/DEVICE:** unavoidable physical camera or target-device access, or live GUI observation.
+- **USER INPUT — DATA/POLICY/PRODUCT:** a dataset authorization, privacy/policy choice, event definition, class taxonomy, hardware fact, or material model-selection decision.
+- **AUTONOMOUS:** inspection, implementation, builds, non-interactive Windows/SSH diagnostics, headless tests, packaging, and evidence recording performed by the agent.
+
+The agent must complete all safe autonomous work before requesting a marked user action or input.
 
 ## Product objective
 
@@ -90,6 +114,11 @@ Explain the Windows/Orin FPS difference with reproducible evidence, then reduce 
 - The application continues to have no direct FaceMediaPipe DLL/SO dependency and the bridge ABI compatibility policy is documented.
 - A live-camera comparison is requested only after headless evidence passes; user action is limited to camera placement and visual confirmation.
 
+### Required user involvement
+
+- **USER ACTION — CAMERA/DEVICE:** after the headless gate passes, make the camera available on Windows and Orin (moving it between machines if shared) and visually confirm overlay quality, responsiveness, and clean exit. The agent prepares and runs all accessible commands.
+- No user action is required for Stage 17 before this final live-camera gate.
+
 ## Stage 18 — backend-neutral DMS observation and scheduling core
 
 ### Objective
@@ -104,6 +133,10 @@ Introduce semantic observation packets, bounded latest-frame scheduling, indepen
 - Queue depth is bounded and latency does not grow when an inference worker is slower than capture.
 - Recorded-sequence tests are deterministic and independent of wall-clock scheduling.
 - Windows x64, x64 Ubuntu, and Orin aarch64 CMake builds and tests pass. Raspberry Pi remains an architecture review until hardware is available.
+
+### Required user involvement
+
+- None expected. Any new material scheduling/product tradeoff discovered by measurement is handled through the plan-amendment procedure.
 
 ## Stage 19 — YuNet + PFLD versus YuNet + LBF benchmark
 
@@ -129,6 +162,11 @@ Add an ONNX landmark-provider plugin and compare at least one reproducibly sourc
 - PFLD replaces LBF only if it wins the product-weighted accuracy/latency gate on the target dataset and does not make a required platform impractical.
 - If generic facial landmarks do not meet eye-opening/PERCLOS targets, Stage 20 evaluates a dedicated eye ROI model rather than embedding provider-specific exceptions in DMS logic.
 
+### Required user involvement
+
+- **USER INPUT — DATA/POLICY/PRODUCT:** authorize access to representative visible/IR DMS recordings and state any privacy or retention restrictions. If no suitable dataset exists, review the proposed recording and annotation protocol before collection.
+- **USER INPUT — DATA/POLICY/PRODUCT:** review the completed benchmark and approve the production facial-geometry direction: PFLD-class provider, optimized MediaPipe, temporary LBF retention, or a specialized eye-model evaluation.
+
 ## Stage 20 — DMS metrics and temporal FSMs
 
 ### Objective
@@ -149,6 +187,11 @@ Implement calibrated eye openness, EAR, PERCLOS, blink, yawn, head pose, gaze, d
 - Dataset-level event precision, recall, F1, false alarms per hour, count error, and detection delay are reported by required robustness slice.
 - Threshold calibration data is separate from final evaluation data.
 
+### Required user involvement
+
+- **USER INPUT — DATA/POLICY/PRODUCT:** approve operational definitions after recommended defaults and tradeoffs are presented, including PERCLOS window, prolonged-closure duration, yawn duration, distraction duration, pose zones, and whether each event is displayed, counted, recorded, or alerted.
+- No user input is required while implementing and testing the model-neutral metric/FSM mechanisms before that definition gate.
+
 ## Stage 21 — recognition and object/context events
 
 ### Objective
@@ -162,6 +205,12 @@ Add consented driver recognition plus cigarette-at-mouth and hand-held-object/dr
 - “Anything else in hand” is narrowed to an annotated class/taxonomy and measurable unknown-object policy before implementation.
 - Accuracy, subgroup/condition slices, latency, and false alarms per hour pass agreed dataset gates.
 
+### Required user involvement
+
+- **USER INPUT — DATA/POLICY/PRODUCT:** approve recognition enrollment, expected-driver/unknown-driver behavior, acceptable false acceptance/rejection, and image/embedding retention and deletion policy.
+- **USER INPUT — DATA/POLICY/PRODUCT:** approve the initial hand-held-object taxonomy and unknown-object behavior.
+- **USER INPUT — DATA/POLICY/PRODUCT:** after pretrained baselines are reported, approve any proposed data annotation, training, or fine-tuning effort. Production inference remains pure C++ even if offline training uses Python.
+
 ## Stage 22 — native packaging matrix and Raspberry Pi enablement
 
 ### Objective
@@ -174,6 +223,21 @@ Produce self-contained CMake application packages for Windows x64, x64 Ubuntu, O
 - Architecture, dependencies, model checksums, licenses, manifests, and launcher behavior are verified.
 - Raspberry Pi passes CPU baseline tests first. Hailo is an optional, separately packaged execution provider and is accepted only after model conversion, accuracy parity, device FPS/latency, thermals, and sustained-run tests pass.
 - At least a two-hour sustained run demonstrates bounded memory/latency and reports thermals, power mode, and dropped frames on each embedded target.
+
+### Required user involvement
+
+- **USER ACTION — CAMERA/DEVICE:** when available, provide Raspberry Pi network/device access and physically connect the intended camera. Do not provide or expose credentials in repository data.
+- **USER INPUT — DATA/POLICY/PRODUCT:** confirm whether a Hailo accelerator is present and its exact model before the optional Hailo path begins.
+- **USER ACTION — CAMERA/DEVICE:** at the final gate, make the camera available on each physical target and visually confirm live behavior. The agent performs all builds, commands, packaging, and non-interactive validation.
+
+## Formal review checkpoints
+
+1. **Completed — plan freeze:** overall scope, architecture and acceptance criteria accepted on 2026-08-22.
+2. **After Stage 17:** review whether optimized MediaPipe remains a serious production candidate.
+3. **After Stage 19:** select the production facial-geometry direction.
+4. **During Stage 20:** approve operational event definitions and thresholds.
+5. **Before Stage 21 product integration:** approve recognition/privacy policy and object taxonomy.
+6. **When Raspberry Pi is available:** confirm hardware, access and optional accelerator scope.
 
 ## Current recommendation
 

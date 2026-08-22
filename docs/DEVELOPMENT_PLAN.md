@@ -14,14 +14,14 @@ Update it whenever a step changes state. Do not mark a step complete until its a
 ## Current checkpoint
 
 - Repository: `ShrinivasAtre/face`
-- Branch: `feature/mediapipe-step1-backend-interface`
-- Last completed step: **Step 15**
-- Next formal step: **Step 16 — Final Windows/Orin deployment**
-- Step 15 implementation commit: `fc59d1f132b6da3ef4f5219c2838de71578188eb`
+- Final integration branch: `main`
+- Last completed step: **Step 16**
+- Next formal step: **None — the 16-step program is complete**
+- Step 16 implementation commit: `127d836884a9b1084fa8f6500318b43ddb66c6f5`
 - Bazel: `7.4.1`
 - MediaPipe release: `v0.10.33`
 - Pinned MediaPipe commit: `3987048d4b390aa9ae675c796f6421bbeece6511`
-- Formal progress: **15 of 16 steps complete (94%)**
+- Formal progress: **16 of 16 steps complete (100%)**
 
 ## Baseline requirements
 
@@ -64,7 +64,7 @@ These requirements are non-negotiable throughout the program.
 | 13 | CMake integration | COMPLETE | The existing CMake build now optionally validates and stages an accepted platform package while retaining a default-off legacy build and runtime-only bridge loading. |
 | 14 | Model deployment | COMPLETE | The pinned task asset is committed, checksum-verified at configure time, and staged only by enabled MediaPipe builds at a deterministic runtime path. |
 | 15 | Runtime backend selection | COMPLETE | The application defaults to YuNet/LBF and strictly supports explicit YuNet or runtime-loaded MediaPipe selection through common backend and blink-processing paths. |
-| 16 | Final Windows/Orin deployment | IN PROGRESS | Produce deterministic allowlisted application packages and complete end-to-end still-image and live-camera validation on both target platforms. |
+| 16 | Final Windows/Orin deployment | COMPLETE | Deterministic allowlisted packages, full test suites, and live-camera runs with both backends passed on Windows x64 and Orin aarch64. |
 
 ## Completed-step evidence
 
@@ -287,11 +287,11 @@ For every step:
 7. Update the current checkpoint and formal completion count.
 8. Commit the plan update with the implementation or immediately after validation.
 
-## Next checkpoint
+## Program completion checkpoint
 
-Begin **Step 16 — Final Windows/Orin deployment**.
+The **16-step MediaPipe integration program is complete**.
 
-Do not redesign Steps 1–15. Produce and validate final application deployment directories for Windows x64 and Orin aarch64, including both runtime-selectable backends and all accepted runtime assets.
+All baseline requirements remain satisfied. Future work should be tracked separately from this completed integration program.
 
 ### Step 16 objective
 
@@ -308,7 +308,7 @@ Deliver reproducible, self-contained application deployment directories for Wind
 7. Run the deployed application briefly with both backends and a live camera on Windows, then on Orin, confirming initialization, face/eye overlay behavior, and clean exit.
 8. Record final evidence and commits before marking Step 16 and the 16-step program complete.
 
-### Step 16 acceptance gate
+### Step 16 acceptance gate (completed)
 
 - Each committed packaging script creates a clean deployment directory from an enabled CMake Release output using only an explicit file allowlist.
 - Windows contains `yunet_demo.exe`, `FaceMediaPipe.dll`, matching `opencv_world480.dll`, all three models, bridge/application manifests, and a launcher; Orin contains the corresponding executable, SO, models, manifests, and launcher.
@@ -320,6 +320,20 @@ Deliver reproducible, self-contained application deployment directories for Wind
 - Deployed live-camera runs initialize and operate with both backends on Windows x64 and Orin aarch64 and exit cleanly on user request.
 - Both fresh `p16` repositories are clean and synchronized at the final commit.
 - Validation evidence and implementation commits are recorded before Step 16 and the overall program are marked `COMPLETE`.
+
+### Step 16 validation evidence
+
+- Final packaging and launcher implementation commit: `127d836884a9b1084fa8f6500318b43ddb66c6f5`.
+- Fresh enabled Release builds completed on Windows x64 and NVIDIA Jetson Orin/Linux aarch64.
+- All eight registered CTests passed on each platform, including YuNet/LBF and MediaPipe still-image backend integration tests.
+- Two independently generated application packages on each platform were byte-for-byte identical, including their deterministic application manifests.
+- Windows packaged `yunet_demo.exe`, `FaceMediaPipe.dll`, matching `opencv_world480.dll`, all three models, manifests, and `run_face.ps1`; Orin packaged the corresponding ARM aarch64 executable, `libFaceMediaPipe.so`, models, manifests, and `run_face.sh`.
+- The deployed task model retained SHA-256 `64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff` on both platforms.
+- Windows binaries were validated as x64 and Orin binaries as ARM aarch64. Dependencies resolved, and neither application executable linked directly to the FaceMediaPipe bridge.
+- Both launch helpers rejected an invalid backend before application startup.
+- Live-camera deployment tests passed for `yunet` and `mediapipe` on Windows x64 with normal face/eye behavior and no runtime DLL or model errors.
+- Live-camera deployment tests passed for `yunet` and `mediapipe` on Orin with normal face/eye behavior and no runtime library or model errors.
+- Both applications exited cleanly on user request, satisfying the final end-to-end deployment gate.
 
 ### Step 15 objective (completed)
 

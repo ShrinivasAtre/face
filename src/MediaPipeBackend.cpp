@@ -45,7 +45,10 @@ bool MediaPipeBackend::initialize(const std::string& modelPath)
 
 bool MediaPipeBackend::process(const cv::Mat& frame, FaceResult& result)
 {
-    result = {};
+    result.detected = false;
+    result.landmarksValid = false;
+    result.faceBox = {};
+    result.landmarks.clear();
     if (handle_ == nullptr || frame.empty() || frame.type() != CV_8UC3 ||
         frame.cols > std::numeric_limits<std::int32_t>::max() ||
         frame.rows > std::numeric_limits<std::int32_t>::max() ||
@@ -54,10 +57,10 @@ bool MediaPipeBackend::process(const cv::Mat& frame, FaceResult& result)
         return false;
     }
 
-    std::vector<FaceMPLandmark> landmarks(478);
     FaceMPResult bridgeResult{};
-    bridgeResult.landmarks = landmarks.data();
-    bridgeResult.landmark_capacity = static_cast<std::int32_t>(landmarks.size());
+    bridgeResult.landmarks = bridgeLandmarks_.data();
+    bridgeResult.landmark_capacity =
+        static_cast<std::int32_t>(bridgeLandmarks_.size());
     if (runtime_.processBgr(handle_, frame.data, frame.cols, frame.rows,
                             static_cast<std::int32_t>(frame.step),
                             &bridgeResult) != 1)
@@ -78,7 +81,7 @@ bool MediaPipeBackend::process(const cv::Mat& frame, FaceResult& result)
     result.landmarks.reserve(static_cast<std::size_t>(bridgeResult.landmark_count));
     for (std::int32_t index = 0; index < bridgeResult.landmark_count; ++index)
     {
-        const auto& landmark = landmarks[static_cast<std::size_t>(index)];
+        const auto& landmark = bridgeLandmarks_[static_cast<std::size_t>(index)];
         result.landmarks.push_back({landmark.x, landmark.y, landmark.z});
     }
     result.landmarksValid = result.detected && !result.landmarks.empty();

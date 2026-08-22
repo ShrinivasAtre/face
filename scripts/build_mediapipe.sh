@@ -62,8 +62,10 @@ cp "${REPO_ROOT}/mediapipe/src/BgrToRgb.cpp" "${BRIDGE_ROOT}/src/BgrToRgb.cpp"
 cp "${REPO_ROOT}/mediapipe/src/BgrToRgb.h" "${BRIDGE_ROOT}/src/BgrToRgb.h"
 cp "${REPO_ROOT}/mediapipe/src/LandmarkConversion.cpp" "${BRIDGE_ROOT}/src/LandmarkConversion.cpp"
 cp "${REPO_ROOT}/mediapipe/src/LandmarkConversion.h" "${BRIDGE_ROOT}/src/LandmarkConversion.h"
+cp "${REPO_ROOT}/mediapipe/src/MonotonicTimestamp.h" "${BRIDGE_ROOT}/src/MonotonicTimestamp.h"
 cp "${REPO_ROOT}/tests/bgr_to_rgb_test.cpp" "${BRIDGE_ROOT}/tests/bgr_to_rgb_test.cpp"
 cp "${REPO_ROOT}/tests/landmark_conversion_test.cpp" "${BRIDGE_ROOT}/tests/landmark_conversion_test.cpp"
+cp "${REPO_ROOT}/mediapipe/tests/monotonic_timestamp_test.cpp" "${BRIDGE_ROOT}/tests/monotonic_timestamp_test.cpp"
 
 # A cc_library with linkstatic=False can produce a .so that still contains
 # unresolved references to its transitive MediaPipe dependencies. Build the
@@ -83,6 +85,7 @@ cc_library(
         "api/FaceMediaPipe.h",
         "src/BgrToRgb.h",
         "src/LandmarkConversion.h",
+        "src/MonotonicTimestamp.h",
     ],
     deps = [
         "//mediapipe/framework/formats:image_frame",
@@ -99,6 +102,14 @@ cc_binary(
     linkstatic = True,
     linkopts = ["-Wl,--no-undefined"],
     visibility = ["//visibility:public"],
+)
+cc_test(
+    name = "monotonic_timestamp_test",
+    srcs = [
+        "src/MonotonicTimestamp.h",
+        "tests/monotonic_timestamp_test.cpp",
+    ],
+    includes = ["src"],
 )
 cc_test(
     name = "bgr_to_rgb_test",

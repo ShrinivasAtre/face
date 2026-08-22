@@ -157,8 +157,10 @@ Copy-Item (Join-Path $RepoRoot 'mediapipe\src\BgrToRgb.cpp') (Join-Path $BridgeR
 Copy-Item (Join-Path $RepoRoot 'mediapipe\src\BgrToRgb.h') (Join-Path $BridgeRoot 'src\BgrToRgb.h')
 Copy-Item (Join-Path $RepoRoot 'mediapipe\src\LandmarkConversion.cpp') (Join-Path $BridgeRoot 'src\LandmarkConversion.cpp')
 Copy-Item (Join-Path $RepoRoot 'mediapipe\src\LandmarkConversion.h') (Join-Path $BridgeRoot 'src\LandmarkConversion.h')
+Copy-Item (Join-Path $RepoRoot 'mediapipe\src\MonotonicTimestamp.h') (Join-Path $BridgeRoot 'src\MonotonicTimestamp.h')
 Copy-Item (Join-Path $RepoRoot 'tests\bgr_to_rgb_test.cpp') (Join-Path $BridgeRoot 'tests\bgr_to_rgb_test.cpp')
 Copy-Item (Join-Path $RepoRoot 'tests\landmark_conversion_test.cpp') (Join-Path $BridgeRoot 'tests\landmark_conversion_test.cpp')
+Copy-Item (Join-Path $RepoRoot 'mediapipe\tests\monotonic_timestamp_test.cpp') (Join-Path $BridgeRoot 'tests\monotonic_timestamp_test.cpp')
 
 $BridgeBuild = @'
 cc_library(
@@ -172,6 +174,7 @@ cc_library(
         "api/FaceMediaPipe.h",
         "src/BgrToRgb.h",
         "src/LandmarkConversion.h",
+        "src/MonotonicTimestamp.h",
     ],
     deps = [
         "//mediapipe/framework/formats:image_frame",
@@ -188,6 +191,14 @@ cc_binary(
     linkshared = True,
     linkstatic = True,
     visibility = ["//visibility:public"],
+)
+cc_test(
+    name = "monotonic_timestamp_test",
+    srcs = [
+        "src/MonotonicTimestamp.h",
+        "tests/monotonic_timestamp_test.cpp",
+    ],
+    includes = ["src"],
 )
 cc_test(
     name = "bgr_to_rgb_test",

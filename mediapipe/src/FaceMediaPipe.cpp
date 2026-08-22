@@ -1,6 +1,7 @@
 #include "../api/FaceMediaPipe.h"
 #include "BgrToRgb.h"
 #include "LandmarkConversion.h"
+#include "MonotonicTimestamp.h"
 
 #include <algorithm>
 #include <cmath>
@@ -29,6 +30,8 @@ struct FaceMPHandle
 {
     std::unique_ptr<FaceLandmarker> landmarker;
     std::string last_error;
+    face_mp_internal::MonotonicTimestamp timestamp;
+    std::vector<face_mp_internal::NormalizedLandmark> normalized_landmarks;
 };
 
 extern "C" FACE_MEDIAPIPE_API uint32_t face_mp_api_version()
@@ -49,7 +52,7 @@ extern "C" FACE_MEDIAPIPE_API FaceMPHandle* face_mp_create(
     auto options = std::make_unique<FaceLandmarkerOptions>();
     options->base_options.model_asset_path = model_path;
     options->running_mode =
-        mediapipe::tasks::vision::core::RunningMode::IMAGE;
+        mediapipe::tasks::vision::core::RunningMode::VIDEO;
     options->num_faces = 1;
     options->min_face_detection_confidence = 0.5f;
     options->min_face_presence_confidence = 0.5f;
@@ -121,7 +124,10 @@ extern "C" FACE_MEDIAPIPE_API int32_t face_mp_process_bgr(
     mediapipe::Image image(
         std::make_shared<mediapipe::ImageFrame>(std::move(rgb_frame)));
 
-    auto detection_or = handle->landmarker->Detect(std::move(image));
+    const int64_t timestamp_ms = handle->timestamp.next(
+        face_mp_internal::MonotonicTimestamp::Clock::now());
+    auto detection_or = handle->landmarker->DetectForVideo(
+        std::move(image), timestamp_ms);
 
     if (!detection_or.ok())
     {
@@ -139,7 +145,8 @@ extern "C" FACE_MEDIAPIPE_API int32_t face_mp_process_bgr(
 
     const auto& landmarks = detection.face_landmarks.front().landmarks;
 
-    std::vector<face_mp_internal::NormalizedLandmark> normalized;
+    auto& normalized = handle->normalized_landmarks;
+    normalized.clear();
     normalized.reserve(landmarks.size());
 
     for (const auto& landmark : landmarks)

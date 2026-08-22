@@ -199,6 +199,20 @@ add_executable(yunet_demo
     src/BlinkTracker.cpp
 )
 
+add_executable(face_benchmark
+    src/benchmark_main.cpp
+    src/AppPaths.cpp
+    src/BackendOptions.cpp
+    src/BenchmarkOptions.cpp
+    src/BackendEyeMapper.cpp
+    src/FaceDetector.cpp
+    src/LbfLandmarkDetector.cpp
+    src/LbfEyeLandmarkMapper.cpp
+    src/MediaPipeEyeLandmarkMapper.cpp
+    src/YuNetLbfBackend.cpp
+    src/BlinkTracker.cpp
+)
+
 
 # ============================================================
 # Include directories
@@ -240,6 +254,12 @@ target_link_libraries(yunet_demo
 set(FACE_LEGACY_MODEL_FILES
     face_detection_yunet_2026may.onnx
     lbfmodel.yaml
+)
+
+target_include_directories(face_benchmark
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${OpenCV_INCLUDE_DIRS}
 )
 
 foreach(model_file IN LISTS FACE_LEGACY_MODEL_FILES)
@@ -416,7 +436,17 @@ if(FACE_ENABLE_MEDIAPIPE_RUNTIME)
             src/MediaPipeBackend.cpp
     )
 
+    target_sources(face_benchmark
+        PRIVATE
+            src/MediaPipeBackend.cpp
+    )
+
     target_compile_definitions(yunet_demo
+        PRIVATE
+            FACE_MEDIAPIPE_RUNTIME_ENABLED=1
+    )
+
+    target_compile_definitions(face_benchmark
         PRIVATE
             FACE_MEDIAPIPE_RUNTIME_ENABLED=1
     )
@@ -425,6 +455,20 @@ if(FACE_ENABLE_MEDIAPIPE_RUNTIME)
         PRIVATE
             face_mediapipe_runtime
     )
+
+    target_link_libraries(face_benchmark
+        PRIVATE
+            face_mediapipe_runtime
+    )
+
+target_link_libraries(face_benchmark
+    PRIVATE
+        ${OpenCV_LIBS}
+)
+
+if(WIN32)
+    target_link_libraries(face_benchmark PRIVATE Psapi)
+endif()
 
     add_custom_command(
         TARGET yunet_demo
@@ -535,6 +579,31 @@ if(BUILD_TESTING)
     add_test(
         NAME backend_options_test
         COMMAND backend_options_test
+    )
+
+    add_executable(benchmark_options_test
+        tests/benchmark_options_test.cpp
+        src/BenchmarkOptions.cpp
+    )
+    target_include_directories(benchmark_options_test
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    add_test(
+        NAME benchmark_options_test
+        COMMAND benchmark_options_test
+    )
+
+    add_executable(monotonic_timestamp_test
+        mediapipe/tests/monotonic_timestamp_test.cpp
+    )
+    target_include_directories(monotonic_timestamp_test
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/mediapipe/src
+    )
+    add_test(
+        NAME monotonic_timestamp_test
+        COMMAND monotonic_timestamp_test
     )
 
     foreach(mock_target IN ITEMS

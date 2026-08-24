@@ -169,8 +169,8 @@ Introduce semantic observation packets, bounded latest-frame scheduling, indepen
 - Added independently configured eye, geometry, recognition and object cadences with maximum ages, quality thresholds and optional uncertainty-triggered execution. Scheduling consumes caller-supplied monotonic time and rejects non-monotonic updates.
 - Added a thread-safe depth-one latest-frame slot with published, consumed and superseded counters. Slow work replaces pending input rather than creating an unbounded queue.
 - A deterministic recorded-timestamp test verifies independent task counts, all quality states, configuration rejection and depth-one supersession without sleeping or reading wall-clock time.
-- Windows Release builds and all eleven CTests pass. A source isolation audit finds none of the prohibited provider/runtime technology names or facial landmark topology indices in DMS core code.
-- Native x64 Ubuntu validation is pending. An existing x86_64 Ubuntu WSL environment was discovered, but it contains no CMake/compiler/OpenCV toolchain and package installation was blocked by DNS resolution failure on 2026-08-24. This environmental failure does not waive the acceptance gate.
+- Fresh `D:\work\p18` Windows x64 and `~/common/p18` Orin aarch64 Release configure/builds pass at commit `c65355a`; all eleven CTests pass on both targets. A source isolation audit finds none of the prohibited provider/runtime technology names or facial landmark topology indices in DMS core code.
+- Native x64 Ubuntu validation is pending. The available x86_64 WSL distro is unsupported Ubuntu 23.10 and contained no CMake/compiler/OpenCV toolchain. Its resolver had no upstream DNS, and after temporary DNS repair its EOL package sources were backed up and changed to Ubuntu's official old-releases archive. Outbound HTTP from WSL still timed out, so no packages could be installed on 2026-08-24. This environmental failure does not waive the acceptance gate.
 
 ## Stage 19 — YuNet + PFLD versus YuNet + LBF benchmark
 

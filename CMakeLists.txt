@@ -185,6 +185,16 @@ message(STATUS "----------------------------------------")
 # Application
 # ============================================================
 
+add_library(dms_core STATIC
+    src/DmsObservation.cpp
+    src/DmsScheduler.cpp
+)
+
+target_include_directories(dms_core
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
 add_executable(yunet_demo
 
     src/main.cpp
@@ -592,6 +602,17 @@ if(BUILD_TESTING)
     add_test(
         NAME benchmark_options_test
         COMMAND benchmark_options_test
+    )
+
+    add_executable(dms_core_test
+        tests/dms_core_test.cpp
+    )
+    target_link_libraries(dms_core_test
+        PRIVATE dms_core
+    )
+    add_test(
+        NAME dms_core_test
+        COMMAND dms_core_test
     )
 
     add_executable(monotonic_timestamp_test

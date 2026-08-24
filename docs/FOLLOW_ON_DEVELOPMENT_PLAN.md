@@ -6,8 +6,9 @@
 - Completed predecessor: 16-step MediaPipe integration program
 - Plan state: **ACCEPTED AND FROZEN**
 - Plan accepted by the user: **2026-08-22**
-- Current formal stage: **Stage 17 review checkpoint — Stage 18 has not started**
+- Current formal stage: **Stage 18 — backend-neutral DMS observation and scheduling core**
 - Stage 17 status: **COMPLETE — implementation, sustained tests, and Windows/Orin camera validation passed**
+- Stage 18 status: **IN PROGRESS — approved by the user on 2026-08-24**
 - Later stages in this document are architectural commitments or benchmark gates, not accepted implementations.
 
 ## Plan governance
@@ -160,6 +161,16 @@ Introduce semantic observation packets, bounded latest-frame scheduling, indepen
 ### Required user involvement
 
 - None expected. Any new material scheduling/product tradeoff discovered by measurement is handled through the plan-amendment procedure.
+
+### Implementation evidence (in progress)
+
+- Added an OpenCV- and provider-independent `dms_core` CMake target with semantic observation headers and values for eye geometry, face geometry, driver presence, recognition and associated objects.
+- Every observation carries source-frame identity, monotonic capture/production timing, age at production, explicit missing/valid/occluded state, confidence and visibility. A single policy classifies future, stale and low-quality observations without treating them as negative events.
+- Added independently configured eye, geometry, recognition and object cadences with maximum ages, quality thresholds and optional uncertainty-triggered execution. Scheduling consumes caller-supplied monotonic time and rejects non-monotonic updates.
+- Added a thread-safe depth-one latest-frame slot with published, consumed and superseded counters. Slow work replaces pending input rather than creating an unbounded queue.
+- A deterministic recorded-timestamp test verifies independent task counts, all quality states, configuration rejection and depth-one supersession without sleeping or reading wall-clock time.
+- Windows Release builds and all eleven CTests pass. A source isolation audit finds none of the prohibited provider/runtime technology names or facial landmark topology indices in DMS core code.
+- Native x64 Ubuntu validation is pending. An existing x86_64 Ubuntu WSL environment was discovered, but it contains no CMake/compiler/OpenCV toolchain and package installation was blocked by DNS resolution failure on 2026-08-24. This environmental failure does not waive the acceptance gate.
 
 ## Stage 19 — YuNet + PFLD versus YuNet + LBF benchmark
 

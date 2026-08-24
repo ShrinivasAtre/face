@@ -6,9 +6,10 @@
 - Completed predecessor: 16-step MediaPipe integration program
 - Plan state: **ACCEPTED AND FROZEN**
 - Plan accepted by the user: **2026-08-22**
-- Current formal stage: **Stage 18 — backend-neutral DMS observation and scheduling core**
+- Current formal stage: **Stage 19 — YuNet + PFLD versus YuNet + LBF benchmark**
 - Stage 17 status: **COMPLETE — implementation, sustained tests, and Windows/Orin camera validation passed**
 - Stage 18 status: **COMPLETE — implementation and Windows/Ubuntu/Orin validation passed on 2026-08-24**
+- Stage 19 status: **IN PROGRESS — approved by the user on 2026-08-24**
 - Later stages in this document are architectural commitments or benchmark gates, not accepted implementations.
 
 ## Plan governance

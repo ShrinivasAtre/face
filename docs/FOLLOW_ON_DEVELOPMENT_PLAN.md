@@ -204,6 +204,13 @@ Add an ONNX landmark-provider plugin and compare at least one reproducibly sourc
 - **USER INPUT — DATA/POLICY/PRODUCT:** authorize access to representative visible/IR DMS recordings and state any privacy or retention restrictions. If no suitable dataset exists, review the proposed recording and annotation protocol before collection.
 - **USER INPUT — DATA/POLICY/PRODUCT:** review the completed benchmark and approve the production facial-geometry direction: PFLD-class provider, optimized MediaPipe, temporary LBF retention, or a specialized eye-model evaluation.
 
+### Implementation evidence (in progress)
+
+- Stage 19 was authorized by the user on 2026-08-24.
+- Added `docs/STAGE19_MODEL_PROVENANCE.md` with the pinned 68-point PFLD candidate's source revisions, SHA-256, topology, preprocessing, MIT attribution, and explicit undocumented-training-lineage limitation. No fetched model or research repository is committed.
+- Added `docs/STAGE19_DATASET_PROTOCOL.md` with the privacy boundary, required visible/IR and robustness slices, annotation contract, frozen provider comparison, accuracy/resource metrics, and product-weighted selection rule.
+- Dataset access/retention authorization remains the next unavoidable user input before target-data benchmarking.
+
 ## Stage 20 — DMS metrics and temporal FSMs
 
 ### Objective

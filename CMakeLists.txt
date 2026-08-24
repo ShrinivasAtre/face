@@ -190,9 +190,25 @@ add_library(dms_core STATIC
     src/DmsScheduler.cpp
 )
 
+add_library(pfld_landmark_provider STATIC
+    src/PfldLandmarkProvider.cpp
+    src/PfldEyeLandmarkMapper.cpp
+)
+
 target_include_directories(dms_core
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_include_directories(pfld_landmark_provider
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${OpenCV_INCLUDE_DIRS}
+)
+
+target_link_libraries(pfld_landmark_provider
+    PUBLIC
+        ${OpenCV_LIBS}
 )
 
 add_executable(yunet_demo
@@ -515,6 +531,40 @@ if(BUILD_TESTING)
         "Optional face image used by the legacy blink integration test"
     )
 
+    set(FACE_PFLD_MODEL
+        ""
+        CACHE FILEPATH
+        "Optional checksum-pinned PFLD ONNX model for provider integration testing"
+    )
+
+    set(FACE_PFLD_MODEL_SHA256
+        "7d7bbd5c6a1d9272e58d9773898284a1905d872eba9a662df9b5f20f1ba6f83e"
+    )
+
+    add_executable(pfld_eye_landmark_mapper_test
+        tests/pfld_eye_landmark_mapper_test.cpp
+    )
+    target_link_libraries(pfld_eye_landmark_mapper_test
+        PRIVATE pfld_landmark_provider
+    )
+    add_test(
+        NAME pfld_eye_landmark_mapper_test
+        COMMAND pfld_eye_landmark_mapper_test
+    )
+
+    if(NOT FACE_PFLD_MODEL STREQUAL "")
+        if(NOT EXISTS "${FACE_PFLD_MODEL}")
+            message(FATAL_ERROR "FACE_PFLD_MODEL does not exist: ${FACE_PFLD_MODEL}")
+        endif()
+        file(SHA256 "${FACE_PFLD_MODEL}" FACE_PFLD_MODEL_ACTUAL_SHA256)
+        if(NOT FACE_PFLD_MODEL_ACTUAL_SHA256 STREQUAL FACE_PFLD_MODEL_SHA256)
+            message(FATAL_ERROR
+                "PFLD model checksum mismatch: expected ${FACE_PFLD_MODEL_SHA256}, "
+                "got ${FACE_PFLD_MODEL_ACTUAL_SHA256}"
+            )
+        endif()
+    endif()
+
     add_executable(blink_tracker_test
         tests/blink_tracker_test.cpp
         src/BlinkTracker.cpp
@@ -729,6 +779,21 @@ if(BUILD_TESTING)
             ${OpenCV_LIBS}
     )
 
+    add_executable(pfld_landmark_provider_test
+        tests/pfld_landmark_provider_test.cpp
+        src/FaceDetector.cpp
+    )
+    target_include_directories(pfld_landmark_provider_test
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/include
+            ${OpenCV_INCLUDE_DIRS}
+    )
+    target_link_libraries(pfld_landmark_provider_test
+        PRIVATE
+            pfld_landmark_provider
+            ${OpenCV_LIBS}
+    )
+
     if(NOT FACE_TEST_IMAGE STREQUAL "")
 
         if(NOT EXISTS "${FACE_TEST_IMAGE}")
@@ -753,6 +818,16 @@ if(BUILD_TESTING)
                 "${CMAKE_CURRENT_SOURCE_DIR}/models/face_detection_yunet_2026may.onnx"
                 "${CMAKE_CURRENT_SOURCE_DIR}/models/lbfmodel.yaml"
         )
+
+        if(NOT FACE_PFLD_MODEL STREQUAL "")
+            add_test(
+                NAME pfld_landmark_provider_test
+                COMMAND pfld_landmark_provider_test
+                    "${CMAKE_CURRENT_SOURCE_DIR}/models/face_detection_yunet_2026may.onnx"
+                    "${FACE_PFLD_MODEL}"
+                    "${FACE_TEST_IMAGE}"
+            )
+        endif()
 
         if(FACE_ENABLE_MEDIAPIPE_RUNTIME)
             add_test(

@@ -209,7 +209,8 @@ Add an ONNX landmark-provider plugin and compare at least one reproducibly sourc
 - Stage 19 was authorized by the user on 2026-08-24.
 - Added `docs/STAGE19_MODEL_PROVENANCE.md` with the pinned 68-point PFLD candidate's source revisions, SHA-256, topology, preprocessing, MIT attribution, and explicit undocumented-training-lineage limitation. No fetched model or research repository is committed.
 - Added `docs/STAGE19_DATASET_PROTOCOL.md` with the privacy boundary, required visible/IR and robustness slices, annotation contract, frozen provider comparison, accuracy/resource metrics, and product-weighted selection rule.
-- Dataset access/retention authorization remains the next unavoidable user input before target-data benchmarking.
+- The user confirmed on 2026-08-24 that no suitable recordings currently exist, temporary frame extraction will be allowed when recordings are supplied, no special retention restriction currently applies, and anonymous aggregate metrics and recording checksums may be committed. Raw recordings, frames and biometric annotations remain outside Git.
+- Added `docs/STAGE19_RECORDING_GUIDE.md` with a safe single-subject bring-up session and the multi-subject, intended-camera expansion required before production selection.
 
 ## Stage 20 — DMS metrics and temporal FSMs
 

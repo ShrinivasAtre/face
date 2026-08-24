@@ -26,16 +26,19 @@ The executable locates the deployed models and runtime bridge relative to itself
 
 ## Result contract
 
-Schema version 1 records:
+Schema version 2 records:
 
-- backend and input kind;
+- backend, optimized/debug build configuration, input kind and decoded dimensions;
 - warm-up, measured, successful and detected frame counts;
+- dropped, superseded and rendered frame counts (all zero for this synchronous headless harness);
 - measured throughput;
 - process CPU as a percentage of total logical-CPU capacity;
-- logical CPU count and resident memory;
+- logical CPU count, initial/final/peak resident memory and resident-memory growth;
 - mean, p50, p95, p99, minimum and maximum latency for input acquisition, backend processing, semantic eye/blink processing and end-to-end processing.
 
 The backend measurement includes any bridge-side BGR-to-RGB conversion, inference and result conversion. Bridge-internal timings may be added as a compatible diagnostic extension, but must not replace the end-to-end measurement.
+
+The accepted photograph is personal validation data and must remain outside Git. Its filename, dimensions and SHA-256 above are the reproducibility contract; evidence is invalid when any of those differ.
 
 ## Comparison rules
 

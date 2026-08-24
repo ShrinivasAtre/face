@@ -90,7 +90,7 @@ Summary summarize(std::vector<double> values)
     return result;
 }
 
-std::uint64_t residentMemoryBytes()
+std::uint64_t currentResidentMemoryBytes()
 {
 #ifdef _WIN32
     PROCESS_MEMORY_COUNTERS counters{};
@@ -101,13 +101,50 @@ std::uint64_t residentMemoryBytes()
     }
     return 0;
 #else
+    std::ifstream statm("/proc/self/statm");
+    std::uint64_t totalPages = 0;
+    std::uint64_t residentPages = 0;
+    if (statm >> totalPages >> residentPages)
+    {
+        const long pageSize = sysconf(_SC_PAGESIZE);
+        if (pageSize > 0)
+        {
+            return residentPages * static_cast<std::uint64_t>(pageSize);
+        }
+    }
+    return 0;
+#endif
+}
+
+std::uint64_t peakResidentMemoryBytes()
+{
+#ifdef _WIN32
+    PROCESS_MEMORY_COUNTERS counters{};
+    counters.cb = sizeof(counters);
+    if (GetProcessMemoryInfo(GetCurrentProcess(), &counters, sizeof(counters)))
+    {
+        return static_cast<std::uint64_t>(counters.PeakWorkingSetSize);
+    }
+    return 0;
+#else
     rusage usage{};
     if (getrusage(RUSAGE_SELF, &usage) != 0) return 0;
 #if defined(__APPLE__)
-    return static_cast<std::uint64_t>(usage.ru_maxrss);
+    const std::uint64_t reportedPeak = static_cast<std::uint64_t>(usage.ru_maxrss);
 #else
-    return static_cast<std::uint64_t>(usage.ru_maxrss) * 1024ULL;
+    const std::uint64_t reportedPeak =
+        static_cast<std::uint64_t>(usage.ru_maxrss) * 1024ULL;
 #endif
+    return std::max(reportedPeak, currentResidentMemoryBytes());
+#endif
+}
+
+const char* buildConfiguration() noexcept
+{
+#ifdef NDEBUG
+    return "Release";
+#else
+    return "Debug";
 #endif
 }
 
@@ -258,6 +295,7 @@ int main(int argc, char** argv)
         samples.total.reserve(options.measuredFrames);
         std::size_t detectedFrames = 0;
         std::size_t successfulFrames = 0;
+        const std::uint64_t initialResidentMemory = currentResidentMemoryBytes();
 
         const std::size_t totalFrames = options.warmupFrames + options.measuredFrames;
         const std::clock_t cpuStart = std::clock();
@@ -310,25 +348,38 @@ int main(int argc, char** argv)
         const double cpuSeconds = static_cast<double>(cpuEnd - cpuStart) / CLOCKS_PER_SEC;
         const double cpuPercentCapacity = wallSeconds > 0.0
             ? 100.0 * cpuSeconds / wallSeconds / logicalCpus : 0.0;
+        const std::uint64_t finalResidentMemory = currentResidentMemoryBytes();
+        const std::int64_t residentMemoryGrowth =
+            static_cast<std::int64_t>(finalResidentMemory) -
+            static_cast<std::int64_t>(initialResidentMemory);
 
         std::ostringstream json;
         json << std::fixed << std::setprecision(6)
              << "{\n"
-             << "  \"schema_version\": 1,\n"
+             << "  \"schema_version\": 2,\n"
              << "  \"backend\": \"" << backendName(options.backend) << "\",\n"
+             << "  \"build_configuration\": \"" << buildConfiguration() << "\",\n"
              << "  \"input\": \"" << jsonEscape(options.input.string()) << "\",\n"
              << "  \"input_kind\": \"" << input.kind() << "\",\n"
+             << "  \"input_width\": " << frame.cols << ",\n"
+             << "  \"input_height\": " << frame.rows << ",\n"
              << "  \"warmup_frames\": " << options.warmupFrames << ",\n"
              << "  \"measured_frames\": " << options.measuredFrames << ",\n"
              << "  \"successful_frames\": " << successfulFrames << ",\n"
              << "  \"detected_frames\": " << detectedFrames << ",\n"
+             << "  \"dropped_frames\": 0,\n"
+             << "  \"superseded_frames\": 0,\n"
+             << "  \"rendered_frames\": 0,\n"
              << "  \"throughput_fps\": "
              << (measuredSeconds > 0.0 ? options.measuredFrames / measuredSeconds : 0.0)
              << ",\n"
              << "  \"process_cpu_percent_of_total_capacity\": "
              << cpuPercentCapacity << ",\n"
              << "  \"logical_cpu_count\": " << logicalCpus << ",\n"
-             << "  \"resident_memory_bytes\": " << residentMemoryBytes() << ",\n"
+             << "  \"initial_resident_memory_bytes\": " << initialResidentMemory << ",\n"
+             << "  \"final_resident_memory_bytes\": " << finalResidentMemory << ",\n"
+             << "  \"resident_memory_growth_bytes\": " << residentMemoryGrowth << ",\n"
+             << "  \"peak_resident_memory_bytes\": " << peakResidentMemoryBytes() << ",\n"
              << "  \"latency_ms\": {\n";
         writeSummary(json, "capture", summarize(samples.capture), true);
         writeSummary(json, "backend", summarize(samples.backend), true);

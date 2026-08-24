@@ -6,8 +6,8 @@
 - Completed predecessor: 16-step MediaPipe integration program
 - Plan state: **ACCEPTED AND FROZEN**
 - Plan accepted by the user: **2026-08-22**
-- Current formal stage: **Stage 17 — performance characterization and MediaPipe video-path optimization**
-- Stage 17 status: **PLANNED**
+- Current formal stage: **Stage 17 review checkpoint — Stage 18 has not started**
+- Stage 17 status: **COMPLETE — implementation, sustained tests, and Windows/Orin camera validation passed**
 - Later stages in this document are architectural commitments or benchmark gates, not accepted implementations.
 
 ## Plan governance
@@ -105,7 +105,7 @@ Explain the Windows/Orin FPS difference with reproducible evidence, then reduce 
 ### Acceptance gate
 
 - Windows uses a fresh `D:\work\p17` validation root and Orin uses a fresh `~/common/p17` validation root.
-- A committed benchmark input and command produce structured results on both platforms with GUI disabled.
+- A checksum-pinned external benchmark input and committed command produce structured results on both platforms with GUI disabled. The personal validation photograph must not be committed; its filename, dimensions, and SHA-256 identify the accepted bytes.
 - Baseline and candidate results report stage timings plus p50/p95/p99 end-to-end latency, CPU, RSS, drops, resolution, build type, and platform metadata.
 - The MediaPipe video candidate uses strictly monotonic timestamps and has focused tests for timestamp rejection/reset and result compatibility.
 - Still-image backend tests and all existing CTests pass on Windows x64 and Orin aarch64.
@@ -118,6 +118,29 @@ Explain the Windows/Orin FPS difference with reproducible evidence, then reduce 
 
 - **USER ACTION — CAMERA/DEVICE:** after the headless gate passes, make the camera available on Windows and Orin (moving it between machines if shared) and visually confirm overlay quality, responsiveness, and clean exit. The agent prepares and runs all accessible commands.
 - No user action is required for Stage 17 before this final live-camera gate.
+
+### Implementation and validation evidence (2026-08-22 through 2026-08-24)
+
+- Added a Release/headless `face_benchmark` path with structured JSON output, warm-up and measured-frame control, throughput, CPU-capacity percentage, RSS, and capture/backend/semantic/end-to-end latency distributions.
+- Changed the private MediaPipe bridge from `RunningMode::IMAGE`/`Detect()` to timestamped `RunningMode::VIDEO`/`DetectForVideo()` while preserving the five-function public C ABI. Strictly monotonic handle-local timestamps and focused conversion/result tests pass.
+- Reused bridge normalized-landmark storage, application landmark storage, and `FaceResult` landmark capacity to remove avoidable per-frame container allocation.
+- Fresh Windows and Orin bridge builds, exact-export/package checks, three focused bridge tests, clean Release CMake builds, and all ten application CTests passed. The common validation image produced 100/100 successful detections in every measured run.
+- Windows headless MediaPipe throughput improved from the IMAGE baseline of 34.805 FPS to 48.795, 54.831, and 53.386 FPS in three VIDEO runs (mean 52.337 FPS, approximately 50% higher).
+- Orin headless MediaPipe throughput improved from the IMAGE baseline of 3.891 FPS to 5.417, 5.193, and 5.359 FPS in three VIDEO runs (mean 5.323 FPS, approximately 37% higher). Mean backend latency fell from 252.991 ms to approximately 184.156 ms. Orin remained in `MAXN_SUPER`, near 48.5 C, without observed thermal throttling; MediaPipe selected XNNPACK CPU and GPU utilization remained zero.
+- Live Windows camera validation used MSMF at 640x480/30 FPS. YuNet/LBF measured 18.81 mean FPS and 33.64 ms mean backend time; MediaPipe measured 29.49 mean FPS and 13.70 ms mean backend time. Both tracked responsively and exited cleanly without runtime errors.
+- Live Orin camera validation used V4L2 at 640x480/30 FPS. YuNet/LBF measured 29.75 mean FPS and 25.47 ms mean backend time. MediaPipe measured 5.65 median FPS (6.33 mean distorted by brief fast/no-face intervals), 168.81 ms median backend time, and visibly delayed/jerky output. This agrees with the deterministic Orin result and identifies CPU inference as the dominant remaining bottleneck.
+- User-observed blink behavior is not production-ready and is recorded as algorithm evidence rather than a Stage 17 performance regression. For five deliberate blinks, Windows YuNet/LBF reported roughly 10-15 and Windows MediaPipe 8-10, with head-motion false positives. Orin YuNet/LBF reported roughly 2-3 and Orin MediaPipe 1-2; the slow MediaPipe sampling missed eye closures. The fixed EAR threshold and transition-only counter lack calibration, hysteresis, duration, pose/visibility gating, and the planned temporal FSM.
+- The live-camera user-action gate is complete on Windows and Orin. No further camera action is required for Stage 17.
+- The user explicitly confirmed on 2026-08-24 that the personal benchmark photograph must not be committed. The acceptance wording was amended from a committed input to a checksum-pinned external input without changing the tested bytes or reproducibility contract.
+- Sustained 1,000-frame MediaPipe runs retained 1,000/1,000 detections. Windows achieved 60.568 FPS with approximately -53 KB sampled post-warm-up working-set change. Orin achieved 5.519 FPS; sampled RSS changed from approximately 214,496 KB after warm-up to 214,600 KB at completion (approximately 104 KB), showing bounded memory rather than continuing growth.
+- Benchmark schema version 2 records build configuration, decoded dimensions, synchronous dropped/superseded/rendered counts, and initial/final/peak RSS in addition to the accepted latency distributions. Schema sanity runs passed on Windows and Orin Release builds.
+- The runtime benchmark deliberately reports the stable public boundary as aggregate `backend` time: bridge-side BGR-to-RGB conversion, MediaPipe inference, and result conversion remain included rather than exposed by changing the five-function C ABI. XNNPACK selection, zero Orin GPU activity, consistent deterministic/live latency, and the VIDEO-mode delta identify CPU inference as the dominant Orin cost. A future compatible private diagnostic may split that aggregate, but it is not required before scheduling/model comparison work.
+
+### Stage 17 conclusion so far
+
+VIDEO mode is a material optimization on both targets, but full-frame MediaPipe Face Landmarker remains CPU-bound and is not a viable every-frame Orin production path at 640x480. MediaPipe remains useful as an accuracy/reference candidate and may be scheduled at a lower cadence; Stage 18's bounded latest-frame scheduler and Stage 19's controlled lightweight-geometry benchmark remain necessary. YuNet/LBF remains the real-time baseline, not the selected production landmark stack.
+
+Stage 17 is complete. Its result does not select a production landmark stack: it establishes that MediaPipe VIDEO mode is materially better, that every-frame MediaPipe is still unsuitable on Orin CPU, and that bounded scheduling plus controlled lightweight-model comparison must precede production selection.
 
 ## Stage 18 — backend-neutral DMS observation and scheduling core
 

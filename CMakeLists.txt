@@ -439,6 +439,15 @@ target_link_libraries(face_mediapipe_runtime
         ${CMAKE_DL_LIBS}
 )
 
+target_link_libraries(face_benchmark
+    PRIVATE
+        ${OpenCV_LIBS}
+)
+
+if(WIN32)
+    target_link_libraries(face_benchmark PRIVATE Psapi)
+endif()
+
 if(FACE_ENABLE_MEDIAPIPE_RUNTIME)
 
     target_sources(yunet_demo
@@ -470,15 +479,6 @@ if(FACE_ENABLE_MEDIAPIPE_RUNTIME)
         PRIVATE
             face_mediapipe_runtime
     )
-
-target_link_libraries(face_benchmark
-    PRIVATE
-        ${OpenCV_LIBS}
-)
-
-if(WIN32)
-    target_link_libraries(face_benchmark PRIVATE Psapi)
-endif()
 
     add_custom_command(
         TARGET yunet_demo

@@ -8,7 +8,7 @@
 - Plan accepted by the user: **2026-08-22**
 - Current formal stage: **Stage 18 — backend-neutral DMS observation and scheduling core**
 - Stage 17 status: **COMPLETE — implementation, sustained tests, and Windows/Orin camera validation passed**
-- Stage 18 status: **IN PROGRESS — approved by the user on 2026-08-24**
+- Stage 18 status: **COMPLETE — implementation and Windows/Ubuntu/Orin validation passed on 2026-08-24**
 - Later stages in this document are architectural commitments or benchmark gates, not accepted implementations.
 
 ## Plan governance
@@ -162,15 +162,17 @@ Introduce semantic observation packets, bounded latest-frame scheduling, indepen
 
 - None expected. Any new material scheduling/product tradeoff discovered by measurement is handled through the plan-amendment procedure.
 
-### Implementation evidence (in progress)
+### Implementation evidence (complete)
 
 - Added an OpenCV- and provider-independent `dms_core` CMake target with semantic observation headers and values for eye geometry, face geometry, driver presence, recognition and associated objects.
 - Every observation carries source-frame identity, monotonic capture/production timing, age at production, explicit missing/valid/occluded state, confidence and visibility. A single policy classifies future, stale and low-quality observations without treating them as negative events.
 - Added independently configured eye, geometry, recognition and object cadences with maximum ages, quality thresholds and optional uncertainty-triggered execution. Scheduling consumes caller-supplied monotonic time and rejects non-monotonic updates.
 - Added a thread-safe depth-one latest-frame slot with published, consumed and superseded counters. Slow work replaces pending input rather than creating an unbounded queue.
 - A deterministic recorded-timestamp test verifies independent task counts, all quality states, configuration rejection and depth-one supersession without sleeping or reading wall-clock time.
-- Fresh `D:\work\p18` Windows x64 and `~/common/p18` Orin aarch64 Release configure/builds pass at commit `c65355a`; all eleven CTests pass on both targets. A source isolation audit finds none of the prohibited provider/runtime technology names or facial landmark topology indices in DMS core code.
-- Native x64 Ubuntu validation is pending. The available x86_64 WSL distro is unsupported Ubuntu 23.10 and contained no CMake/compiler/OpenCV toolchain. Its resolver had no upstream DNS, and after temporary DNS repair its EOL package sources were backed up and changed to Ubuntu's official old-releases archive. Outbound HTTP from WSL still timed out, so no packages could be installed on 2026-08-24. This environmental failure does not waive the acceptance gate.
+- Fresh `D:\work\p18` Windows x64 and `~/common/p18` Orin aarch64 Release configure/builds passed at commit `c65355a`; all eleven CTests passed on both targets. A source isolation audit found none of the prohibited provider/runtime technology names or facial landmark topology indices in DMS core code.
+- The final portability pass found and corrected a CMake scope defect that linked `face_benchmark` to OpenCV only when the optional MediaPipe runtime was enabled. Windows and Orin Release rebuilds with the correction passed all eleven CTests.
+- Native x64 Ubuntu validation used a new Ubuntu 24.04.4 LTS WSL distro, GCC 13.3.0, CMake 3.28.3, and a locally built minimal OpenCV 4.8.0 plus contrib installation matching the accepted project ABI. The fresh `/root/p18/build-ubuntu-opencv48` Release build passed all ten applicable CTests, including both real-image YuNet/LBF integration tests. The MediaPipe package-specific integration test is not registered because no x64 Ubuntu MediaPipe runtime package is configured.
+- The previous Ubuntu 23.10 WSL distro was preserved rather than destructively upgraded. Its pre-upgrade export remains external to the repository at `D:\work\p18\ubuntu-23.10-pre-upgrade.tar`; no personal validation photograph was committed.
 
 ## Stage 19 — YuNet + PFLD versus YuNet + LBF benchmark
 

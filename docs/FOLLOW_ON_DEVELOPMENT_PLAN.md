@@ -211,6 +211,8 @@ Add an ONNX landmark-provider plugin and compare at least one reproducibly sourc
 - Added `docs/STAGE19_DATASET_PROTOCOL.md` with the privacy boundary, required visible/IR and robustness slices, annotation contract, frozen provider comparison, accuracy/resource metrics, and product-weighted selection rule.
 - The user confirmed on 2026-08-24 that no suitable recordings currently exist, temporary frame extraction will be allowed when recordings are supplied, no special retention restriction currently applies, and anonymous aggregate metrics and recording checksums may be committed. Raw recordings, frames and biometric annotations remain outside Git.
 - Added `docs/STAGE19_RECORDING_GUIDE.md` with a safe single-subject bring-up session and the multi-subject, intended-camera expansion required before production selection.
+- Added a pure-C++ OpenCV DNN PFLD provider for the pinned external 68-point ONNX candidate. Its preprocessing and output conversion remain inside the provider, and a separate candidate-specific mapper is the only new code containing its iBUG topology indices. CMake verifies the external model's recorded SHA-256 before registering the real-image integration test; neither the model nor the personal test image is committed.
+- Fresh revision `8949cbd` Release builds passed all 12 applicable CTests, including checksum-pinned real PFLD inference and semantic-eye mapping, on Windows x64 at `D:\work\p19`, native x64 Ubuntu 24.04 at `/root/p19`, and Orin aarch64 at `~/common/p19`. Orin test binaries were confirmed as ARM aarch64 with no unresolved dependency. The target recording benchmark and provider-selection decision remain pending the authorized recordings.
 
 ## Stage 20 — DMS metrics and temporal FSMs
 

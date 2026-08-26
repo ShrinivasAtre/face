@@ -216,6 +216,7 @@ Add an ONNX landmark-provider plugin and compare at least one reproducibly sourc
 - Added YuNet+PFLD to the same headless benchmark used by LBF and MediaPipe, plus private per-frame CSV tracing and deterministic image-sequence input. Windows and MediaPipe-enabled Orin builds pass all 13 CTests. Raw clips, decoded frames and traces remain external to Git.
 - Added `docs/STAGE19_PRELIMINARY_RESULTS.md`. On the one-subject visible-light development set, all providers had 100% availability in the measured clips. PFLD was only modestly faster than LBF on Orin and slower on the short Windows natural sample; MediaPipe was fastest on Windows but slowest on Orin. For ten narrated deliberate blinks, the unchanged diagnostic counter reported LBF/PFLD/MediaPipe counts of 172/30/12. PFLD therefore does not pass the replacement gate. Frame-accurate accuracy metrics, missing production slices and user review remain outstanding, so Stage 19 stays in progress.
 - Final regression at results commit `fa544fe` passed all 13 MediaPipe-enabled CTests on Windows x64 and Orin aarch64 and all 12 applicable CTests on native x64 Ubuntu. The Orin benchmark executable was confirmed as ARM aarch64 with no unresolved dependency.
+- The user approved the preliminary direction on 2026-08-26: do not adopt the evaluated PFLD candidate; proceed to Stage 20 with MediaPipe as the current eye-geometry reference, retain LBF/PFLD as benchmark baselines, control MediaPipe cadence on Orin, and evaluate a dedicated eye ROI model only if calibrated provider-neutral logic misses the eye gates. Stage 19 will be rerun when broader production-representative clips arrive.
 
 ## Stage 20 — DMS metrics and temporal FSMs
 
@@ -291,9 +292,9 @@ Produce self-contained CMake application packages for Windows x64, x64 Ubuntu, O
 
 ## Current recommendation
 
-Do not select YuNet + LBF as the final production stack now. Retain it as the low-complexity baseline. Benchmark YuNet + a PFLD-class ONNX model as the leading lightweight candidate, MediaPipe as the current accuracy/reference candidate, and a dedicated eye ROI model as a conditional candidate for eye-specific accuracy.
+Do not select YuNet + LBF or the evaluated YuNet + PFLD candidate as the final production stack. Retain both as benchmarks. Use MediaPipe as the current eye-geometry reference while Stage 20 adds provider-neutral calibration, quality handling and temporal FSMs; run it at controlled cadence on Orin. A dedicated eye ROI model remains conditional on failure of the calibrated eye-opening, blink and PERCLOS gates.
 
-The next implementation work is Stage 17. It is logically prior to adding PFLD or DMS features because it creates the benchmark harness, timestamps, latency accounting, and scheduling evidence required to compare every later model fairly.
+The next implementation work is Stage 20's model-neutral metric and FSM mechanisms. The operational-definition review is required only after recommended defaults and their tradeoffs are ready.
 
 ## Inputs currently unavailable
 

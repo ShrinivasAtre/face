@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 
-enum class BackendKind { YuNet, MediaPipe };
+enum class BackendKind { YuNet, Pfld, MediaPipe };
 
 struct BackendOptions
 {

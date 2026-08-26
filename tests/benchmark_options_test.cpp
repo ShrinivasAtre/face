@@ -18,13 +18,27 @@ int main()
     std::string error;
 
     const char* valid[] = {"bench", "--input=face.jpg", "--backend=mediapipe",
-                           "--warmup=7", "--frames=42", "--output=result.json"};
-    ok &= expect(parseBenchmarkOptions(6, valid, options, error), "valid options");
+                           "--warmup=7", "--frames=42", "--output=result.json",
+                           "--trace=frames.csv"};
+    ok &= expect(parseBenchmarkOptions(7, valid, options, error), "valid options");
     ok &= expect(options.backend == BackendKind::MediaPipe, "backend");
     ok &= expect(options.warmupFrames == 7 && options.measuredFrames == 42,
                  "frame counts");
     ok &= expect(options.input == "face.jpg" && options.output == "result.json",
                  "paths");
+    ok &= expect(options.trace == "frames.csv", "trace path");
+
+    const char* pfld[] = {"bench", "--input=face.mp4", "--backend=pfld",
+                          "--pfld-model=landmarks.onnx"};
+    ok &= expect(parseBenchmarkOptions(4, pfld, options, error), "valid PFLD");
+    ok &= expect(options.backend == BackendKind::Pfld &&
+                 options.pfldModel == "landmarks.onnx", "PFLD options");
+    const char* pfldMissing[] = {"bench", "--input=x", "--backend=pfld"};
+    ok &= expect(!parseBenchmarkOptions(3, pfldMissing, options, error),
+                 "PFLD model required");
+    const char* strayModel[] = {"bench", "--input=x", "--pfld-model=x.onnx"};
+    ok &= expect(!parseBenchmarkOptions(3, strayModel, options, error),
+                 "PFLD model rejected for other backend");
 
     const char* missing[] = {"bench", "--backend=yunet"};
     ok &= expect(!parseBenchmarkOptions(2, missing, options, error), "input required");

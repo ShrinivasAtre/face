@@ -236,6 +236,7 @@ add_executable(face_benchmark
     src/LbfEyeLandmarkMapper.cpp
     src/MediaPipeEyeLandmarkMapper.cpp
     src/YuNetLbfBackend.cpp
+    src/YuNetPfldBackend.cpp
     src/BlinkTracker.cpp
 )
 
@@ -457,6 +458,7 @@ target_link_libraries(face_mediapipe_runtime
 
 target_link_libraries(face_benchmark
     PRIVATE
+        pfld_landmark_provider
         ${OpenCV_LIBS}
 )
 

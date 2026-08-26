@@ -3,7 +3,9 @@
 #include "BenchmarkOptions.hpp"
 #include "BlinkTracker.hpp"
 #include "FaceBackend.hpp"
+#include "PfldEyeLandmarkMapper.hpp"
 #include "YuNetLbfBackend.hpp"
+#include "YuNetPfldBackend.hpp"
 
 #ifdef FACE_MEDIAPIPE_RUNTIME_ENABLED
 #include "MediaPipeBackend.hpp"
@@ -217,6 +219,11 @@ public:
 
     const char* kind() const noexcept { return kind_; }
 
+    double timestampMilliseconds() const noexcept
+    {
+        return image_.empty() ? capture_.get(cv::CAP_PROP_POS_MSEC) : 0.0;
+    }
+
 private:
     cv::Mat image_;
     cv::VideoCapture capture_;
@@ -267,6 +274,12 @@ int main(int argc, char** argv)
                 (modelDir / "lbfmodel.yaml").string());
             modelPath = (modelDir / "face_detection_yunet_2026may.onnx").string();
         }
+        else if (options.backend == BackendKind::Pfld)
+        {
+            backend = std::make_unique<YuNetPfldBackend>(
+                options.pfldModel.string());
+            modelPath = (modelDir / "face_detection_yunet_2026may.onnx").string();
+        }
 #ifdef FACE_MEDIAPIPE_RUNTIME_ENABLED
         else
         {
@@ -286,6 +299,22 @@ int main(int argc, char** argv)
         }
 
         BlinkTracker tracker(0.27);
+        std::ofstream trace;
+        if (!options.trace.empty())
+        {
+            trace.open(options.trace, std::ios::binary | std::ios::trunc);
+            if (!trace)
+            {
+                std::cerr << "Error: Cannot write benchmark trace: "
+                          << options.trace << '\n';
+                return 1;
+            }
+            trace << "frame,timestamp_ms,backend_success,detected,landmarks_valid,"
+                     "semantic_valid,right_ear,left_ear,average_ear,eye_closed,"
+                     "blink_count,face_x,face_y,face_width,face_height,"
+                     "backend_ms,end_to_end_ms\n";
+            trace << std::fixed << std::setprecision(6);
+        }
         cv::Mat frame;
         FaceResult faceResult;
         Samples samples;
@@ -318,7 +347,10 @@ int main(int argc, char** argv)
             if (backendSuccess && faceResult.detected)
             {
                 SemanticEyeLandmarks eyes;
-                if (mapBackendEyeLandmarks(options.backend, faceResult, eyes))
+                const bool mapped = options.backend == BackendKind::Pfld
+                    ? mapPfldEyeLandmarks(faceResult.landmarks, eyes)
+                    : mapBackendEyeLandmarks(options.backend, faceResult, eyes);
+                if (mapped)
                 {
                     semanticSuccess = tracker.process(frame, eyes);
                 }
@@ -333,7 +365,30 @@ int main(int argc, char** argv)
                 samples.total.push_back(milliseconds(semanticEnd - totalStart));
                 if (backendSuccess) ++successfulFrames;
                 if (backendSuccess && faceResult.detected) ++detectedFrames;
-                (void)semanticSuccess;
+                if (trace)
+                {
+                    trace << (index - options.warmupFrames) << ','
+                          << input.timestampMilliseconds() << ','
+                          << (backendSuccess ? 1 : 0) << ','
+                          << (faceResult.detected ? 1 : 0) << ','
+                          << (faceResult.landmarksValid ? 1 : 0) << ','
+                          << (semanticSuccess ? 1 : 0) << ',';
+                    if (semanticSuccess)
+                    {
+                        trace << tracker.getRightEAR() << ','
+                              << tracker.getLeftEAR() << ','
+                              << tracker.getAverageEAR() << ','
+                              << (tracker.isEyeClosed() ? 1 : 0) << ','
+                              << tracker.getBlinkCount();
+                    }
+                    else trace << ",,,,,";
+                    trace << ',' << faceResult.faceBox.x
+                          << ',' << faceResult.faceBox.y
+                          << ',' << faceResult.faceBox.width
+                          << ',' << faceResult.faceBox.height
+                          << ',' << milliseconds(backendEnd - backendStart)
+                          << ',' << milliseconds(semanticEnd - totalStart) << '\n';
+                }
             }
         }
         const auto wallEnd = Clock::now();

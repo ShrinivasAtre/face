@@ -11,6 +11,8 @@ struct BenchmarkOptions
     BackendKind backend = BackendKind::YuNet;
     std::filesystem::path input;
     std::filesystem::path output;
+    std::filesystem::path trace;
+    std::filesystem::path pfldModel;
     std::size_t warmupFrames = 10;
     std::size_t measuredFrames = 100;
     bool showHelp = false;

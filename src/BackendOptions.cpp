@@ -55,7 +55,12 @@ bool parseBackendOptions(int argc, const char* const argv[],
 
 const char* backendName(BackendKind backend) noexcept
 {
-    return backend == BackendKind::MediaPipe ? "mediapipe" : "yunet";
+    switch (backend)
+    {
+    case BackendKind::Pfld: return "pfld";
+    case BackendKind::MediaPipe: return "mediapipe";
+    default: return "yunet";
+    }
 }
 
 std::string backendUsage(const char* programName)

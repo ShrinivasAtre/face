@@ -30,6 +30,8 @@ bool parseBenchmarkOptions(int argc, const char* const argv[],
     bool backendSeen = false;
     bool inputSeen = false;
     bool outputSeen = false;
+    bool traceSeen = false;
+    bool pfldModelSeen = false;
     bool warmupSeen = false;
     bool framesSeen = false;
 
@@ -69,7 +71,9 @@ bool parseBenchmarkOptions(int argc, const char* const argv[],
         };
 
         if (parsePath("--input=", inputSeen, options.input) ||
-            parsePath("--output=", outputSeen, options.output))
+            parsePath("--output=", outputSeen, options.output) ||
+            parsePath("--trace=", traceSeen, options.trace) ||
+            parsePath("--pfld-model=", pfldModelSeen, options.pfldModel))
         {
             if (!error.empty()) return false;
             continue;
@@ -84,6 +88,7 @@ bool parseBenchmarkOptions(int argc, const char* const argv[],
             backendSeen = true;
             const std::string value = argument.substr(10);
             if (value == "yunet") options.backend = BackendKind::YuNet;
+            else if (value == "pfld") options.backend = BackendKind::Pfld;
             else if (value == "mediapipe") options.backend = BackendKind::MediaPipe;
             else
             {
@@ -129,6 +134,16 @@ bool parseBenchmarkOptions(int argc, const char* const argv[],
         error = "--input is required.";
         return false;
     }
+    if (options.backend == BackendKind::Pfld && !pfldModelSeen)
+    {
+        error = "--pfld-model is required for the PFLD backend.";
+        return false;
+    }
+    if (options.backend != BackendKind::Pfld && pfldModelSeen)
+    {
+        error = "--pfld-model is valid only with --backend=pfld.";
+        return false;
+    }
     return true;
 }
 
@@ -136,6 +151,8 @@ std::string benchmarkUsage(const char* programName)
 {
     const std::string program = programName != nullptr ? programName : "face_benchmark";
     return "Usage: " + program +
-        " --input=<image-or-video> [--backend=yunet|mediapipe]"
-        " [--warmup=N] [--frames=N] [--output=results.json]";
+        " --input=<image-or-video> [--backend=yunet|pfld|mediapipe]"
+        " [--pfld-model=<landmarks_68_pfld.onnx>]"
+        " [--warmup=N] [--frames=N] [--output=results.json]"
+        " [--trace=frames.csv]";
 }

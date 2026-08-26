@@ -193,6 +193,19 @@ class InputFrames
 public:
     bool open(const std::filesystem::path& path)
     {
+        if (std::filesystem::is_directory(path))
+        {
+            for (const auto& entry : std::filesystem::directory_iterator(path))
+            {
+                if (entry.is_regular_file()) sequence_.push_back(entry.path());
+            }
+            std::sort(sequence_.begin(), sequence_.end());
+            if (sequence_.empty()) return false;
+            cv::Mat probe = cv::imread(sequence_.front().string(), cv::IMREAD_COLOR);
+            if (probe.empty()) return false;
+            kind_ = "image-sequence";
+            return true;
+        }
         image_ = cv::imread(path.string(), cv::IMREAD_COLOR);
         if (!image_.empty())
         {
@@ -212,6 +225,13 @@ public:
 
     bool next(cv::Mat& frame)
     {
+        if (!sequence_.empty())
+        {
+            frame = cv::imread(sequence_[sequenceIndex_].string(), cv::IMREAD_COLOR);
+            if (frame.empty()) return false;
+            sequenceIndex_ = (sequenceIndex_ + 1) % sequence_.size();
+            return true;
+        }
         if (!image_.empty())
         {
             frame = image_;
@@ -226,11 +246,19 @@ public:
 
     double timestampMilliseconds() const noexcept
     {
+        if (!sequence_.empty())
+        {
+            const std::size_t completed = sequenceIndex_ == 0
+                ? sequence_.size() : sequenceIndex_;
+            return static_cast<double>(completed - 1) * (1000.0 / 30.0);
+        }
         return image_.empty() ? capture_.get(cv::CAP_PROP_POS_MSEC) : 0.0;
     }
 
 private:
     cv::Mat image_;
+    std::vector<std::filesystem::path> sequence_;
+    std::size_t sequenceIndex_ = 0;
     cv::VideoCapture capture_;
     const char* kind_ = "unknown";
 };

@@ -199,7 +199,12 @@ public:
             kind_ = "image-repeat";
             return true;
         }
-        capture_.open(path.string());
+        // Prefer the same software decoder on every benchmark target. Orin's
+        // default GStreamer selection can route ordinary MP4 input through a
+        // hardware decoder that rejects otherwise valid recordings.
+        capture_.open(path.string(), cv::CAP_FFMPEG);
+        if (!capture_.isOpened())
+            capture_.open(path.string());
         if (!capture_.isOpened()) return false;
         kind_ = "video";
         return true;

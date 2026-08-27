@@ -1,0 +1,4 @@
+clip_id,event,side,start_ms,end_ms,confidence
+synthetic-01,blink,both,1050,1250,0.90
+synthetic-01,yawn,none,5100,6400,0.85
+synthetic-01,blink,both,8000,8150,0.60

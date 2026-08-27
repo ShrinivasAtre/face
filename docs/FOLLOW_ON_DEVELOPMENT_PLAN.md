@@ -387,7 +387,18 @@ Produce self-contained CMake application packages for Windows x64, x64 Ubuntu, O
 
 Do not select YuNet + LBF or the evaluated YuNet + PFLD candidate as the final production stack. Retain both as benchmarks. Use MediaPipe as the current eye-geometry reference while Stage 20 adds provider-neutral calibration, quality handling and temporal FSMs; run it at controlled cadence on Orin. A dedicated eye ROI model remains conditional on failure of the calibrated eye-opening, blink and PERCLOS gates.
 
-The next implementation work is Stage 20's model-neutral metric and FSM mechanisms. The operational-definition review is required only after recommended defaults and their tradeoffs are ready.
+The model-neutral metric and FSM mechanisms are implemented. The 34-clip
+trace-level error triage is complete and recorded in
+`docs/STAGE20_TRACE_ERROR_ANALYSIS.md`; private intervals and mappings remain
+outside Git. Stage 20 is proceeding through annotation/scoring tooling and
+trained eye-ROI occlusion option evaluation before the operational-definition
+review.
+
+Task 4 now has a privacy-preserving annotation contract, synthetic fixtures,
+and deterministic event scoring in `docs/STAGE20_ANNOTATION_PROTOCOL.md`. Task 5
+architecture evaluation recommends benchmarking a MobileNetV3-Small-class
+multi-class eye-ROI model against a multi-task openness variant; details and the
+training gate are in `docs/STAGE20_EYE_OCCLUSION_MODEL_OPTIONS.md`.
 
 ## Inputs currently unavailable
 

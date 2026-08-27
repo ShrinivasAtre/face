@@ -114,8 +114,8 @@ enum class GazeZone
 };
 struct DistractionConfig
 {
-    float horizontalEnter = 0.45F, horizontalExit = 0.25F;
-    float verticalEnter = 0.45F, verticalExit = 0.25F;
+    float horizontalEnter = 0.20F, horizontalExit = 0.12F;
+    float verticalEnter = 0.25F, verticalExit = 0.15F;
     MonotonicTime gazeConfirmation = std::chrono::milliseconds(150);
     MonotonicTime distractionDuration = std::chrono::seconds(2);
     MonotonicTime recoveryDuration = std::chrono::milliseconds(500);

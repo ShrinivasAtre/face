@@ -317,6 +317,20 @@ Implement calibrated eye openness, EAR, PERCLOS, blink, yawn, head pose, gaze, d
   Orin temporal-event test was confirmed as an ARM aarch64 executable.
   Recorded-data accuracy integration awaits semantic mouth/head/gaze adapters
   and the independent eye-quality observer.
+- Added provider-specific topology adapters that emit semantic mouth/pose points
+  and MediaPipe iris gaze, plus provider-neutral mouth openness, six-point head
+  pose with reprojection quality and neutral calibration, and an eye-ROI image
+  quality assessor. Providers without iris geometry report gaze unavailable.
+- Recorded benchmark schema 4 now carries quality, mouth/yawn, calibrated pose
+  and directional counts, gaze/distraction, presence, and combined drowsiness in
+  private traces and anonymous aggregate JSON. Preliminary visible and IR
+  development observations are recorded in `docs/STAGE20_SEMANTIC_RESULTS.md`.
+- Pose-aware eye quality eliminated apparent prolonged closure during the tested
+  IR head-motion slice while retaining one left/right/up/down count. The neutral
+  visible slice produced no pose counts or distraction after calibration.
+- Reliable in-frame hand/object eye occlusion remains an open gate requiring an
+  annotated eye-ROI model benchmark. Raw recordings and traces remain external
+  to Git, and no production-accuracy claim is made without event annotations.
 
 ## Stage 21 — recognition and object/context events
 

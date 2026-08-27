@@ -198,6 +198,13 @@ add_library(pfld_landmark_provider STATIC
     src/PfldEyeLandmarkMapper.cpp
 )
 
+add_library(dms_semantic_adapters STATIC
+    src/BackendFaceGeometryMapper.cpp
+    src/BackendGazeMapper.cpp
+    src/DmsEyeQualityAssessor.cpp
+    src/DmsHeadPoseEstimator.cpp
+)
+
 target_include_directories(dms_core
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -208,6 +215,14 @@ target_include_directories(pfld_landmark_provider
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${OpenCV_INCLUDE_DIRS}
 )
+
+target_include_directories(dms_semantic_adapters
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${OpenCV_INCLUDE_DIRS}
+)
+
+target_link_libraries(dms_semantic_adapters PUBLIC ${OpenCV_LIBS})
 
 target_link_libraries(pfld_landmark_provider
     PUBLIC
@@ -468,6 +483,7 @@ target_link_libraries(face_mediapipe_runtime
 target_link_libraries(face_benchmark
     PRIVATE
         dms_core
+        dms_semantic_adapters
         pfld_landmark_provider
         ${OpenCV_LIBS}
 )
@@ -548,6 +564,30 @@ if(BUILD_TESTING)
     )
     target_link_libraries(dms_eye_metrics_test PRIVATE dms_core)
     add_test(NAME dms_eye_metrics_test COMMAND dms_eye_metrics_test)
+
+    add_executable(backend_face_geometry_mapper_test
+        tests/backend_face_geometry_mapper_test.cpp
+    )
+    target_link_libraries(backend_face_geometry_mapper_test PRIVATE dms_semantic_adapters)
+    add_test(NAME backend_face_geometry_mapper_test COMMAND backend_face_geometry_mapper_test)
+
+    add_executable(dms_head_pose_estimator_test
+        tests/dms_head_pose_estimator_test.cpp
+    )
+    target_link_libraries(dms_head_pose_estimator_test PRIVATE dms_semantic_adapters)
+    add_test(NAME dms_head_pose_estimator_test COMMAND dms_head_pose_estimator_test)
+
+    add_executable(backend_gaze_mapper_test
+        tests/backend_gaze_mapper_test.cpp
+    )
+    target_link_libraries(backend_gaze_mapper_test PRIVATE dms_semantic_adapters)
+    add_test(NAME backend_gaze_mapper_test COMMAND backend_gaze_mapper_test)
+
+    add_executable(dms_eye_quality_assessor_test
+        tests/dms_eye_quality_assessor_test.cpp
+    )
+    target_link_libraries(dms_eye_quality_assessor_test PRIVATE dms_semantic_adapters)
+    add_test(NAME dms_eye_quality_assessor_test COMMAND dms_eye_quality_assessor_test)
 
     add_executable(dms_temporal_events_test
         tests/dms_temporal_events_test.cpp

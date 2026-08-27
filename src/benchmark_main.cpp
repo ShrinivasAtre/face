@@ -1,8 +1,13 @@
 #include "AppPaths.hpp"
 #include "BackendEyeMapper.hpp"
+#include "BackendFaceGeometryMapper.hpp"
+#include "BackendGazeMapper.hpp"
 #include "BenchmarkOptions.hpp"
 #include "BlinkTracker.hpp"
 #include "DmsEyeMetrics.hpp"
+#include "DmsEyeQualityAssessor.hpp"
+#include "DmsHeadPoseEstimator.hpp"
+#include "DmsTemporalEvents.hpp"
 #include "FaceBackend.hpp"
 #include "PfldEyeLandmarkMapper.hpp"
 #include "RecordedFrameClock.hpp"
@@ -235,6 +240,53 @@ const char *usabilityName(dms::ObservationUsability usability) noexcept
     return "missing";
 }
 
+const char *headZoneName(dms::HeadZone zone) noexcept
+{
+    switch (zone)
+    {
+    case dms::HeadZone::Neutral: return "neutral";
+    case dms::HeadZone::Left: return "left";
+    case dms::HeadZone::Right: return "right";
+    case dms::HeadZone::Up: return "up";
+    case dms::HeadZone::Down: return "down";
+    default: return "unknown";
+    }
+}
+
+const char *gazeZoneName(dms::GazeZone zone) noexcept
+{
+    switch (zone)
+    {
+    case dms::GazeZone::Forward: return "forward";
+    case dms::GazeZone::Left: return "left";
+    case dms::GazeZone::Right: return "right";
+    case dms::GazeZone::Up: return "up";
+    case dms::GazeZone::Down: return "down";
+    default: return "unknown";
+    }
+}
+
+const char *presenceName(dms::PresenceState state) noexcept
+{
+    switch (state)
+    {
+    case dms::PresenceState::Present: return "present";
+    case dms::PresenceState::Absent: return "absent";
+    default: return "unknown";
+    }
+}
+
+const char *drowsinessName(dms::DrowsinessState state) noexcept
+{
+    switch (state)
+    {
+    case dms::DrowsinessState::Normal: return "normal";
+    case dms::DrowsinessState::Warning: return "warning";
+    case dms::DrowsinessState::Drowsy: return "drowsy";
+    default: return "unknown";
+    }
+}
+
 class InputFrames
 {
   public:
@@ -397,14 +449,22 @@ int main(int argc, char **argv)
         qualityConfig.policy = {0.5F, 0.5F, std::chrono::milliseconds(250)};
         qualityConfig.reacquisitionConfirmation = std::chrono::milliseconds(100);
         dms::ObservationQualityGate qualityGate(qualityConfig);
+        EyeQualityAssessor eyeQualityAssessor;
+        dms::YawnFsm yawnFsm({});
+        dms::HeadPoseFsm headPoseFsm({});
+        HeadPoseNeutralCalibrator headPoseCalibrator;
+        dms::DistractionFsm distractionFsm({});
+        dms::DriverPresenceFsm presenceFsm({});
+        dms::DrowsinessFsm drowsinessFsm({});
         if (!eyeMetrics.valid())
         {
             std::cerr << "Error: Invalid eye metric configuration: " << eyeMetrics.error() << '\n';
             return 1;
         }
-        if (!qualityGate.valid())
+        if (!qualityGate.valid() || !eyeQualityAssessor.valid() || !yawnFsm.valid() ||
+            !headPoseFsm.valid() || !distractionFsm.valid())
         {
-            std::cerr << "Error: Invalid eye quality configuration: " << qualityGate.error() << '\n';
+            std::cerr << "Error: Invalid semantic metric/FSM configuration.\n";
             return 1;
         }
         std::ofstream trace;
@@ -421,6 +481,12 @@ int main(int argc, char **argv)
                      "blink_count,eye_usability,eye_openness,temporal_eye_state,"
                      "temporal_blink_event,temporal_blink_count,closure_ms,"
                      "prolonged_closure,perclos,perclos_coverage,"
+                     "eye_quality_confidence,eye_visibility,eye_mean,eye_contrast,eye_laplacian,"
+                     "mouth_openness,yawn_active,yawn_event,yawn_count,"
+                     "yaw_degrees,pitch_degrees,pose_reprojection,head_zone,head_event,"
+                     "left_count,right_count,up_count,down_count,"
+                     "gaze_horizontal,gaze_vertical,gaze_agreement,gaze_zone,"
+                     "distracted,distraction_event,presence,drowsiness,recent_yawns,"
                      "face_x,face_y,face_width,face_height,"
                      "backend_ms,end_to_end_ms\n";
             trace << std::fixed << std::setprecision(6);
@@ -437,7 +503,15 @@ int main(int argc, char **argv)
         std::size_t usableEyeFrames = 0;
         std::size_t unknownEyeFrames = 0;
         std::size_t prolongedClosureFrames = 0;
+        std::size_t lowQualityEyeFrames = 0;
+        std::size_t occludedEyeFrames = 0;
+        std::size_t distractedFrames = 0;
         dms::EyeMetricResult finalEyeMetrics;
+        dms::YawnResult finalYawn;
+        dms::HeadPoseResult finalHeadPose;
+        dms::DistractionResult finalDistraction;
+        dms::PresenceState finalPresence = dms::PresenceState::Unknown;
+        dms::DrowsinessResult finalDrowsiness;
         const std::uint64_t initialResidentMemory = currentResidentMemoryBytes();
 
         const std::size_t totalFrames = options.warmupFrames + options.measuredFrames;
@@ -458,13 +532,23 @@ int main(int argc, char **argv)
             const auto backendEnd = Clock::now();
             const auto semanticStart = backendEnd;
             bool semanticSuccess = false;
+            SemanticEyeLandmarks eyes;
+            bool eyeMapped = false;
+            SemanticFaceGeometry faceGeometry;
+            const bool faceGeometryValid = mapBackendFaceGeometry(options.backend, faceResult, faceGeometry);
+            const std::optional<float> mouthOpenness = faceGeometryValid
+                ? calculateMouthOpenness(faceGeometry) : std::nullopt;
+            HeadPoseAngles poseAngles;
+            const bool poseValid = faceGeometryValid &&
+                estimateHeadPose(faceGeometry, frame.size(), poseAngles);
+            SemanticGaze gaze;
+            const bool gazeValid = mapBackendGaze(options.backend, faceResult, gaze);
             if (backendSuccess && faceResult.detected)
             {
-                SemanticEyeLandmarks eyes;
-                const bool mapped = options.backend == BackendKind::Pfld
-                                        ? mapPfldEyeLandmarks(faceResult.landmarks, eyes)
-                                        : mapBackendEyeLandmarks(options.backend, faceResult, eyes);
-                if (mapped)
+                eyeMapped = options.backend == BackendKind::Pfld
+                                ? mapPfldEyeLandmarks(faceResult.landmarks, eyes)
+                                : mapBackendEyeLandmarks(options.backend, faceResult, eyes);
+                if (eyeMapped)
                 {
                     semanticSuccess = tracker.process(frame, eyes);
                 }
@@ -475,12 +559,20 @@ int main(int argc, char **argv)
             {
                 dms::EyeMetricInput eyeInput;
                 eyeInput.timestamp = input.timestamp();
+                const auto calibratedPose = poseValid
+                    ? headPoseCalibrator.update(input.timestamp(), poseAngles) : std::nullopt;
                 dms::ObservationHeader qualityHeader;
                 qualityHeader.source = {static_cast<std::uint64_t>(index), input.timestamp()};
                 qualityHeader.producedAt = input.timestamp();
-                qualityHeader.validity = semanticSuccess ? dms::SourceValidity::Valid : dms::SourceValidity::Missing;
-                qualityHeader.confidence = semanticSuccess ? 1.0F : 0.0F;
-                qualityHeader.visibility = semanticSuccess ? 1.0F : 0.0F;
+                const EyeQualityResult eyeQuality = eyeMapped
+                    ? eyeQualityAssessor.assess(frame, eyes) : EyeQualityResult{};
+                qualityHeader.validity = semanticSuccess
+                    ? eyeQuality.validity : dms::SourceValidity::Missing;
+                qualityHeader.confidence = semanticSuccess ? eyeQuality.confidence : 0.0F;
+                qualityHeader.visibility = semanticSuccess ? eyeQuality.visibility : 0.0F;
+                if (calibratedPose && (std::abs(calibratedPose->yawDegrees) > 35.0F ||
+                                       std::abs(calibratedPose->pitchDegrees) > 25.0F))
+                    qualityHeader.confidence = 0.0F;
                 eyeInput.usability = qualityGate.update(qualityHeader, input.timestamp());
                 if (semanticSuccess)
                 {
@@ -494,6 +586,40 @@ int main(int argc, char **argv)
                     ++usableEyeFrames;
                 if (finalEyeMetrics.prolongedClosure)
                     ++prolongedClosureFrames;
+                if (qualityHeader.validity == dms::SourceValidity::Occluded)
+                    ++occludedEyeFrames;
+                else if (semanticSuccess && eyeInput.usability != dms::ObservationUsability::Usable &&
+                         eyeInput.usability != dms::ObservationUsability::Recovering)
+                    ++lowQualityEyeFrames;
+
+                const auto geometryUsability = faceGeometryValid
+                    ? dms::ObservationUsability::Usable : dms::ObservationUsability::Missing;
+                finalYawn = yawnFsm.update(input.timestamp(), geometryUsability, mouthOpenness);
+                const float maximumPoseError = std::max(
+                    5.0F, static_cast<float>(faceResult.faceBox.width) * 0.15F);
+                finalHeadPose = headPoseFsm.update(
+                    input.timestamp(), calibratedPose && calibratedPose->reprojectionErrorPixels <= maximumPoseError
+                        ? dms::ObservationUsability::Usable : dms::ObservationUsability::LowConfidence,
+                    calibratedPose ? std::optional<float>(calibratedPose->yawDegrees) : std::nullopt,
+                    calibratedPose ? std::optional<float>(calibratedPose->pitchDegrees) : std::nullopt);
+                const auto gazeUsability = gazeValid && gaze.interEyeAgreement >= 0.30F &&
+                                                   eyeInput.usability == dms::ObservationUsability::Usable
+                    ? dms::ObservationUsability::Usable : dms::ObservationUsability::Missing;
+                finalDistraction = distractionFsm.update(
+                    input.timestamp(), gazeUsability,
+                    gazeValid ? std::optional<float>(gaze.horizontal) : std::nullopt,
+                    gazeValid ? std::optional<float>(gaze.vertical) : std::nullopt,
+                    finalHeadPose.zone);
+                finalPresence = presenceFsm.update(
+                    input.timestamp(), faceResult.detected ? dms::ObservationUsability::Usable
+                                                           : dms::ObservationUsability::Missing,
+                    faceResult.detected);
+                finalDrowsiness = drowsinessFsm.update(
+                    {input.timestamp(), eyeInput.usability, finalPresence,
+                     finalEyeMetrics.perclos, finalEyeMetrics.prolongedClosure,
+                     finalYawn.event});
+                if (finalDistraction.distracted)
+                    ++distractedFrames;
 
                 samples.capture.push_back(milliseconds(captureEnd - captureStart));
                 samples.backend.push_back(milliseconds(backendEnd - backendStart));
@@ -525,7 +651,33 @@ int main(int argc, char **argv)
                           << (finalEyeMetrics.prolongedClosure ? 1 : 0) << ',';
                     if (finalEyeMetrics.perclos)
                         trace << *finalEyeMetrics.perclos;
-                    trace << ',' << finalEyeMetrics.perclosCoverage;
+                    trace << ',' << finalEyeMetrics.perclosCoverage << ','
+                          << eyeQuality.confidence << ',' << eyeQuality.visibility << ','
+                          << eyeQuality.meanIntensity << ',' << eyeQuality.contrast << ','
+                          << eyeQuality.laplacianVariance << ',';
+                    if (mouthOpenness) trace << *mouthOpenness;
+                    trace << ',' << (finalYawn.active ? 1 : 0) << ','
+                          << (finalYawn.event ? 1 : 0) << ',' << finalYawn.count << ',';
+                    if (calibratedPose) trace << calibratedPose->yawDegrees;
+                    trace << ',';
+                    if (calibratedPose) trace << calibratedPose->pitchDegrees;
+                    trace << ',';
+                    if (calibratedPose) trace << calibratedPose->reprojectionErrorPixels;
+                    trace << ',' << headZoneName(finalHeadPose.zone) << ','
+                          << (finalHeadPose.movementEvent ? 1 : 0) << ','
+                          << finalHeadPose.leftCount << ',' << finalHeadPose.rightCount << ','
+                          << finalHeadPose.upCount << ',' << finalHeadPose.downCount << ',';
+                    if (gazeValid) trace << gaze.horizontal;
+                    trace << ',';
+                    if (gazeValid) trace << gaze.vertical;
+                    trace << ',';
+                    if (gazeValid) trace << gaze.interEyeAgreement;
+                    trace << ',' << gazeZoneName(finalDistraction.gaze) << ','
+                          << (finalDistraction.distracted ? 1 : 0) << ','
+                          << (finalDistraction.event ? 1 : 0) << ','
+                          << presenceName(finalPresence) << ','
+                          << drowsinessName(finalDrowsiness.state) << ','
+                          << finalDrowsiness.recentYawns;
                     trace << ',' << faceResult.faceBox.x << ',' << faceResult.faceBox.y << ','
                           << faceResult.faceBox.width << ',' << faceResult.faceBox.height << ','
                           << milliseconds(backendEnd - backendStart) << ',' << milliseconds(semanticEnd - totalStart)
@@ -551,7 +703,7 @@ int main(int argc, char **argv)
 
         std::ostringstream json;
         json << std::fixed << std::setprecision(6) << "{\n"
-             << "  \"schema_version\": 3,\n"
+             << "  \"schema_version\": 4,\n"
              << "  \"backend\": \"" << backendName(options.backend) << "\",\n"
              << "  \"build_configuration\": \"" << buildConfiguration() << "\",\n"
              << "  \"input\": \"" << jsonEscape(options.input.string()) << "\",\n"
@@ -586,7 +738,19 @@ int main(int argc, char **argv)
         else
             json << "null";
         json << ",\n"
-             << "    \"final_perclos_coverage\": " << finalEyeMetrics.perclosCoverage << "\n"
+             << "    \"final_perclos_coverage\": " << finalEyeMetrics.perclosCoverage << ",\n"
+             << "    \"low_quality_frames\": " << lowQualityEyeFrames << ",\n"
+             << "    \"occluded_frames\": " << occludedEyeFrames << "\n"
+             << "  },\n"
+             << "  \"temporal_events\": {\n"
+             << "    \"yawn_count\": " << finalYawn.count << ",\n"
+             << "    \"head_left_count\": " << finalHeadPose.leftCount << ",\n"
+             << "    \"head_right_count\": " << finalHeadPose.rightCount << ",\n"
+             << "    \"head_up_count\": " << finalHeadPose.upCount << ",\n"
+             << "    \"head_down_count\": " << finalHeadPose.downCount << ",\n"
+             << "    \"distracted_frames\": " << distractedFrames << ",\n"
+             << "    \"final_presence\": \"" << presenceName(finalPresence) << "\",\n"
+             << "    \"final_drowsiness\": \"" << drowsinessName(finalDrowsiness.state) << "\"\n"
              << "  },\n"
              << "  \"latency_ms\": {\n";
         writeSummary(json, "capture", summarize(samples.capture), true);

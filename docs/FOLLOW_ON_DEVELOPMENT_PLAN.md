@@ -311,9 +311,12 @@ Implement calibrated eye openness, EAR, PERCLOS, blink, yawn, head pose, gaze, d
 - Deterministic sequence tests cover each new FSM, including single counting,
   duration gates, hysteresis/neutral rearming, distraction and recovery,
   presence confirmation, combined evidence, and unknown-quality suppression.
-  The initial Windows Release build and focused test set passed. Recorded-data
-  accuracy integration awaits semantic mouth/head/gaze adapters and the
-  independent eye-quality observer; cross-platform validation is pending.
+  Release validation at implementation commit `6d4f2c9` passed all 17
+  configured CTests on Windows x64 and Orin aarch64, including real MediaPipe
+  integrations, and all 16 applicable tests on native Ubuntu 24.04 x64. The
+  Orin temporal-event test was confirmed as an ARM aarch64 executable.
+  Recorded-data accuracy integration awaits semantic mouth/head/gaze adapters
+  and the independent eye-quality observer.
 
 ## Stage 21 — recognition and object/context events
 

@@ -8,6 +8,7 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+SOURCE_REVISION="$(git -c safe.directory="${REPO_ROOT}" -C "${REPO_ROOT}" rev-parse HEAD)"
 BUILD_DIR="$(realpath "$1")"
 OUTPUT_DIR="${2:-${REPO_ROOT}/dist/application/linux-aarch64}"
 OUTPUT_DIR="$(realpath -m "${OUTPUT_DIR}")"
@@ -18,12 +19,16 @@ fi
 
 declare -A INPUTS=(
     [yunet_demo]="${BUILD_DIR}/yunet_demo"
+    [dms_sponsor_selftest]="${BUILD_DIR}/dms_sponsor_selftest"
     [libFaceMediaPipe.so]="${BUILD_DIR}/libFaceMediaPipe.so"
     [FaceMediaPipe.MANIFEST.txt]="${BUILD_DIR}/FaceMediaPipe.MANIFEST.txt"
     [models/face_detection_yunet_2026may.onnx]="${BUILD_DIR}/models/face_detection_yunet_2026may.onnx"
     [models/lbfmodel.yaml]="${BUILD_DIR}/models/lbfmodel.yaml"
     [models/mediapipe/face_landmarker.task]="${BUILD_DIR}/models/mediapipe/face_landmarker.task"
     [run_face.sh]="${SCRIPT_DIR}/run_deployed_face.sh"
+    [run_self_test.sh]="${SCRIPT_DIR}/run_sponsor_selftest.sh"
+    [test-data/synthetic_eye_sequence.csv]="${REPO_ROOT}/demo/synthetic_eye_sequence.csv"
+    [README_SPONSOR_DEMO.md]="${REPO_ROOT}/docs/SPONSOR_DEMO.md"
 )
 for relative in "${!INPUTS[@]}"; do
     if [[ ! -f "${INPUTS[${relative}]}" ]]; then
@@ -60,7 +65,8 @@ for relative in "${!INPUTS[@]}"; do
     mkdir -p "$(dirname "${OUTPUT_DIR}/${relative}")"
     cp "${INPUTS[${relative}]}" "${OUTPUT_DIR}/${relative}"
 done
-chmod 755 "${OUTPUT_DIR}/yunet_demo" "${OUTPUT_DIR}/run_face.sh"
+chmod 755 "${OUTPUT_DIR}/yunet_demo" "${OUTPUT_DIR}/dms_sponsor_selftest" \
+    "${OUTPUT_DIR}/run_face.sh" "${OUTPUT_DIR}/run_self_test.sh"
 
 mapfile -t HASH_LINES < <(
     cd "${OUTPUT_DIR}"
@@ -77,9 +83,10 @@ mapfile -t DEPENDENCIES < <(
         LC_ALL=C sort -u
 )
 {
-    echo 'face-application-package-v1'
+    echo 'face-application-package-v2-sponsor-demo'
     echo 'platform=linux-aarch64'
     echo 'architecture=ARM aarch64'
+    echo "source_revision=${SOURCE_REVISION}"
     echo 'backends=yunet,mediapipe'
     echo 'mediapipe_model=models/mediapipe/face_landmarker.task'
     echo 'payload_sha256:'
@@ -89,6 +96,7 @@ mapfile -t DEPENDENCIES < <(
     echo 'launch:'
     echo './run_face.sh yunet'
     echo './run_face.sh mediapipe'
+    echo './run_self_test.sh'
     echo 'platform_prerequisites:'
     echo 'JetPack-compatible Linux aarch64 runtime'
     echo 'OpenCV 4.8 shared libraries'

@@ -242,6 +242,11 @@ add_executable(face_benchmark
     src/BlinkTracker.cpp
 )
 
+add_executable(dms_sponsor_selftest
+    src/sponsor_selftest.cpp
+)
+target_link_libraries(dms_sponsor_selftest PRIVATE dms_core)
+
 
 # ============================================================
 # Include directories
@@ -264,6 +269,7 @@ target_link_libraries(yunet_demo
 
     PRIVATE
 
+        dms_core
         ${OpenCV_LIBS}
 )
 
@@ -529,6 +535,12 @@ endif()
 # ============================================================
 
 if(BUILD_TESTING)
+
+    add_test(
+        NAME dms_sponsor_selftest
+        COMMAND dms_sponsor_selftest
+            "${CMAKE_CURRENT_SOURCE_DIR}/demo/synthetic_eye_sequence.csv"
+    )
 
     add_executable(dms_eye_metrics_test
         tests/dms_eye_metrics_test.cpp

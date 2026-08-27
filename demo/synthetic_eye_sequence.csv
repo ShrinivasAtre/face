@@ -1,0 +1,12 @@
+timestamp_ms,usability,ear,expected_state,expected_blinks,expected_blink_event,expected_prolonged
+0,usable,0.30,OPEN,0,0,0
+100,usable,0.30,OPEN,0,0,0
+200,usable,0.11,CLOSED,0,0,0
+320,usable,0.30,OPEN,0,0,0
+400,usable,0.30,OPEN,1,1,0
+500,occluded,0.00,UNKNOWN,1,0,0
+600,usable,0.30,OPEN,1,0,0
+700,usable,0.11,CLOSED,1,0,0
+2200,usable,0.11,CLOSED,1,0,1
+2300,usable,0.30,OPEN,1,0,0
+2400,usable,0.30,OPEN,1,0,0

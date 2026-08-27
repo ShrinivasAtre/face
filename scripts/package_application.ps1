@@ -8,6 +8,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$SourceRevision = (& git -c "safe.directory=$RepoRoot" -C $RepoRoot rev-parse HEAD).Trim()
+if ($LASTEXITCODE -ne 0 -or -not $SourceRevision) { throw 'Could not determine source revision.' }
 $BuildDir = (Resolve-Path $BuildDir).Path
 if (-not $OutputDir) {
     $OutputDir = Join-Path $RepoRoot 'dist\application\windows-x64'
@@ -21,6 +23,7 @@ if ($OutputDir -eq $driveRoot -or $OutputDir -eq $RepoRoot) {
 $AppDir = Join-Path $BuildDir $Configuration
 $Inputs = [ordered]@{
     'yunet_demo.exe' = Join-Path $AppDir 'yunet_demo.exe'
+    'dms_sponsor_selftest.exe' = Join-Path $AppDir 'dms_sponsor_selftest.exe'
     'FaceMediaPipe.dll' = Join-Path $AppDir 'FaceMediaPipe.dll'
     'opencv_world480.dll' = Join-Path $AppDir 'opencv_world480.dll'
     'FaceMediaPipe.MANIFEST.txt' = Join-Path $AppDir 'FaceMediaPipe.MANIFEST.txt'
@@ -28,6 +31,9 @@ $Inputs = [ordered]@{
     'models/lbfmodel.yaml' = Join-Path $AppDir 'models\lbfmodel.yaml'
     'models/mediapipe/face_landmarker.task' = Join-Path $AppDir 'models\mediapipe\face_landmarker.task'
     'run_face.ps1' = Join-Path $PSScriptRoot 'run_deployed_face.ps1'
+    'run_self_test.ps1' = Join-Path $PSScriptRoot 'run_sponsor_selftest.ps1'
+    'test-data/synthetic_eye_sequence.csv' = Join-Path $RepoRoot 'demo\synthetic_eye_sequence.csv'
+    'README_SPONSOR_DEMO.md' = Join-Path $RepoRoot 'docs\SPONSOR_DEMO.md'
 }
 foreach ($entry in $Inputs.GetEnumerator()) {
     if (-not (Test-Path $entry.Value -PathType Leaf)) {
@@ -101,9 +107,10 @@ $hashLines = Get-ChildItem $OutputDir -Recurse -File |
         "$hash  $relative"
     }
 $manifestLines = @(
-    'face-application-package-v1'
+    'face-application-package-v2-sponsor-demo'
     'platform=windows-x64'
     'architecture=x64'
+    "source_revision=$SourceRevision"
     'backends=yunet,mediapipe'
     'mediapipe_model=models/mediapipe/face_landmarker.task'
     'payload_sha256:'
@@ -113,6 +120,7 @@ $manifestLines = @(
     'launch:'
     'powershell -ExecutionPolicy Bypass -File .\run_face.ps1 yunet'
     'powershell -ExecutionPolicy Bypass -File .\run_face.ps1 mediapipe'
+    'powershell -ExecutionPolicy Bypass -File .\run_self_test.ps1'
     'platform_prerequisites:'
     'Windows x64 system DLLs'
     'Microsoft Visual C++ runtime compatible with the build toolchain'

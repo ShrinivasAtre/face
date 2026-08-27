@@ -188,6 +188,7 @@ message(STATUS "----------------------------------------")
 add_library(dms_core STATIC
     src/DmsObservation.cpp
     src/DmsScheduler.cpp
+    src/DmsEyeMetrics.cpp
 )
 
 add_library(pfld_landmark_provider STATIC
@@ -526,6 +527,12 @@ endif()
 # ============================================================
 
 if(BUILD_TESTING)
+
+    add_executable(dms_eye_metrics_test
+        tests/dms_eye_metrics_test.cpp
+    )
+    target_link_libraries(dms_eye_metrics_test PRIVATE dms_core)
+    add_test(NAME dms_eye_metrics_test COMMAND dms_eye_metrics_test)
 
     set(FACE_TEST_IMAGE
         ""

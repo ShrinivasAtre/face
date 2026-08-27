@@ -251,6 +251,27 @@ Implement calibrated eye openness, EAR, PERCLOS, blink, yawn, head pose, gaze, d
 - Rolling PERCLOS integrates closed time only over known-quality intervals, excludes excessive sample gaps, and remains unavailable until its configured known-time coverage is met. Non-monotonic samples are rejected without mutating state.
 - Deterministic tests cover calibration, hysteresis, blink debounce/single counting, prolonged closure, occlusion, rolling PERCLOS, reset, non-monotonic timestamps and invalid configuration without sleeping or reading wall-clock time.
 - Fresh revision `337fa19` Release validation passed all 14 MediaPipe-enabled CTests on Windows x64 at `D:\work\p20` and Orin aarch64 at `~/common/p20`, plus all 13 applicable CTests on native x64 Ubuntu 24.04 at `/root/p20`. No camera or user action was required.
+- Recorded-input integration is in progress. The benchmark now repairs duplicate,
+  missing, backward and loop-reset decoder timestamps onto a strictly monotonic
+  nominal-cadence timeline and emits the provider-neutral eye FSM state, openness,
+  blink event/count, closure duration, prolonged closure and PERCLOS coverage in
+  its private trace and aggregate JSON.
+- Initial second-subject Windows development runs used private neutral, blink,
+  closure, partial-opening and occlusion clips. In a near-complete 1,300-frame
+  pass of the narrated ten-blink clip, MediaPipe plus the duration FSM counted
+  exactly ten confirmed blinks with no prolonged-closure frames; YuNet/LBF
+  counted zero with the same initial calibration. In the corresponding closure
+  pass, MediaPipe reported 127 prolonged-closure frames while YuNet/LBF reported
+  none. The private distributions explain the difference: MediaPipe closure EAR
+  reached approximately 0.03--0.05 while LBF remained above approximately 0.21,
+  overlapping its open-eye scale. This is development evidence for explicit
+  calibration and provider selection, not production accuracy.
+  Both providers continued to report valid geometry during sampled occlusion,
+  and MediaPipe produced two apparent blink transitions. This confirms that
+  landmark availability is not an occlusion-confidence signal. The core already
+  handles explicit unknown/occluded observations safely, but a separate
+  provider-neutral eye-quality observation remains required before the occlusion
+  gate can pass. Raw clips, audio, frames and traces remain external to Git.
 
 ## Stage 21 — recognition and object/context events
 

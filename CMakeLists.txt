@@ -189,6 +189,7 @@ add_library(dms_core STATIC
     src/DmsObservation.cpp
     src/DmsScheduler.cpp
     src/DmsEyeMetrics.cpp
+    src/RecordedFrameClock.cpp
 )
 
 add_library(pfld_landmark_provider STATIC
@@ -459,6 +460,7 @@ target_link_libraries(face_mediapipe_runtime
 
 target_link_libraries(face_benchmark
     PRIVATE
+        dms_core
         pfld_landmark_provider
         ${OpenCV_LIBS}
 )
@@ -533,6 +535,12 @@ if(BUILD_TESTING)
     )
     target_link_libraries(dms_eye_metrics_test PRIVATE dms_core)
     add_test(NAME dms_eye_metrics_test COMMAND dms_eye_metrics_test)
+
+    add_executable(recorded_frame_clock_test
+        tests/recorded_frame_clock_test.cpp
+    )
+    target_link_libraries(recorded_frame_clock_test PRIVATE dms_core)
+    add_test(NAME recorded_frame_clock_test COMMAND recorded_frame_clock_test)
 
     set(FACE_TEST_IMAGE
         ""

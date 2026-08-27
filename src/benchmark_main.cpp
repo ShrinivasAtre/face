@@ -2,8 +2,10 @@
 #include "BackendEyeMapper.hpp"
 #include "BenchmarkOptions.hpp"
 #include "BlinkTracker.hpp"
+#include "DmsEyeMetrics.hpp"
 #include "FaceBackend.hpp"
 #include "PfldEyeLandmarkMapper.hpp"
+#include "RecordedFrameClock.hpp"
 #include "YuNetLbfBackend.hpp"
 #include "YuNetPfldBackend.hpp"
 
@@ -23,6 +25,7 @@
 #include <iomanip>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -188,6 +191,31 @@ void writeSummary(std::ostream& output, const char* name,
            << (trailingComma ? "," : "") << '\n';
 }
 
+const char* eyeStateName(dms::EyeState state) noexcept
+{
+    switch (state)
+    {
+    case dms::EyeState::Open: return "open";
+    case dms::EyeState::Closed: return "closed";
+    case dms::EyeState::Unknown: return "unknown";
+    }
+    return "unknown";
+}
+
+const char* usabilityName(dms::ObservationUsability usability) noexcept
+{
+    switch (usability)
+    {
+    case dms::ObservationUsability::Usable: return "usable";
+    case dms::ObservationUsability::Missing: return "missing";
+    case dms::ObservationUsability::LowConfidence: return "low_confidence";
+    case dms::ObservationUsability::Occluded: return "occluded";
+    case dms::ObservationUsability::Stale: return "stale";
+    case dms::ObservationUsability::FutureTimestamp: return "future_timestamp";
+    }
+    return "missing";
+}
+
 class InputFrames
 {
 public:
@@ -204,12 +232,14 @@ public:
             cv::Mat probe = cv::imread(sequence_.front().string(), cv::IMREAD_COLOR);
             if (probe.empty()) return false;
             kind_ = "image-sequence";
+            clock_.reset(30.0);
             return true;
         }
         image_ = cv::imread(path.string(), cv::IMREAD_COLOR);
         if (!image_.empty())
         {
             kind_ = "image-repeat";
+            clock_.reset(30.0);
             return true;
         }
         // Prefer the same software decoder on every benchmark target. Orin's
@@ -220,6 +250,7 @@ public:
             capture_.open(path.string());
         if (!capture_.isOpened()) return false;
         kind_ = "video";
+        clock_.reset(capture_.get(cv::CAP_PROP_FPS));
         return true;
     }
 
@@ -230,29 +261,31 @@ public:
             frame = cv::imread(sequence_[sequenceIndex_].string(), cv::IMREAD_COLOR);
             if (frame.empty()) return false;
             sequenceIndex_ = (sequenceIndex_ + 1) % sequence_.size();
+            clock_.advance(std::nullopt);
             return true;
         }
         if (!image_.empty())
         {
             frame = image_;
+            clock_.advance(std::nullopt);
             return true;
         }
-        if (capture_.read(frame) && !frame.empty()) return true;
+        if (capture_.read(frame) && !frame.empty())
+        {
+            clock_.advance(capture_.get(cv::CAP_PROP_POS_MSEC));
+            return true;
+        }
         capture_.set(cv::CAP_PROP_POS_FRAMES, 0.0);
-        return capture_.read(frame) && !frame.empty();
+        if (!capture_.read(frame) || frame.empty()) return false;
+        clock_.advance(capture_.get(cv::CAP_PROP_POS_MSEC));
+        return true;
     }
 
     const char* kind() const noexcept { return kind_; }
 
-    double timestampMilliseconds() const noexcept
+    dms::MonotonicTime timestamp() const noexcept
     {
-        if (!sequence_.empty())
-        {
-            const std::size_t completed = sequenceIndex_ == 0
-                ? sequence_.size() : sequenceIndex_;
-            return static_cast<double>(completed - 1) * (1000.0 / 30.0);
-        }
-        return image_.empty() ? capture_.get(cv::CAP_PROP_POS_MSEC) : 0.0;
+        return clock_.timestamp();
     }
 
 private:
@@ -260,6 +293,7 @@ private:
     std::vector<std::filesystem::path> sequence_;
     std::size_t sequenceIndex_ = 0;
     cv::VideoCapture capture_;
+    dms::RecordedFrameClock clock_;
     const char* kind_ = "unknown";
 };
 }
@@ -332,6 +366,15 @@ int main(int argc, char** argv)
         }
 
         BlinkTracker tracker(0.27);
+        const dms::EyeCalibration eyeCalibration;
+        const dms::EyeTemporalConfig eyeConfig;
+        dms::EyeTemporalMetrics eyeMetrics(eyeCalibration, eyeConfig);
+        if (!eyeMetrics.valid())
+        {
+            std::cerr << "Error: Invalid eye metric configuration: "
+                      << eyeMetrics.error() << '\n';
+            return 1;
+        }
         std::ofstream trace;
         if (!options.trace.empty())
         {
@@ -344,7 +387,10 @@ int main(int argc, char** argv)
             }
             trace << "frame,timestamp_ms,backend_success,detected,landmarks_valid,"
                      "semantic_valid,right_ear,left_ear,average_ear,eye_closed,"
-                     "blink_count,face_x,face_y,face_width,face_height,"
+                     "blink_count,eye_usability,eye_openness,temporal_eye_state,"
+                     "temporal_blink_event,temporal_blink_count,closure_ms,"
+                     "prolonged_closure,perclos,perclos_coverage,"
+                     "face_x,face_y,face_width,face_height,"
                      "backend_ms,end_to_end_ms\n";
             trace << std::fixed << std::setprecision(6);
         }
@@ -357,6 +403,10 @@ int main(int argc, char** argv)
         samples.total.reserve(options.measuredFrames);
         std::size_t detectedFrames = 0;
         std::size_t successfulFrames = 0;
+        std::size_t usableEyeFrames = 0;
+        std::size_t unknownEyeFrames = 0;
+        std::size_t prolongedClosureFrames = 0;
+        dms::EyeMetricResult finalEyeMetrics;
         const std::uint64_t initialResidentMemory = currentResidentMemoryBytes();
 
         const std::size_t totalFrames = options.warmupFrames + options.measuredFrames;
@@ -392,6 +442,23 @@ int main(int argc, char** argv)
 
             if (index >= options.warmupFrames)
             {
+                dms::EyeMetricInput eyeInput;
+                eyeInput.timestamp = input.timestamp();
+                eyeInput.usability = semanticSuccess
+                    ? dms::ObservationUsability::Usable
+                    : dms::ObservationUsability::Missing;
+                if (semanticSuccess)
+                {
+                    eyeInput.rightEar = static_cast<float>(tracker.getRightEAR());
+                    eyeInput.leftEar = static_cast<float>(tracker.getLeftEAR());
+                }
+                finalEyeMetrics = eyeMetrics.update(eyeInput);
+                if (finalEyeMetrics.state == dms::EyeState::Unknown)
+                    ++unknownEyeFrames;
+                else
+                    ++usableEyeFrames;
+                if (finalEyeMetrics.prolongedClosure) ++prolongedClosureFrames;
+
                 samples.capture.push_back(milliseconds(captureEnd - captureStart));
                 samples.backend.push_back(milliseconds(backendEnd - backendStart));
                 samples.semantic.push_back(milliseconds(semanticEnd - semanticStart));
@@ -401,7 +468,8 @@ int main(int argc, char** argv)
                 if (trace)
                 {
                     trace << (index - options.warmupFrames) << ','
-                          << input.timestampMilliseconds() << ','
+                          << std::chrono::duration<double, std::milli>(
+                                 input.timestamp()).count() << ','
                           << (backendSuccess ? 1 : 0) << ','
                           << (faceResult.detected ? 1 : 0) << ','
                           << (faceResult.landmarksValid ? 1 : 0) << ','
@@ -415,6 +483,17 @@ int main(int argc, char** argv)
                               << tracker.getBlinkCount();
                     }
                     else trace << ",,,,,";
+                    trace << ',' << usabilityName(eyeInput.usability) << ',';
+                    if (finalEyeMetrics.openness) trace << *finalEyeMetrics.openness;
+                    trace << ',' << eyeStateName(finalEyeMetrics.state)
+                          << ',' << (finalEyeMetrics.blinkEvent ? 1 : 0)
+                          << ',' << finalEyeMetrics.blinkCount
+                          << ',' << std::chrono::duration<double, std::milli>(
+                                 finalEyeMetrics.closureDuration).count()
+                          << ',' << (finalEyeMetrics.prolongedClosure ? 1 : 0)
+                          << ',';
+                    if (finalEyeMetrics.perclos) trace << *finalEyeMetrics.perclos;
+                    trace << ',' << finalEyeMetrics.perclosCoverage;
                     trace << ',' << faceResult.faceBox.x
                           << ',' << faceResult.faceBox.y
                           << ',' << faceResult.faceBox.width
@@ -444,7 +523,7 @@ int main(int argc, char** argv)
         std::ostringstream json;
         json << std::fixed << std::setprecision(6)
              << "{\n"
-             << "  \"schema_version\": 2,\n"
+             << "  \"schema_version\": 3,\n"
              << "  \"backend\": \"" << backendName(options.backend) << "\",\n"
              << "  \"build_configuration\": \"" << buildConfiguration() << "\",\n"
              << "  \"input\": \"" << jsonEscape(options.input.string()) << "\",\n"
@@ -468,6 +547,20 @@ int main(int argc, char** argv)
              << "  \"final_resident_memory_bytes\": " << finalResidentMemory << ",\n"
              << "  \"resident_memory_growth_bytes\": " << residentMemoryGrowth << ",\n"
              << "  \"peak_resident_memory_bytes\": " << peakResidentMemoryBytes() << ",\n"
+             << "  \"eye_metrics\": {\n"
+             << "    \"closed_ear_calibration\": " << eyeCalibration.closedEar << ",\n"
+             << "    \"open_ear_calibration\": " << eyeCalibration.openEar << ",\n"
+             << "    \"usable_frames\": " << usableEyeFrames << ",\n"
+             << "    \"unknown_frames\": " << unknownEyeFrames << ",\n"
+             << "    \"blink_count\": " << finalEyeMetrics.blinkCount << ",\n"
+             << "    \"prolonged_closure_frames\": " << prolongedClosureFrames << ",\n"
+             << "    \"final_perclos\": ";
+        if (finalEyeMetrics.perclos) json << *finalEyeMetrics.perclos;
+        else json << "null";
+        json << ",\n"
+             << "    \"final_perclos_coverage\": "
+             << finalEyeMetrics.perclosCoverage << "\n"
+             << "  },\n"
              << "  \"latency_ms\": {\n";
         writeSummary(json, "capture", summarize(samples.capture), true);
         writeSummary(json, "backend", summarize(samples.backend), true);

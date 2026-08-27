@@ -4,6 +4,20 @@
 
 `face_benchmark` runs the production backend and semantic eye/blink path without a camera or GUI. It accepts a still image (repeated without decode cost) or a video (decoded sequentially and restarted at end), performs warm-up frames, and writes versioned JSON results.
 
+Schema version 3 also feeds the provider-neutral Stage 20 eye metric FSM. Video
+presentation timestamps are converted to a strictly monotonic recorded timeline;
+duplicate, missing, backward, and loop-reset timestamps advance by the nominal
+frame period. Temporal durations therefore describe recording time rather than
+inference wall-clock time. The private CSV trace adds eye usability, normalized
+openness, open/closed/unknown state, confirmed blink events/count, closure
+duration, prolonged closure, PERCLOS and known-time coverage.
+
+Current backend results do not expose an eye-occlusion confidence. Until a
+separate provider-neutral quality observation is connected, successfully mapped
+landmarks are marked usable and missing landmarks are marked missing. Occlusion
+results must not be interpreted as production accuracy from geometry availability
+alone.
+
 The accepted cross-platform validation image is external to Git:
 
 - filename: `IMG-20150331-WA0001.jpg`

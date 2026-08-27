@@ -94,5 +94,9 @@ count error, onset/offset delay, and absolute onset-delay percentiles.
 conditional state accuracy, keeping unknown output explicit.
 `scripts/aggregate_stage20_scores.ps1` produces anonymous micro-aggregates by
 metadata slice. Synthetic fixtures in `demo/` exercise all three tools without
-using personal data. A practical annotation UI/import-export adapter and
-double-annotation agreement report remain the next Task 4 increments.
+using personal data. `scripts/validate_stage20_annotations.ps1` checks the CSV
+contract, interval bounds, label quality, tolerance, and duplicates before an
+annotation file can be scored. `scripts/score_stage20_agreement.ps1` compares
+exactly two independent annotators, reports event F1 and boundary differences,
+and identifies groups requiring adjudication. These CSV interfaces are the
+tool-neutral import/export boundary for a spreadsheet or video annotation UI.

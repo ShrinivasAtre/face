@@ -401,6 +401,11 @@ architecture evaluation recommends benchmarking a MobileNetV3-Small-class
 multi-class eye-ROI model against a multi-task openness variant; details and the
 training gate are in `docs/STAGE20_EYE_OCCLUSION_MODEL_OPTIONS.md`.
 
+Task 4's synthetic workflow now also validates annotation files and computes
+two-annotator event/boundary agreement with an explicit adjudication flag. The
+remaining accuracy work depends on producing real timestamped annotations; the
+tooling itself is complete for the current development-data stage.
+
 ## Inputs currently unavailable
 
 The requested `orin.txt` and `windows.txt` console logs were not present in the repository or supplied workspace when this plan was created. Stage 17 can begin from source instrumentation, but the logs should be added as non-secret validation inputs when available so their original runs can be correlated with the new measurements.

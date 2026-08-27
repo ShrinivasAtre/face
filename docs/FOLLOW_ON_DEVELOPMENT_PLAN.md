@@ -395,7 +395,8 @@ trained eye-ROI occlusion option evaluation before the operational-definition
 review.
 
 Task 4 now has a privacy-preserving annotation contract, synthetic fixtures,
-and deterministic event scoring in `docs/STAGE20_ANNOTATION_PROTOCOL.md`. Task 5
+deterministic event/delay scoring, duration-weighted state scoring, and anonymous
+slice aggregation in `docs/STAGE20_ANNOTATION_PROTOCOL.md`. Task 5
 architecture evaluation recommends benchmarking a MobileNetV3-Small-class
 multi-class eye-ROI model against a multi-task openness variant; details and the
 training gate are in `docs/STAGE20_EYE_OCCLUSION_MODEL_OPTIONS.md`.

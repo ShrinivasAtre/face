@@ -1,0 +1,4 @@
+clip_id,state_type,side,state,start_ms,end_ms
+synthetic-01,eye_visibility,left,visible,0,900
+synthetic-01,eye_visibility,left,unknown,900,1100
+synthetic-01,eye_visibility,left,occluded,1100,2000

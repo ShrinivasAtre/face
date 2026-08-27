@@ -88,6 +88,11 @@ clip_id,event,side,start_ms,end_ms,confidence
 - Report false alarms per hour for distraction, yawn, prolonged closure, and
   presence loss.
 
-`scripts/score_stage20_annotations.ps1` provides deterministic event scoring.
-State-duration scoring and annotation UI integration remain the next Task 4
-increment.
+`scripts/score_stage20_annotations.ps1` provides deterministic event matching,
+count error, onset/offset delay, and absolute onset-delay percentiles.
+`scripts/score_stage20_states.ps1` provides duration-weighted known coverage and
+conditional state accuracy, keeping unknown output explicit.
+`scripts/aggregate_stage20_scores.ps1` produces anonymous micro-aggregates by
+metadata slice. Synthetic fixtures in `demo/` exercise all three tools without
+using personal data. A practical annotation UI/import-export adapter and
+double-annotation agreement report remain the next Task 4 increments.

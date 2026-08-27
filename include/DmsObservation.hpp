@@ -36,6 +36,7 @@ struct ObservationHeader
 enum class ObservationUsability
 {
     Usable,
+    Recovering,
     Missing,
     LowConfidence,
     Occluded,
@@ -50,10 +51,45 @@ struct ObservationPolicy
     MonotonicTime maximumAge{};
 };
 
-ObservationUsability classifyObservation(
-    const ObservationHeader& header,
-    MonotonicTime now,
-    const ObservationPolicy& policy) noexcept;
+ObservationUsability classifyObservation(const ObservationHeader &header, MonotonicTime now,
+                                         const ObservationPolicy &policy) noexcept;
+
+struct ObservationQualityGateConfig
+{
+    ObservationPolicy policy;
+    MonotonicTime reacquisitionConfirmation = std::chrono::milliseconds(100);
+
+    bool validate(std::string &error) const noexcept;
+};
+
+// Applies observation quality immediately on loss and requires a sustained
+// usable interval after startup or reacquisition. This prevents an occlusion
+// boundary from being interpreted as a valid temporal event.
+class ObservationQualityGate
+{
+  public:
+    explicit ObservationQualityGate(ObservationQualityGateConfig config);
+
+    bool valid() const noexcept
+    {
+        return valid_;
+    }
+    const std::string &error() const noexcept
+    {
+        return error_;
+    }
+    ObservationUsability update(const ObservationHeader &header, MonotonicTime now) noexcept;
+    void reset() noexcept;
+
+  private:
+    ObservationQualityGateConfig config_;
+    bool valid_ = false;
+    std::string error_;
+    bool hasTimestamp_ = false;
+    MonotonicTime lastTimestamp_{};
+    std::optional<MonotonicTime> usableSince_;
+    bool usableConfirmed_ = false;
+};
 
 struct Point2f
 {
@@ -99,10 +135,9 @@ struct ObjectValue
     float associationConfidence = 0.0F;
 };
 
-template <typename Value>
-struct Observation
+template <typename Value> struct Observation
 {
     ObservationHeader header;
     Value value;
 };
-}
+} // namespace dms

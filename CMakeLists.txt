@@ -189,6 +189,7 @@ add_library(dms_core STATIC
     src/DmsObservation.cpp
     src/DmsScheduler.cpp
     src/DmsEyeMetrics.cpp
+    src/DmsTemporalEvents.cpp
     src/RecordedFrameClock.cpp
 )
 
@@ -547,6 +548,12 @@ if(BUILD_TESTING)
     )
     target_link_libraries(dms_eye_metrics_test PRIVATE dms_core)
     add_test(NAME dms_eye_metrics_test COMMAND dms_eye_metrics_test)
+
+    add_executable(dms_temporal_events_test
+        tests/dms_temporal_events_test.cpp
+    )
+    target_link_libraries(dms_temporal_events_test PRIVATE dms_core)
+    add_test(NAME dms_temporal_events_test COMMAND dms_temporal_events_test)
 
     add_executable(recorded_frame_clock_test
         tests/recorded_frame_clock_test.cpp

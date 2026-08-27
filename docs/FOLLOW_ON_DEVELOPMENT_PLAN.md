@@ -296,6 +296,24 @@ Implement calibrated eye openness, EAR, PERCLOS, blink, yawn, head pose, gaze, d
   prolonged-closure logic, so they are stress slices rather than clean normal-
   blink or neutral-eyewear ground truth until annotated. Private media and traces
   remain external to Git.
+- Added a provider-neutral observation-quality gate. Quality loss is immediate;
+  startup and reacquisition require a sustained usable interval and are exposed
+  as `Recovering`. Recorded evaluation now passes landmark observations through
+  this gate before eye temporal logic. Current providers still lack an
+  independent eye-occlusion score, so this is the safe consumption mechanism,
+  not a claim that landmark availability detects occlusion.
+- Added configurable monotonic-time FSMs for yawn, hysteretic head-pose zones and
+  directional counts, gaze and sustained distraction, driver presence, and
+  combined drowsiness from prolonged closure/PERCLOS/recent yawns. All consume
+  semantic inputs and explicit quality; none contains provider topology indices.
+  Unknown or occluded inputs cannot create events. Head counts require a
+  confirmed neutral return, and alert recovery is separately debounced.
+- Deterministic sequence tests cover each new FSM, including single counting,
+  duration gates, hysteresis/neutral rearming, distraction and recovery,
+  presence confirmation, combined evidence, and unknown-quality suppression.
+  The initial Windows Release build and focused test set passed. Recorded-data
+  accuracy integration awaits semantic mouth/head/gaze adapters and the
+  independent eye-quality observer; cross-platform validation is pending.
 
 ## Stage 21 — recognition and object/context events
 

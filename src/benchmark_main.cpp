@@ -69,9 +69,10 @@ double milliseconds(Clock::duration duration)
     return std::chrono::duration<double, std::milli>(duration).count();
 }
 
-double percentile(const std::vector<double>& sorted, double fraction)
+double percentile(const std::vector<double> &sorted, double fraction)
 {
-    if (sorted.empty()) return 0.0;
+    if (sorted.empty())
+        return 0.0;
     const double position = fraction * static_cast<double>(sorted.size() - 1);
     const auto lower = static_cast<std::size_t>(std::floor(position));
     const auto upper = static_cast<std::size_t>(std::ceil(position));
@@ -82,10 +83,12 @@ double percentile(const std::vector<double>& sorted, double fraction)
 Summary summarize(std::vector<double> values)
 {
     Summary result;
-    if (values.empty()) return result;
+    if (values.empty())
+        return result;
     std::sort(values.begin(), values.end());
     double sum = 0.0;
-    for (double value : values) sum += value;
+    for (double value : values)
+        sum += value;
     result.mean = sum / static_cast<double>(values.size());
     result.minimum = values.front();
     result.maximum = values.back();
@@ -133,18 +136,18 @@ std::uint64_t peakResidentMemoryBytes()
     return 0;
 #else
     rusage usage{};
-    if (getrusage(RUSAGE_SELF, &usage) != 0) return 0;
+    if (getrusage(RUSAGE_SELF, &usage) != 0)
+        return 0;
 #if defined(__APPLE__)
     const std::uint64_t reportedPeak = static_cast<std::uint64_t>(usage.ru_maxrss);
 #else
-    const std::uint64_t reportedPeak =
-        static_cast<std::uint64_t>(usage.ru_maxrss) * 1024ULL;
+    const std::uint64_t reportedPeak = static_cast<std::uint64_t>(usage.ru_maxrss) * 1024ULL;
 #endif
     return std::max(reportedPeak, currentResidentMemoryBytes());
 #endif
 }
 
-const char* buildConfiguration() noexcept
+const char *buildConfiguration() noexcept
 {
 #ifdef NDEBUG
     return "Release";
@@ -153,84 +156,103 @@ const char* buildConfiguration() noexcept
 #endif
 }
 
-std::string jsonEscape(const std::string& input)
+std::string jsonEscape(const std::string &input)
 {
     std::ostringstream output;
     for (const unsigned char character : input)
     {
         switch (character)
         {
-        case '\\': output << "\\\\"; break;
-        case '"': output << "\\\""; break;
-        case '\n': output << "\\n"; break;
-        case '\r': output << "\\r"; break;
-        case '\t': output << "\\t"; break;
+        case '\\':
+            output << "\\\\";
+            break;
+        case '"':
+            output << "\\\"";
+            break;
+        case '\n':
+            output << "\\n";
+            break;
+        case '\r':
+            output << "\\r";
+            break;
+        case '\t':
+            output << "\\t";
+            break;
         default:
             if (character < 0x20)
             {
-                output << "\\u" << std::hex << std::setw(4)
-                       << std::setfill('0') << static_cast<int>(character)
+                output << "\\u" << std::hex << std::setw(4) << std::setfill('0') << static_cast<int>(character)
                        << std::dec << std::setfill(' ');
             }
-            else output << character;
+            else
+                output << character;
         }
     }
     return output.str();
 }
 
-void writeSummary(std::ostream& output, const char* name,
-                  const Summary& value, bool trailingComma)
+void writeSummary(std::ostream &output, const char *name, const Summary &value, bool trailingComma)
 {
     output << "    \"" << name << "\": {"
-           << "\"mean\": " << value.mean
-           << ", \"p50\": " << value.p50
-           << ", \"p95\": " << value.p95
-           << ", \"p99\": " << value.p99
-           << ", \"min\": " << value.minimum
-           << ", \"max\": " << value.maximum << "}"
+           << "\"mean\": " << value.mean << ", \"p50\": " << value.p50 << ", \"p95\": " << value.p95
+           << ", \"p99\": " << value.p99 << ", \"min\": " << value.minimum << ", \"max\": " << value.maximum << "}"
            << (trailingComma ? "," : "") << '\n';
 }
 
-const char* eyeStateName(dms::EyeState state) noexcept
+const char *eyeStateName(dms::EyeState state) noexcept
 {
     switch (state)
     {
-    case dms::EyeState::Open: return "open";
-    case dms::EyeState::Closed: return "closed";
-    case dms::EyeState::Unknown: return "unknown";
+    case dms::EyeState::Open:
+        return "open";
+    case dms::EyeState::Closed:
+        return "closed";
+    case dms::EyeState::Unknown:
+        return "unknown";
     }
     return "unknown";
 }
 
-const char* usabilityName(dms::ObservationUsability usability) noexcept
+const char *usabilityName(dms::ObservationUsability usability) noexcept
 {
     switch (usability)
     {
-    case dms::ObservationUsability::Usable: return "usable";
-    case dms::ObservationUsability::Missing: return "missing";
-    case dms::ObservationUsability::LowConfidence: return "low_confidence";
-    case dms::ObservationUsability::Occluded: return "occluded";
-    case dms::ObservationUsability::Stale: return "stale";
-    case dms::ObservationUsability::FutureTimestamp: return "future_timestamp";
+    case dms::ObservationUsability::Usable:
+        return "usable";
+    case dms::ObservationUsability::Recovering:
+        return "recovering";
+    case dms::ObservationUsability::Missing:
+        return "missing";
+    case dms::ObservationUsability::LowConfidence:
+        return "low_confidence";
+    case dms::ObservationUsability::Occluded:
+        return "occluded";
+    case dms::ObservationUsability::Stale:
+        return "stale";
+    case dms::ObservationUsability::FutureTimestamp:
+        return "future_timestamp";
     }
     return "missing";
 }
 
 class InputFrames
 {
-public:
-    bool open(const std::filesystem::path& path)
+  public:
+    bool open(const std::filesystem::path &path)
     {
         if (std::filesystem::is_directory(path))
         {
-            for (const auto& entry : std::filesystem::directory_iterator(path))
+            for (const auto &entry : std::filesystem::directory_iterator(path))
             {
-                if (entry.is_regular_file()) sequence_.push_back(entry.path());
+                if (entry.is_regular_file())
+                    sequence_.push_back(entry.path());
             }
             std::sort(sequence_.begin(), sequence_.end());
-            if (sequence_.empty()) return false;
+            if (sequence_.empty())
+                return false;
             cv::Mat probe = cv::imread(sequence_.front().string(), cv::IMREAD_COLOR);
-            if (probe.empty()) return false;
+            if (probe.empty())
+                return false;
             kind_ = "image-sequence";
             clock_.reset(30.0);
             return true;
@@ -248,18 +270,20 @@ public:
         capture_.open(path.string(), cv::CAP_FFMPEG);
         if (!capture_.isOpened())
             capture_.open(path.string());
-        if (!capture_.isOpened()) return false;
+        if (!capture_.isOpened())
+            return false;
         kind_ = "video";
         clock_.reset(capture_.get(cv::CAP_PROP_FPS));
         return true;
     }
 
-    bool next(cv::Mat& frame)
+    bool next(cv::Mat &frame)
     {
         if (!sequence_.empty())
         {
             frame = cv::imread(sequence_[sequenceIndex_].string(), cv::IMREAD_COLOR);
-            if (frame.empty()) return false;
+            if (frame.empty())
+                return false;
             sequenceIndex_ = (sequenceIndex_ + 1) % sequence_.size();
             clock_.advance(std::nullopt);
             return true;
@@ -276,36 +300,39 @@ public:
             return true;
         }
         capture_.set(cv::CAP_PROP_POS_FRAMES, 0.0);
-        if (!capture_.read(frame) || frame.empty()) return false;
+        if (!capture_.read(frame) || frame.empty())
+            return false;
         clock_.advance(capture_.get(cv::CAP_PROP_POS_MSEC));
         return true;
     }
 
-    const char* kind() const noexcept { return kind_; }
+    const char *kind() const noexcept
+    {
+        return kind_;
+    }
 
     dms::MonotonicTime timestamp() const noexcept
     {
         return clock_.timestamp();
     }
 
-private:
+  private:
     cv::Mat image_;
     std::vector<std::filesystem::path> sequence_;
     std::size_t sequenceIndex_ = 0;
     cv::VideoCapture capture_;
     dms::RecordedFrameClock clock_;
-    const char* kind_ = "unknown";
+    const char *kind_ = "unknown";
 };
-}
+} // namespace
 
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
     BenchmarkOptions options;
     std::string error;
     if (!parseBenchmarkOptions(argc, argv, options, error))
     {
-        std::cerr << "Error: " << error << '\n'
-                  << benchmarkUsage(argc > 0 ? argv[0] : nullptr) << '\n';
+        std::cerr << "Error: " << error << '\n' << benchmarkUsage(argc > 0 ? argv[0] : nullptr) << '\n';
         return 2;
     }
     if (options.showHelp)
@@ -326,8 +353,7 @@ int main(int argc, char** argv)
         InputFrames input;
         if (!input.open(options.input))
         {
-            std::cerr << "Error: Cannot open benchmark input: "
-                      << options.input << '\n';
+            std::cerr << "Error: Cannot open benchmark input: " << options.input << '\n';
             return 1;
         }
 
@@ -337,14 +363,12 @@ int main(int argc, char** argv)
         std::string modelPath;
         if (options.backend == BackendKind::YuNet)
         {
-            backend = std::make_unique<YuNetLbfBackend>(
-                (modelDir / "lbfmodel.yaml").string());
+            backend = std::make_unique<YuNetLbfBackend>((modelDir / "lbfmodel.yaml").string());
             modelPath = (modelDir / "face_detection_yunet_2026may.onnx").string();
         }
         else if (options.backend == BackendKind::Pfld)
         {
-            backend = std::make_unique<YuNetPfldBackend>(
-                options.pfldModel.string());
+            backend = std::make_unique<YuNetPfldBackend>(options.pfldModel.string());
             modelPath = (modelDir / "face_detection_yunet_2026may.onnx").string();
         }
 #ifdef FACE_MEDIAPIPE_RUNTIME_ENABLED
@@ -369,10 +393,18 @@ int main(int argc, char** argv)
         const dms::EyeCalibration eyeCalibration;
         const dms::EyeTemporalConfig eyeConfig;
         dms::EyeTemporalMetrics eyeMetrics(eyeCalibration, eyeConfig);
+        dms::ObservationQualityGateConfig qualityConfig;
+        qualityConfig.policy = {0.5F, 0.5F, std::chrono::milliseconds(250)};
+        qualityConfig.reacquisitionConfirmation = std::chrono::milliseconds(100);
+        dms::ObservationQualityGate qualityGate(qualityConfig);
         if (!eyeMetrics.valid())
         {
-            std::cerr << "Error: Invalid eye metric configuration: "
-                      << eyeMetrics.error() << '\n';
+            std::cerr << "Error: Invalid eye metric configuration: " << eyeMetrics.error() << '\n';
+            return 1;
+        }
+        if (!qualityGate.valid())
+        {
+            std::cerr << "Error: Invalid eye quality configuration: " << qualityGate.error() << '\n';
             return 1;
         }
         std::ofstream trace;
@@ -381,8 +413,7 @@ int main(int argc, char** argv)
             trace.open(options.trace, std::ios::binary | std::ios::trunc);
             if (!trace)
             {
-                std::cerr << "Error: Cannot write benchmark trace: "
-                          << options.trace << '\n';
+                std::cerr << "Error: Cannot write benchmark trace: " << options.trace << '\n';
                 return 1;
             }
             trace << "frame,timestamp_ms,backend_success,detected,landmarks_valid,"
@@ -431,8 +462,8 @@ int main(int argc, char** argv)
             {
                 SemanticEyeLandmarks eyes;
                 const bool mapped = options.backend == BackendKind::Pfld
-                    ? mapPfldEyeLandmarks(faceResult.landmarks, eyes)
-                    : mapBackendEyeLandmarks(options.backend, faceResult, eyes);
+                                        ? mapPfldEyeLandmarks(faceResult.landmarks, eyes)
+                                        : mapBackendEyeLandmarks(options.backend, faceResult, eyes);
                 if (mapped)
                 {
                     semanticSuccess = tracker.process(frame, eyes);
@@ -444,9 +475,13 @@ int main(int argc, char** argv)
             {
                 dms::EyeMetricInput eyeInput;
                 eyeInput.timestamp = input.timestamp();
-                eyeInput.usability = semanticSuccess
-                    ? dms::ObservationUsability::Usable
-                    : dms::ObservationUsability::Missing;
+                dms::ObservationHeader qualityHeader;
+                qualityHeader.source = {static_cast<std::uint64_t>(index), input.timestamp()};
+                qualityHeader.producedAt = input.timestamp();
+                qualityHeader.validity = semanticSuccess ? dms::SourceValidity::Valid : dms::SourceValidity::Missing;
+                qualityHeader.confidence = semanticSuccess ? 1.0F : 0.0F;
+                qualityHeader.visibility = semanticSuccess ? 1.0F : 0.0F;
+                eyeInput.usability = qualityGate.update(qualityHeader, input.timestamp());
                 if (semanticSuccess)
                 {
                     eyeInput.rightEar = static_cast<float>(tracker.getRightEAR());
@@ -457,49 +492,44 @@ int main(int argc, char** argv)
                     ++unknownEyeFrames;
                 else
                     ++usableEyeFrames;
-                if (finalEyeMetrics.prolongedClosure) ++prolongedClosureFrames;
+                if (finalEyeMetrics.prolongedClosure)
+                    ++prolongedClosureFrames;
 
                 samples.capture.push_back(milliseconds(captureEnd - captureStart));
                 samples.backend.push_back(milliseconds(backendEnd - backendStart));
                 samples.semantic.push_back(milliseconds(semanticEnd - semanticStart));
                 samples.total.push_back(milliseconds(semanticEnd - totalStart));
-                if (backendSuccess) ++successfulFrames;
-                if (backendSuccess && faceResult.detected) ++detectedFrames;
+                if (backendSuccess)
+                    ++successfulFrames;
+                if (backendSuccess && faceResult.detected)
+                    ++detectedFrames;
                 if (trace)
                 {
                     trace << (index - options.warmupFrames) << ','
-                          << std::chrono::duration<double, std::milli>(
-                                 input.timestamp()).count() << ','
-                          << (backendSuccess ? 1 : 0) << ','
-                          << (faceResult.detected ? 1 : 0) << ','
-                          << (faceResult.landmarksValid ? 1 : 0) << ','
-                          << (semanticSuccess ? 1 : 0) << ',';
+                          << std::chrono::duration<double, std::milli>(input.timestamp()).count() << ','
+                          << (backendSuccess ? 1 : 0) << ',' << (faceResult.detected ? 1 : 0) << ','
+                          << (faceResult.landmarksValid ? 1 : 0) << ',' << (semanticSuccess ? 1 : 0) << ',';
                     if (semanticSuccess)
                     {
-                        trace << tracker.getRightEAR() << ','
-                              << tracker.getLeftEAR() << ','
-                              << tracker.getAverageEAR() << ','
-                              << (tracker.isEyeClosed() ? 1 : 0) << ','
-                              << tracker.getBlinkCount();
+                        trace << tracker.getRightEAR() << ',' << tracker.getLeftEAR() << ',' << tracker.getAverageEAR()
+                              << ',' << (tracker.isEyeClosed() ? 1 : 0) << ',' << tracker.getBlinkCount();
                     }
-                    else trace << ",,,,,";
+                    else
+                        trace << ",,,,,";
                     trace << ',' << usabilityName(eyeInput.usability) << ',';
-                    if (finalEyeMetrics.openness) trace << *finalEyeMetrics.openness;
-                    trace << ',' << eyeStateName(finalEyeMetrics.state)
-                          << ',' << (finalEyeMetrics.blinkEvent ? 1 : 0)
-                          << ',' << finalEyeMetrics.blinkCount
-                          << ',' << std::chrono::duration<double, std::milli>(
-                                 finalEyeMetrics.closureDuration).count()
-                          << ',' << (finalEyeMetrics.prolongedClosure ? 1 : 0)
-                          << ',';
-                    if (finalEyeMetrics.perclos) trace << *finalEyeMetrics.perclos;
+                    if (finalEyeMetrics.openness)
+                        trace << *finalEyeMetrics.openness;
+                    trace << ',' << eyeStateName(finalEyeMetrics.state) << ',' << (finalEyeMetrics.blinkEvent ? 1 : 0)
+                          << ',' << finalEyeMetrics.blinkCount << ','
+                          << std::chrono::duration<double, std::milli>(finalEyeMetrics.closureDuration).count() << ','
+                          << (finalEyeMetrics.prolongedClosure ? 1 : 0) << ',';
+                    if (finalEyeMetrics.perclos)
+                        trace << *finalEyeMetrics.perclos;
                     trace << ',' << finalEyeMetrics.perclosCoverage;
-                    trace << ',' << faceResult.faceBox.x
-                          << ',' << faceResult.faceBox.y
-                          << ',' << faceResult.faceBox.width
-                          << ',' << faceResult.faceBox.height
-                          << ',' << milliseconds(backendEnd - backendStart)
-                          << ',' << milliseconds(semanticEnd - totalStart) << '\n';
+                    trace << ',' << faceResult.faceBox.x << ',' << faceResult.faceBox.y << ','
+                          << faceResult.faceBox.width << ',' << faceResult.faceBox.height << ','
+                          << milliseconds(backendEnd - backendStart) << ',' << milliseconds(semanticEnd - totalStart)
+                          << '\n';
                 }
             }
         }
@@ -508,21 +538,19 @@ int main(int argc, char** argv)
         const double wallSeconds = std::chrono::duration<double>(wallEnd - wallStart).count();
         const double measuredSeconds = [&]() {
             double sum = 0.0;
-            for (double value : samples.total) sum += value;
+            for (double value : samples.total)
+                sum += value;
             return sum / 1000.0;
         }();
         const unsigned int logicalCpus = std::max(1U, std::thread::hardware_concurrency());
         const double cpuSeconds = static_cast<double>(cpuEnd - cpuStart) / CLOCKS_PER_SEC;
-        const double cpuPercentCapacity = wallSeconds > 0.0
-            ? 100.0 * cpuSeconds / wallSeconds / logicalCpus : 0.0;
+        const double cpuPercentCapacity = wallSeconds > 0.0 ? 100.0 * cpuSeconds / wallSeconds / logicalCpus : 0.0;
         const std::uint64_t finalResidentMemory = currentResidentMemoryBytes();
         const std::int64_t residentMemoryGrowth =
-            static_cast<std::int64_t>(finalResidentMemory) -
-            static_cast<std::int64_t>(initialResidentMemory);
+            static_cast<std::int64_t>(finalResidentMemory) - static_cast<std::int64_t>(initialResidentMemory);
 
         std::ostringstream json;
-        json << std::fixed << std::setprecision(6)
-             << "{\n"
+        json << std::fixed << std::setprecision(6) << "{\n"
              << "  \"schema_version\": 3,\n"
              << "  \"backend\": \"" << backendName(options.backend) << "\",\n"
              << "  \"build_configuration\": \"" << buildConfiguration() << "\",\n"
@@ -537,11 +565,9 @@ int main(int argc, char** argv)
              << "  \"dropped_frames\": 0,\n"
              << "  \"superseded_frames\": 0,\n"
              << "  \"rendered_frames\": 0,\n"
-             << "  \"throughput_fps\": "
-             << (measuredSeconds > 0.0 ? options.measuredFrames / measuredSeconds : 0.0)
+             << "  \"throughput_fps\": " << (measuredSeconds > 0.0 ? options.measuredFrames / measuredSeconds : 0.0)
              << ",\n"
-             << "  \"process_cpu_percent_of_total_capacity\": "
-             << cpuPercentCapacity << ",\n"
+             << "  \"process_cpu_percent_of_total_capacity\": " << cpuPercentCapacity << ",\n"
              << "  \"logical_cpu_count\": " << logicalCpus << ",\n"
              << "  \"initial_resident_memory_bytes\": " << initialResidentMemory << ",\n"
              << "  \"final_resident_memory_bytes\": " << finalResidentMemory << ",\n"
@@ -555,11 +581,12 @@ int main(int argc, char** argv)
              << "    \"blink_count\": " << finalEyeMetrics.blinkCount << ",\n"
              << "    \"prolonged_closure_frames\": " << prolongedClosureFrames << ",\n"
              << "    \"final_perclos\": ";
-        if (finalEyeMetrics.perclos) json << *finalEyeMetrics.perclos;
-        else json << "null";
+        if (finalEyeMetrics.perclos)
+            json << *finalEyeMetrics.perclos;
+        else
+            json << "null";
         json << ",\n"
-             << "    \"final_perclos_coverage\": "
-             << finalEyeMetrics.perclosCoverage << "\n"
+             << "    \"final_perclos_coverage\": " << finalEyeMetrics.perclosCoverage << "\n"
              << "  },\n"
              << "  \"latency_ms\": {\n";
         writeSummary(json, "capture", summarize(samples.capture), true);
@@ -573,8 +600,7 @@ int main(int argc, char** argv)
             std::ofstream file(options.output, std::ios::binary | std::ios::trunc);
             if (!file)
             {
-                std::cerr << "Error: Cannot write benchmark output: "
-                          << options.output << '\n';
+                std::cerr << "Error: Cannot write benchmark output: " << options.output << '\n';
                 return 1;
             }
             file << json.str();
@@ -582,7 +608,7 @@ int main(int argc, char** argv)
         std::cout << json.str();
         return successfulFrames == options.measuredFrames ? 0 : 1;
     }
-    catch (const std::exception& exception)
+    catch (const std::exception &exception)
     {
         std::cerr << "Fatal benchmark error: " << exception.what() << '\n';
         return 1;

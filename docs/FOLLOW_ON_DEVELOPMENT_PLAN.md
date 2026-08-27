@@ -331,6 +331,10 @@ Implement calibrated eye openness, EAR, PERCLOS, blink, yawn, head pose, gaze, d
 - Reliable in-frame hand/object eye occlusion remains an open gate requiring an
   annotated eye-ROI model benchmark. Raw recordings and traces remain external
   to Git, and no production-accuracy claim is made without event annotations.
+- Semantic integration commit `277ed8f` passed all 21 configured Release CTests
+  on Windows x64 and Orin aarch64 and all 20 applicable tests on native Ubuntu
+  24.04 x64. The Orin head-pose estimator test was confirmed as an ARM aarch64
+  executable.
 
 ## Stage 21 — recognition and object/context events
 

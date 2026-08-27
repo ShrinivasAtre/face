@@ -56,3 +56,10 @@ therefore changed to 0.20/0.12. Vertical defaults remain more conservative.
 - Thresholds are preliminary engineering defaults. Stage 20 operational
   definitions and display/count/record/alert policies still require the planned
   user approval after broader annotated evaluation.
+
+## Cross-platform validation
+
+Semantic integration commit `277ed8f` passed all 21 configured Release CTests on
+Windows x64 and Jetson Orin aarch64, including the real MediaPipe integration,
+and all 20 applicable tests on native Ubuntu 24.04 x64. The Orin head-pose test
+binary was confirmed as ARM aarch64. No private recording or trace was committed.

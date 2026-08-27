@@ -272,6 +272,30 @@ Implement calibrated eye openness, EAR, PERCLOS, blink, yawn, head pose, gaze, d
   handles explicit unknown/occluded observations safely, but a separate
   provider-neutral eye-quality observation remains required before the occlusion
   gate can pass. Raw clips, audio, frames and traces remain external to Git.
+- Recorded-input implementation commit `072e597` passed clean Release validation
+  with all 15 configured tests on Windows x64 at
+  `D:\work\p20\build-recorded-windows`, all 15 on Orin aarch64 at
+  `~/common/p20/build-recorded-orin`, and all 14 applicable tests on native
+  Ubuntu 24.04 x64 at `/root/p20/build-recorded-ubuntu`. The Windows and Orin
+  suites included the real MediaPipe and PFLD still-image integrations; Ubuntu's
+  accepted configuration keeps the optional MediaPipe runtime disabled.
+- The same private 300-frame second-subject blink sequence produced four
+  confirmed MediaPipe blinks and zero YuNet/LBF blinks on both Windows and Orin.
+  On Orin's deterministic lossless image sequence, MediaPipe backend mean latency
+  was 167.44 ms (5.56 end-to-end FPS), while YuNet/LBF was 15.59 ms (44.54 FPS).
+  Direct Orin decoding again rejected the phone MP4 through GStreamer, so the
+  established temporary lossless image-sequence path was used and deleted after
+  testing.
+- A ten-clip 1280 x 720 near-IR development slice from the second subject is now
+  available privately. All Windows and Orin copies match, contain audio, and
+  decoded fully. Coverage includes neutral/natural behavior, blink/closure,
+  partial opening, clear glasses, closure plus gaze under glasses, head pose,
+  distance/partial face and yawn. Initial 300-frame Windows runs had 100% face
+  and semantic-landmark availability for YuNet/LBF and MediaPipe. The nominal
+  blink and clear-glasses recordings include closures long enough to exercise
+  prolonged-closure logic, so they are stress slices rather than clean normal-
+  blink or neutral-eyewear ground truth until annotated. Private media and traces
+  remain external to Git.
 
 ## Stage 21 — recognition and object/context events
 

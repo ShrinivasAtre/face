@@ -243,6 +243,15 @@ Implement calibrated eye openness, EAR, PERCLOS, blink, yawn, head pose, gaze, d
 - **USER INPUT — DATA/POLICY/PRODUCT:** approve operational definitions after recommended defaults and tradeoffs are presented, including PERCLOS window, prolonged-closure duration, yawn duration, distraction duration, pose zones, and whether each event is displayed, counted, recorded, or alerted.
 - No user input is required while implementing and testing the model-neutral metric/FSM mechanisms before that definition gate.
 
+### Implementation evidence (in progress)
+
+- Stage 20 implementation was explicitly authorized on 2026-08-27.
+- Added provider-neutral `EyeCalibration` and `EyeTemporalMetrics` components to `dms_core`. Raw provider EAR values are normalized through an explicit closed/open calibration; hysteretic openness classification distinguishes open, closed and unknown without provider topology.
+- Blink confirmation uses monotonic durations for minimum closure, maximum blink closure and confirmed reopening. Prolonged closure is duration based. Missing, stale, low-confidence and occluded observations become unknown, reset transient events and cannot create a blink.
+- Rolling PERCLOS integrates closed time only over known-quality intervals, excludes excessive sample gaps, and remains unavailable until its configured known-time coverage is met. Non-monotonic samples are rejected without mutating state.
+- Deterministic tests cover calibration, hysteresis, blink debounce/single counting, prolonged closure, occlusion, rolling PERCLOS, reset, non-monotonic timestamps and invalid configuration without sleeping or reading wall-clock time.
+- Fresh revision `337fa19` Release validation passed all 14 MediaPipe-enabled CTests on Windows x64 at `D:\work\p20` and Orin aarch64 at `~/common/p20`, plus all 13 applicable CTests on native x64 Ubuntu 24.04 at `/root/p20`. No camera or user action was required.
+
 ## Stage 21 — recognition and object/context events
 
 ### Objective

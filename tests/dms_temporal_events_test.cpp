@@ -87,8 +87,10 @@ int main()
     ac.notifyAfter = 2s;
     MonitoringAvailabilityFsm availability(ac);
     availability.update(0ms, ObservationUsability::Usable);
+    auto ar = availability.update(50ms, ObservationUsability::Recovering);
+    if (!check(!ar.unavailable, "calibration recovery is not unavailable")) return 1;
     availability.update(100ms, ObservationUsability::Occluded);
-    auto ar = availability.update(600ms, ObservationUsability::Occluded);
+    ar = availability.update(600ms, ObservationUsability::Occluded);
     if (!check(ar.recordEvent && ar.episodeCount == 1 && !ar.notify, "unavailable episode recorded")) return 1;
     ar = availability.update(2100ms, ObservationUsability::Occluded);
     if (!check(ar.notifyEvent && ar.notify, "unavailable notification delayed")) return 1;

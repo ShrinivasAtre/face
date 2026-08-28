@@ -9,6 +9,7 @@ struct OperationalPolicyProfile
 {
     const char *name = "stage20-approved-2026-08-28";
     EyeCalibration eyeCalibration;
+    EyeOpenCalibrationConfig eyeOpenCalibration;
     EyeTemporalConfig eye;
     ObservationQualityGateConfig eyeQuality;
     YawnConfig yawn;

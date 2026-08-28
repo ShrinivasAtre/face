@@ -14,7 +14,7 @@ bool OperationalPolicyProfile::validate(std::string &error) const noexcept
 {
     error.clear();
     if (!name || !*name) { error = "policy profile requires a name"; return false; }
-    if (!eyeCalibration.validate(error) || !eye.validate(error) || !eyeQuality.validate(error) ||
+    if (!eyeCalibration.validate(error) || !eyeOpenCalibration.validate(error) || !eye.validate(error) || !eyeQuality.validate(error) ||
         !yawn.validate(error) || !headPose.validate(error) || !distraction.validate(error) ||
         !presence.validate(error) || !availability.validate(error) || !drowsiness.validate(error)) return false;
     if (neutralCalibration <= MonotonicTime::zero() || recalibrateAfterAbsence <= MonotonicTime::zero() ||

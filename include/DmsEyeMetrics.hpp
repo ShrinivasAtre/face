@@ -18,6 +18,33 @@ struct EyeCalibration
     std::optional<float> normalize(float ear) const noexcept;
 };
 
+struct EyeOpenCalibrationConfig
+{
+    MonotonicTime confirmation = std::chrono::seconds(2);
+    float minimumCandidateEar = 0.18F;
+    float maximumEarRange = 0.08F;
+    float closedToOpenRatio = 0.50F;
+    bool validate(std::string &error) const noexcept;
+};
+
+class EyeOpenCalibrator
+{
+  public:
+    explicit EyeOpenCalibrator(EyeOpenCalibrationConfig config = {});
+    std::optional<EyeCalibration> update(MonotonicTime timestamp, ObservationUsability usability,
+                                         std::optional<float> rightEar, std::optional<float> leftEar) noexcept;
+    bool calibrated() const noexcept { return calibration_.has_value(); }
+    void reset() noexcept;
+  private:
+    EyeOpenCalibrationConfig config_;
+    bool valid_ = false, hasTimestamp_ = false;
+    MonotonicTime last_{}, started_{};
+    float minimum_ = 0.0F, maximum_ = 0.0F;
+    double sum_ = 0.0;
+    std::uint64_t count_ = 0;
+    std::optional<EyeCalibration> calibration_;
+};
+
 struct EyeTemporalConfig
 {
     float closeOpenness = 0.25F;
@@ -74,6 +101,8 @@ public:
     bool valid() const noexcept { return valid_; }
     const std::string& error() const noexcept { return error_; }
     EyeMetricResult update(const EyeMetricInput& input) noexcept;
+    bool setCalibration(EyeCalibration calibration) noexcept;
+    const EyeCalibration& calibration() const noexcept { return calibration_; }
     void reset() noexcept;
 
 private:

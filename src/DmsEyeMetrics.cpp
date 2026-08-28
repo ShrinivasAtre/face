@@ -5,6 +5,45 @@
 
 namespace dms
 {
+bool EyeOpenCalibrationConfig::validate(std::string &error) const noexcept
+{
+    error.clear();
+    if (confirmation <= MonotonicTime::zero() || !std::isfinite(minimumCandidateEar) ||
+        !std::isfinite(maximumEarRange) || !std::isfinite(closedToOpenRatio) || minimumCandidateEar <= 0.0F ||
+        maximumEarRange <= 0.0F || closedToOpenRatio <= 0.0F || closedToOpenRatio >= 1.0F)
+    { error = "invalid open-eye calibration configuration"; return false; }
+    return true;
+}
+EyeOpenCalibrator::EyeOpenCalibrator(EyeOpenCalibrationConfig config) : config_(config)
+{
+    std::string error;
+    valid_ = config_.validate(error);
+}
+void EyeOpenCalibrator::reset() noexcept
+{
+    hasTimestamp_ = false; last_ = started_ = {}; minimum_ = maximum_ = 0.0F; sum_ = 0.0; count_ = 0;
+    calibration_.reset();
+}
+std::optional<EyeCalibration> EyeOpenCalibrator::update(MonotonicTime timestamp, ObservationUsability usability,
+                                                        std::optional<float> rightEar,
+                                                        std::optional<float> leftEar) noexcept
+{
+    if (!valid_ || (hasTimestamp_ && timestamp <= last_)) return std::nullopt;
+    hasTimestamp_ = true; last_ = timestamp;
+    if (calibration_) return calibration_;
+    if (usability != ObservationUsability::Usable || !rightEar || !leftEar || !std::isfinite(*rightEar) ||
+        !std::isfinite(*leftEar)) { count_ = 0; return std::nullopt; }
+    const float ear = std::min(*rightEar, *leftEar);
+    if (ear < config_.minimumCandidateEar) { count_ = 0; return std::nullopt; }
+    if (!count_) { started_ = timestamp; minimum_ = maximum_ = ear; sum_ = 0.0; }
+    minimum_ = std::min(minimum_, ear); maximum_ = std::max(maximum_, ear); sum_ += ear; ++count_;
+    if (maximum_ - minimum_ > config_.maximumEarRange)
+    { started_ = timestamp; minimum_ = maximum_ = ear; sum_ = ear; count_ = 1; return std::nullopt; }
+    if (timestamp - started_ < config_.confirmation) return std::nullopt;
+    const float open = static_cast<float>(sum_ / static_cast<double>(count_));
+    calibration_ = EyeCalibration{open * config_.closedToOpenRatio, open};
+    return calibration_;
+}
 bool EyeCalibration::validate(std::string& error) const noexcept
 {
     error.clear();
@@ -57,6 +96,15 @@ EyeTemporalMetrics::EyeTemporalMetrics(
     : calibration_(calibration), config_(config)
 {
     valid_ = calibration_.validate(error_) && config_.validate(error_);
+}
+
+bool EyeTemporalMetrics::setCalibration(EyeCalibration calibration) noexcept
+{
+    std::string error;
+    if (!calibration.validate(error)) return false;
+    calibration_ = calibration;
+    reset();
+    return true;
 }
 
 void EyeTemporalMetrics::reset() noexcept

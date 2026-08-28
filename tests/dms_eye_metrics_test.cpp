@@ -18,6 +18,20 @@ int main()
     using namespace std::chrono_literals;
     using namespace dms;
 
+    EyeOpenCalibrationConfig calibrationConfig;
+    calibrationConfig.confirmation = 200ms;
+    EyeOpenCalibrator openCalibrator(calibrationConfig);
+    if (!check(!openCalibrator.update(0ms, ObservationUsability::Usable, 0.30F, 0.32F),
+               "open calibration starts") ||
+        !check(!openCalibrator.update(100ms, ObservationUsability::Usable, 0.31F, 0.32F),
+               "open calibration waits")) return 1;
+    const auto learned = openCalibrator.update(200ms, ObservationUsability::Usable, 0.30F, 0.31F);
+    if (!check(learned && learned->openEar > learned->closedEar,
+               "open calibration produces valid range")) return 1;
+    openCalibrator.reset();
+    if (!check(!openCalibrator.update(300ms, ObservationUsability::Occluded, 0.30F, 0.30F),
+               "occlusion cannot calibrate")) return 1;
+
     EyeCalibration calibration{0.10F, 0.30F};
     EyeTemporalConfig config;
     config.minimumBlinkClosure = 80ms;

@@ -325,7 +325,7 @@ MonitoringAvailabilityResult MonitoringAvailabilityFsm::update(MonotonicTime tim
     if (!valid_ || (hasTimestamp_ && timestamp <= last_)) return out;
     hasTimestamp_ = true;
     last_ = timestamp;
-    if (usable(usability))
+    if (usable(usability) || usability == ObservationUsability::Recovering)
     {
         unavailableSince_ = {};
         recorded_ = notified_ = false;

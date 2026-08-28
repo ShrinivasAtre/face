@@ -447,6 +447,8 @@ int main(int argc, char **argv)
         std::string policyError;
         if (!policy.validate(policyError)) { std::cerr << "Error: " << policyError << '\n'; return 1; }
         dms::EyeTemporalMetrics eyeMetrics(policy.eyeCalibration, policy.eye);
+        dms::EyeOpenCalibrator eyeCalibrator(policy.eyeOpenCalibration);
+        bool eyeCalibrationApplied = false;
         dms::ObservationQualityGate qualityGate(policy.eyeQuality);
         EyeQualityAssessor eyeQualityAssessor;
         dms::YawnFsm yawnFsm(policy.yawn);
@@ -569,14 +571,24 @@ int main(int argc, char **argv)
                 {
                     if (!absentSince) absentSince = input.timestamp();
                     if (input.timestamp() - *absentSince >= policy.recalibrateAfterAbsence)
+                    {
                         headPoseCalibrator.reset();
+                        eyeCalibrator.reset();
+                        eyeMetrics.reset();
+                        eyeCalibrationApplied = false;
+                    }
                 }
                 else absentSince.reset();
                 if (!poseValid)
                 {
                     if (!invalidPoseSince) invalidPoseSince = input.timestamp();
                     if (input.timestamp() - *invalidPoseSince >= policy.recalibrateAfterInvalidGeometry)
+                    {
                         headPoseCalibrator.reset();
+                        eyeCalibrator.reset();
+                        eyeMetrics.reset();
+                        eyeCalibrationApplied = false;
+                    }
                 }
                 else invalidPoseSince.reset();
                 const auto calibratedPose = poseValid
@@ -598,6 +610,18 @@ int main(int argc, char **argv)
                 {
                     eyeInput.rightEar = static_cast<float>(tracker.getRightEAR());
                     eyeInput.leftEar = static_cast<float>(tracker.getLeftEAR());
+                }
+                if (!eyeCalibrationApplied)
+                {
+                    const auto calibratedEyes = eyeCalibrator.update(input.timestamp(), eyeInput.usability,
+                                                                     eyeInput.rightEar, eyeInput.leftEar);
+                    if (calibratedEyes)
+                    {
+                        eyeMetrics.setCalibration(*calibratedEyes);
+                        eyeCalibrationApplied = true;
+                    }
+                    else
+                        eyeInput.usability = dms::ObservationUsability::Recovering;
                 }
                 finalEyeMetrics = eyeMetrics.update(eyeInput);
                 if (finalEyeMetrics.state == dms::EyeState::Unknown)
@@ -755,8 +779,8 @@ int main(int argc, char **argv)
              << "  \"peak_resident_memory_bytes\": " << peakResidentMemoryBytes() << ",\n"
              << "  \"eye_metrics\": {\n"
              << "    \"policy_profile\": \"" << policy.name << "\",\n"
-             << "    \"closed_ear_calibration\": " << policy.eyeCalibration.closedEar << ",\n"
-             << "    \"open_ear_calibration\": " << policy.eyeCalibration.openEar << ",\n"
+             << "    \"closed_ear_calibration\": " << eyeMetrics.calibration().closedEar << ",\n"
+             << "    \"open_ear_calibration\": " << eyeMetrics.calibration().openEar << ",\n"
              << "    \"usable_frames\": " << usableEyeFrames << ",\n"
              << "    \"unknown_frames\": " << unknownEyeFrames << ",\n"
              << "    \"blink_count\": " << finalEyeMetrics.blinkCount << ",\n"

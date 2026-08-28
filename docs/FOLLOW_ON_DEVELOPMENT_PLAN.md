@@ -406,6 +406,12 @@ two-annotator event/boundary agreement with an explicit adjudication flag. The
 remaining accuracy work depends on producing real timestamped annotations; the
 tooling itself is complete for the current development-data stage.
 
+Task 6 operational defaults and the display/count/record/alert matrix are
+proposed for product-owner review in
+`docs/STAGE20_OPERATIONAL_POLICY_RECOMMENDATION.md`. They remain engineering
+defaults rather than compliance or production-accuracy claims until approved
+and evaluated against timestamped annotations.
+
 ## Inputs currently unavailable
 
 The requested `orin.txt` and `windows.txt` console logs were not present in the repository or supplied workspace when this plan was created. Stage 17 can begin from source instrumentation, but the logs should be added as non-secret validation inputs when available so their original runs can be correlated with the new measurements.

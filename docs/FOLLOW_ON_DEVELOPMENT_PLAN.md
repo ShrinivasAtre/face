@@ -421,6 +421,50 @@ reacquisition, HMI matrix, recognition separation, and privacy boundary are now
 the accepted Stage 20 operational policy. Production-accuracy claims still
 require timestamped annotations and subject/session-disjoint evaluation.
 
+### Approved-policy implementation validation — 2026-08-28
+
+The approved policy is implemented as the named C++ profile
+`stage20-approved-2026-08-28`. Ordinary blinks, long blinks and prolonged
+closures have separate temporal behavior; blink refractory handling,
+quality-gated eye calibration, calibration reset/reacquisition,
+monitoring-unavailable timing, drowsiness hold/recovery, and schema-5 output
+are covered by deterministic tests. The timestamping workflow is recorded in
+`docs/STAGE20_TIMESTAMPING_OPERATOR_GUIDE.md`.
+
+All 34 private development clips completed the schema-5 MediaPipe rerun with
+zero execution failures. Recordings, subject mappings, clip-level results and
+traces remain outside Git. The following anonymous aggregates may be retained:
+
+| Slice | Schema | Frames | Detected | Unknown eye | Blinks | Long blinks | Prolonged events | Yawns | Distracted frames | Unavailable / notify frames | Mean FPS |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| subject A, visible | 4 | 11,100 | 99.20% | 5.97% | 58 | — | — | 2 | 402 | — | 34.99 |
+| subject A, visible | 5 | 11,100 | 99.20% | 34.93% | 37 | 11 | 3 | 2 | 180 | 401 / 29 | 42.53 |
+| subject B, IR | 4 | 7,200 | 96.22% | 18.25% | 52 | — | — | 4 | 888 | — | 46.30 |
+| subject B, IR | 5 | 7,200 | 96.22% | 69.53% | 20 | 0 | 1 | 4 | 480 | 536 / 325 | 52.58 |
+| subject B, visible | 4 | 9,900 | 96.48% | 16.44% | 82 | — | — | 4 | 1,143 | — | 62.41 |
+| subject B, visible | 5 | 9,900 | 96.48% | 30.95% | 44 | 7 | 3 | 4 | 1,109 | 353 / 12 | 56.66 |
+
+Schema 5 deliberately accepts fewer ordinary blinks by separating long and
+prolonged closures and reduces distraction frames in two slices. Its stricter
+calibration/quality handling also materially increases unknown-eye coverage,
+most strongly on IR. This is a recorded validation risk, not evidence for
+loosening thresholds without timestamped ground truth. The next accuracy gate
+therefore remains the operator-timestamped, subject/session-disjoint scoring
+workflow; these unannotated counts are diagnostic comparisons only.
+
+Cross-platform build evidence at commit `3b61201`:
+
+- Windows x64 Release: all 22 registered tests passed.
+- NVIDIA Jetson Orin/Linux aarch64 Release with the packaged MediaPipe runtime
+  and OpenCV 4.8.0: build passed and all 18 registered tests passed.
+- Ubuntu 24.04 x64 Release with OpenCV 4.6.0 and the provider-neutral/default-
+  off runtime path: build passed and all 18 registered tests passed. An
+  Ubuntu-x64 MediaPipe runtime package was not available locally, so its
+  enabled packaging path was not claimed as validated.
+
+No training crops were extracted and no eye-ROI model was trained. Both remain
+behind the separately required explicit product-owner approval.
+
 ## Inputs currently unavailable
 
 The requested `orin.txt` and `windows.txt` console logs were not present in the repository or supplied workspace when this plan was created. Stage 17 can begin from source instrumentation, but the logs should be added as non-secret validation inputs when available so their original runs can be correlated with the new measurements.

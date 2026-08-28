@@ -169,6 +169,35 @@ struct PresenceConfig
     MonotonicTime absentConfirmation = std::chrono::seconds(1);
     bool validate(std::string &error) const noexcept;
 };
+
+struct MonitoringAvailabilityConfig
+{
+    MonotonicTime recordAfter = std::chrono::milliseconds(500);
+    MonotonicTime notifyAfter = std::chrono::seconds(2);
+    bool validate(std::string &error) const noexcept;
+};
+struct MonitoringAvailabilityResult
+{
+    bool unavailable = false;
+    bool recordEvent = false;
+    bool notify = false;
+    bool notifyEvent = false;
+    std::uint64_t episodeCount = 0;
+    MonotonicTime unavailableDuration{};
+};
+class MonitoringAvailabilityFsm
+{
+  public:
+    explicit MonitoringAvailabilityFsm(MonitoringAvailabilityConfig config);
+    bool valid() const noexcept { return valid_; }
+    MonitoringAvailabilityResult update(MonotonicTime timestamp, ObservationUsability usability) noexcept;
+    void reset() noexcept;
+  private:
+    MonitoringAvailabilityConfig config_;
+    bool valid_ = false, hasTimestamp_ = false, recorded_ = false, notified_ = false;
+    MonotonicTime last_{}, unavailableSince_{};
+    std::uint64_t count_ = 0;
+};
 class DriverPresenceFsm
 {
   public:
@@ -199,7 +228,8 @@ struct DrowsinessConfig
     float perclosWarning = 0.20F, perclosDrowsy = 0.35F;
     MonotonicTime yawnEvidenceWindow = std::chrono::seconds(60);
     std::uint32_t yawnsForWarning = 2;
-    MonotonicTime recoveryDuration = std::chrono::seconds(3);
+    MonotonicTime minimumAlertHold = std::chrono::seconds(5);
+    MonotonicTime recoveryDuration = std::chrono::seconds(10);
     bool validate(std::string &error) const noexcept;
 };
 struct DrowsinessInput
@@ -209,6 +239,7 @@ struct DrowsinessInput
     PresenceState presence = PresenceState::Unknown;
     std::optional<float> perclos;
     bool prolongedClosure = false;
+    bool longBlinkEvent = false;
     bool yawnEvent = false;
 };
 struct DrowsinessResult
@@ -231,6 +262,7 @@ class DrowsinessFsm
     MonotonicTime last_{};
     DrowsinessState state_ = DrowsinessState::Unknown;
     std::optional<MonotonicTime> recoverySince_;
+    std::optional<MonotonicTime> alertSince_;
     std::deque<MonotonicTime> yawns_;
 };
 } // namespace dms

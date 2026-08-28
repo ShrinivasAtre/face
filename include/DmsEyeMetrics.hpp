@@ -23,8 +23,10 @@ struct EyeTemporalConfig
     float closeOpenness = 0.25F;
     float reopenOpenness = 0.40F;
     MonotonicTime minimumBlinkClosure = std::chrono::milliseconds(80);
-    MonotonicTime maximumBlinkClosure = std::chrono::milliseconds(500);
+    MonotonicTime maximumBlinkClosure = std::chrono::milliseconds(700);
+    MonotonicTime maximumLongBlinkClosure = std::chrono::milliseconds(1500);
     MonotonicTime reopenConfirmation = std::chrono::milliseconds(80);
+    MonotonicTime blinkRefractory = std::chrono::milliseconds(150);
     MonotonicTime prolongedClosure = std::chrono::milliseconds(1500);
     MonotonicTime perclosWindow = std::chrono::seconds(60);
     MonotonicTime maximumSampleGap = std::chrono::milliseconds(250);
@@ -56,7 +58,11 @@ struct EyeMetricResult
     float perclosCoverage = 0.0F;
     std::uint64_t blinkCount = 0;
     bool blinkEvent = false;
+    std::uint64_t longBlinkCount = 0;
+    bool longBlinkEvent = false;
     bool prolongedClosure = false;
+    std::uint64_t prolongedClosureCount = 0;
+    bool prolongedClosureEvent = false;
     MonotonicTime closureDuration{};
 };
 
@@ -92,6 +98,10 @@ private:
     std::optional<MonotonicTime> closureStarted_;
     std::optional<MonotonicTime> reopeningStarted_;
     std::uint64_t blinkCount_ = 0;
+    std::uint64_t longBlinkCount_ = 0;
+    std::uint64_t prolongedClosureCount_ = 0;
+    std::optional<MonotonicTime> refractoryUntil_;
+    bool prolongedClosureEmitted_ = false;
     std::deque<Interval> intervals_;
 };
 }

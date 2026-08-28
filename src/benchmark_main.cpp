@@ -8,6 +8,7 @@
 #include "DmsEyeQualityAssessor.hpp"
 #include "DmsHeadPoseEstimator.hpp"
 #include "DmsTemporalEvents.hpp"
+#include "DmsPolicy.hpp"
 #include "FaceBackend.hpp"
 #include "PfldEyeLandmarkMapper.hpp"
 #include "RecordedFrameClock.hpp"
@@ -442,20 +443,21 @@ int main(int argc, char **argv)
         }
 
         BlinkTracker tracker(0.27);
-        const dms::EyeCalibration eyeCalibration;
-        const dms::EyeTemporalConfig eyeConfig;
-        dms::EyeTemporalMetrics eyeMetrics(eyeCalibration, eyeConfig);
-        dms::ObservationQualityGateConfig qualityConfig;
-        qualityConfig.policy = {0.5F, 0.5F, std::chrono::milliseconds(250)};
-        qualityConfig.reacquisitionConfirmation = std::chrono::milliseconds(100);
-        dms::ObservationQualityGate qualityGate(qualityConfig);
+        const dms::OperationalPolicyProfile policy = dms::OperationalPolicyProfile::stage20Approved();
+        std::string policyError;
+        if (!policy.validate(policyError)) { std::cerr << "Error: " << policyError << '\n'; return 1; }
+        dms::EyeTemporalMetrics eyeMetrics(policy.eyeCalibration, policy.eye);
+        dms::ObservationQualityGate qualityGate(policy.eyeQuality);
         EyeQualityAssessor eyeQualityAssessor;
-        dms::YawnFsm yawnFsm({});
-        dms::HeadPoseFsm headPoseFsm({});
-        HeadPoseNeutralCalibrator headPoseCalibrator;
-        dms::DistractionFsm distractionFsm({});
-        dms::DriverPresenceFsm presenceFsm({});
-        dms::DrowsinessFsm drowsinessFsm({});
+        dms::YawnFsm yawnFsm(policy.yawn);
+        dms::HeadPoseFsm headPoseFsm(policy.headPose);
+        HeadPoseNeutralConfig neutralConfig;
+        neutralConfig.confirmation = policy.neutralCalibration;
+        HeadPoseNeutralCalibrator headPoseCalibrator(neutralConfig);
+        dms::DistractionFsm distractionFsm(policy.distraction);
+        dms::DriverPresenceFsm presenceFsm(policy.presence);
+        dms::MonitoringAvailabilityFsm availabilityFsm(policy.availability);
+        dms::DrowsinessFsm drowsinessFsm(policy.drowsiness);
         if (!eyeMetrics.valid())
         {
             std::cerr << "Error: Invalid eye metric configuration: " << eyeMetrics.error() << '\n';
@@ -479,14 +481,15 @@ int main(int argc, char **argv)
             trace << "frame,timestamp_ms,backend_success,detected,landmarks_valid,"
                      "semantic_valid,right_ear,left_ear,average_ear,eye_closed,"
                      "blink_count,eye_usability,eye_openness,temporal_eye_state,"
-                     "temporal_blink_event,temporal_blink_count,closure_ms,"
-                     "prolonged_closure,perclos,perclos_coverage,"
+                     "temporal_blink_event,temporal_blink_count,long_blink_event,long_blink_count,closure_ms,"
+                     "prolonged_closure,prolonged_closure_event,prolonged_closure_count,perclos,perclos_coverage,"
                      "eye_quality_confidence,eye_visibility,eye_mean,eye_contrast,eye_laplacian,"
                      "mouth_openness,yawn_active,yawn_event,yawn_count,"
                      "yaw_degrees,pitch_degrees,pose_reprojection,head_zone,head_event,"
                      "left_count,right_count,up_count,down_count,"
                      "gaze_horizontal,gaze_vertical,gaze_agreement,gaze_zone,"
-                     "distracted,distraction_event,presence,drowsiness,recent_yawns,"
+                     "distracted,distraction_event,presence,monitoring_unavailable,monitoring_notify,"
+                     "monitoring_episode_count,drowsiness,recent_yawns,"
                      "face_x,face_y,face_width,face_height,"
                      "backend_ms,end_to_end_ms\n";
             trace << std::fixed << std::setprecision(6);
@@ -506,12 +509,15 @@ int main(int argc, char **argv)
         std::size_t lowQualityEyeFrames = 0;
         std::size_t occludedEyeFrames = 0;
         std::size_t distractedFrames = 0;
+        std::size_t monitoringUnavailableFrames = 0, monitoringNotifyFrames = 0;
         dms::EyeMetricResult finalEyeMetrics;
         dms::YawnResult finalYawn;
         dms::HeadPoseResult finalHeadPose;
         dms::DistractionResult finalDistraction;
         dms::PresenceState finalPresence = dms::PresenceState::Unknown;
         dms::DrowsinessResult finalDrowsiness;
+        std::optional<dms::MonotonicTime> absentSince;
+        std::optional<dms::MonotonicTime> invalidPoseSince;
         const std::uint64_t initialResidentMemory = currentResidentMemoryBytes();
 
         const std::size_t totalFrames = options.warmupFrames + options.measuredFrames;
@@ -559,6 +565,20 @@ int main(int argc, char **argv)
             {
                 dms::EyeMetricInput eyeInput;
                 eyeInput.timestamp = input.timestamp();
+                if (!faceResult.detected)
+                {
+                    if (!absentSince) absentSince = input.timestamp();
+                    if (input.timestamp() - *absentSince >= policy.recalibrateAfterAbsence)
+                        headPoseCalibrator.reset();
+                }
+                else absentSince.reset();
+                if (!poseValid)
+                {
+                    if (!invalidPoseSince) invalidPoseSince = input.timestamp();
+                    if (input.timestamp() - *invalidPoseSince >= policy.recalibrateAfterInvalidGeometry)
+                        headPoseCalibrator.reset();
+                }
+                else invalidPoseSince.reset();
                 const auto calibratedPose = poseValid
                     ? headPoseCalibrator.update(input.timestamp(), poseAngles) : std::nullopt;
                 dms::ObservationHeader qualityHeader;
@@ -617,7 +637,10 @@ int main(int argc, char **argv)
                 finalDrowsiness = drowsinessFsm.update(
                     {input.timestamp(), eyeInput.usability, finalPresence,
                      finalEyeMetrics.perclos, finalEyeMetrics.prolongedClosure,
-                     finalYawn.event});
+                     finalEyeMetrics.longBlinkEvent, finalYawn.event});
+                const auto availability = availabilityFsm.update(input.timestamp(), eyeInput.usability);
+                if (availability.unavailable) ++monitoringUnavailableFrames;
+                if (availability.notify) ++monitoringNotifyFrames;
                 if (finalDistraction.distracted)
                     ++distractedFrames;
 
@@ -647,8 +670,11 @@ int main(int argc, char **argv)
                         trace << *finalEyeMetrics.openness;
                     trace << ',' << eyeStateName(finalEyeMetrics.state) << ',' << (finalEyeMetrics.blinkEvent ? 1 : 0)
                           << ',' << finalEyeMetrics.blinkCount << ','
+                          << (finalEyeMetrics.longBlinkEvent ? 1 : 0) << ',' << finalEyeMetrics.longBlinkCount << ','
                           << std::chrono::duration<double, std::milli>(finalEyeMetrics.closureDuration).count() << ','
-                          << (finalEyeMetrics.prolongedClosure ? 1 : 0) << ',';
+                          << (finalEyeMetrics.prolongedClosure ? 1 : 0) << ','
+                          << (finalEyeMetrics.prolongedClosureEvent ? 1 : 0) << ','
+                          << finalEyeMetrics.prolongedClosureCount << ',';
                     if (finalEyeMetrics.perclos)
                         trace << *finalEyeMetrics.perclos;
                     trace << ',' << finalEyeMetrics.perclosCoverage << ','
@@ -676,6 +702,8 @@ int main(int argc, char **argv)
                           << (finalDistraction.distracted ? 1 : 0) << ','
                           << (finalDistraction.event ? 1 : 0) << ','
                           << presenceName(finalPresence) << ','
+                          << (availability.unavailable ? 1 : 0) << ',' << (availability.notify ? 1 : 0) << ','
+                          << availability.episodeCount << ','
                           << drowsinessName(finalDrowsiness.state) << ','
                           << finalDrowsiness.recentYawns;
                     trace << ',' << faceResult.faceBox.x << ',' << faceResult.faceBox.y << ','
@@ -703,7 +731,7 @@ int main(int argc, char **argv)
 
         std::ostringstream json;
         json << std::fixed << std::setprecision(6) << "{\n"
-             << "  \"schema_version\": 4,\n"
+             << "  \"schema_version\": 5,\n"
              << "  \"backend\": \"" << backendName(options.backend) << "\",\n"
              << "  \"build_configuration\": \"" << buildConfiguration() << "\",\n"
              << "  \"input\": \"" << jsonEscape(options.input.string()) << "\",\n"
@@ -726,11 +754,14 @@ int main(int argc, char **argv)
              << "  \"resident_memory_growth_bytes\": " << residentMemoryGrowth << ",\n"
              << "  \"peak_resident_memory_bytes\": " << peakResidentMemoryBytes() << ",\n"
              << "  \"eye_metrics\": {\n"
-             << "    \"closed_ear_calibration\": " << eyeCalibration.closedEar << ",\n"
-             << "    \"open_ear_calibration\": " << eyeCalibration.openEar << ",\n"
+             << "    \"policy_profile\": \"" << policy.name << "\",\n"
+             << "    \"closed_ear_calibration\": " << policy.eyeCalibration.closedEar << ",\n"
+             << "    \"open_ear_calibration\": " << policy.eyeCalibration.openEar << ",\n"
              << "    \"usable_frames\": " << usableEyeFrames << ",\n"
              << "    \"unknown_frames\": " << unknownEyeFrames << ",\n"
              << "    \"blink_count\": " << finalEyeMetrics.blinkCount << ",\n"
+             << "    \"long_blink_count\": " << finalEyeMetrics.longBlinkCount << ",\n"
+             << "    \"prolonged_closure_count\": " << finalEyeMetrics.prolongedClosureCount << ",\n"
              << "    \"prolonged_closure_frames\": " << prolongedClosureFrames << ",\n"
              << "    \"final_perclos\": ";
         if (finalEyeMetrics.perclos)
@@ -749,6 +780,8 @@ int main(int argc, char **argv)
              << "    \"head_up_count\": " << finalHeadPose.upCount << ",\n"
              << "    \"head_down_count\": " << finalHeadPose.downCount << ",\n"
              << "    \"distracted_frames\": " << distractedFrames << ",\n"
+             << "    \"monitoring_unavailable_frames\": " << monitoringUnavailableFrames << ",\n"
+             << "    \"monitoring_notify_frames\": " << monitoringNotifyFrames << ",\n"
              << "    \"final_presence\": \"" << presenceName(finalPresence) << "\",\n"
              << "    \"final_drowsiness\": \"" << drowsinessName(finalDrowsiness.state) << "\"\n"
              << "  },\n"

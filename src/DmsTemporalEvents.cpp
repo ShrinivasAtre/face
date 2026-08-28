@@ -295,6 +295,60 @@ DriverPresenceFsm::DriverPresenceFsm(PresenceConfig config) : config_(config)
 {
     valid_ = config_.validate(error_);
 }
+
+bool MonitoringAvailabilityConfig::validate(std::string &error) const noexcept
+{
+    error.clear();
+    if (recordAfter < MonotonicTime::zero() || notifyAfter < recordAfter)
+    {
+        error = "invalid monitoring availability durations";
+        return false;
+    }
+    return true;
+}
+MonitoringAvailabilityFsm::MonitoringAvailabilityFsm(MonitoringAvailabilityConfig config) : config_(config)
+{
+    std::string error;
+    valid_ = config_.validate(error);
+}
+void MonitoringAvailabilityFsm::reset() noexcept
+{
+    hasTimestamp_ = recorded_ = notified_ = false;
+    last_ = unavailableSince_ = {};
+    count_ = 0;
+}
+MonitoringAvailabilityResult MonitoringAvailabilityFsm::update(MonotonicTime timestamp,
+                                                                ObservationUsability usability) noexcept
+{
+    MonitoringAvailabilityResult out;
+    out.episodeCount = count_;
+    if (!valid_ || (hasTimestamp_ && timestamp <= last_)) return out;
+    hasTimestamp_ = true;
+    last_ = timestamp;
+    if (usable(usability))
+    {
+        unavailableSince_ = {};
+        recorded_ = notified_ = false;
+        return out;
+    }
+    if (unavailableSince_ == MonotonicTime::zero()) unavailableSince_ = timestamp;
+    out.unavailable = true;
+    out.unavailableDuration = timestamp - unavailableSince_;
+    if (!recorded_ && out.unavailableDuration >= config_.recordAfter)
+    {
+        recorded_ = true;
+        ++count_;
+        out.recordEvent = true;
+    }
+    if (!notified_ && out.unavailableDuration >= config_.notifyAfter)
+    {
+        notified_ = true;
+        out.notifyEvent = true;
+    }
+    out.notify = notified_;
+    out.episodeCount = count_;
+    return out;
+}
 void DriverPresenceFsm::reset() noexcept
 {
     hasTimestamp_ = false;
@@ -336,7 +390,7 @@ bool DrowsinessConfig::validate(std::string &error) const noexcept
     error.clear();
     if (!finite01(perclosWarning) || !finite01(perclosDrowsy) || perclosWarning >= perclosDrowsy ||
         yawnEvidenceWindow <= MonotonicTime::zero() || yawnsForWarning == 0 ||
-        recoveryDuration <= MonotonicTime::zero())
+        minimumAlertHold < MonotonicTime::zero() || recoveryDuration <= MonotonicTime::zero())
     {
         error = "invalid drowsiness thresholds or durations";
         return false;
@@ -353,6 +407,7 @@ void DrowsinessFsm::reset() noexcept
     last_ = {};
     state_ = DrowsinessState::Unknown;
     recoverySince_.reset();
+    alertSince_.reset();
     yawns_.clear();
 }
 DrowsinessResult DrowsinessFsm::update(const DrowsinessInput &input) noexcept
@@ -378,15 +433,23 @@ DrowsinessResult DrowsinessFsm::update(const DrowsinessInput &input) noexcept
     DrowsinessState evidence = DrowsinessState::Normal;
     if (input.prolongedClosure || (input.perclos && *input.perclos >= config_.perclosDrowsy))
         evidence = DrowsinessState::Drowsy;
-    else if ((input.perclos && *input.perclos >= config_.perclosWarning) || yawns_.size() >= config_.yawnsForWarning)
+    else if (input.longBlinkEvent || (input.perclos && *input.perclos >= config_.perclosWarning) ||
+             yawns_.size() >= config_.yawnsForWarning)
         evidence = DrowsinessState::Warning;
+    if (evidence != DrowsinessState::Normal && !alertSince_)
+        alertSince_ = input.timestamp;
     if (evidence == DrowsinessState::Normal &&
         (state_ == DrowsinessState::Warning || state_ == DrowsinessState::Drowsy))
     {
+        if (alertSince_ && input.timestamp - *alertSince_ < config_.minimumAlertHold)
+            return {state_, static_cast<std::uint32_t>(yawns_.size())};
         if (!recoverySince_)
             recoverySince_ = input.timestamp;
         if (input.timestamp - *recoverySince_ >= config_.recoveryDuration)
+        {
             state_ = evidence;
+            alertSince_.reset();
+        }
     }
     else
     {

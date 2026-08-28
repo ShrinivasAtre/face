@@ -36,7 +36,10 @@ bool EyeTemporalConfig::validate(std::string& error) const noexcept
     }
     if (minimumBlinkClosure <= MonotonicTime::zero() ||
         maximumBlinkClosure < minimumBlinkClosure ||
+        maximumLongBlinkClosure <= maximumBlinkClosure ||
+        maximumLongBlinkClosure > prolongedClosure ||
         reopenConfirmation <= MonotonicTime::zero() ||
+        blinkRefractory < MonotonicTime::zero() ||
         prolongedClosure <= maximumBlinkClosure ||
         perclosWindow <= MonotonicTime::zero() ||
         maximumSampleGap <= MonotonicTime::zero() ||
@@ -64,6 +67,10 @@ void EyeTemporalMetrics::reset() noexcept
     closureStarted_.reset();
     reopeningStarted_.reset();
     blinkCount_ = 0;
+    longBlinkCount_ = 0;
+    prolongedClosureCount_ = 0;
+    refractoryUntil_.reset();
+    prolongedClosureEmitted_ = false;
     intervals_.clear();
 }
 
@@ -113,6 +120,8 @@ EyeMetricResult EyeTemporalMetrics::update(const EyeMetricInput& input) noexcept
 {
     EyeMetricResult result;
     result.blinkCount = blinkCount_;
+    result.longBlinkCount = longBlinkCount_;
+    result.prolongedClosureCount = prolongedClosureCount_;
     if (!valid_) return result;
     if (hasTimestamp_ && input.timestamp <= lastTimestamp_) return result;
 
@@ -146,11 +155,18 @@ EyeMetricResult EyeTemporalMetrics::update(const EyeMetricInput& input) noexcept
     {
         closureStarted_.reset();
         reopeningStarted_.reset();
+        prolongedClosureEmitted_ = false;
     }
     else if (next == EyeState::Closed)
     {
         reopeningStarted_.reset();
-        if (state_ != EyeState::Closed) closureStarted_ = input.timestamp;
+        if (state_ != EyeState::Closed)
+        {
+            if (!refractoryUntil_ || input.timestamp >= *refractoryUntil_)
+                closureStarted_ = input.timestamp;
+            else
+                closureStarted_.reset();
+        }
     }
     else
     {
@@ -160,11 +176,20 @@ EyeMetricResult EyeTemporalMetrics::update(const EyeMetricInput& input) noexcept
             input.timestamp - *reopeningStarted_ >= config_.reopenConfirmation)
         {
             const MonotonicTime closure = *reopeningStarted_ - *closureStarted_;
-            if (closure >= config_.minimumBlinkClosure &&
+            const bool outsideRefractory = !refractoryUntil_ || input.timestamp >= *refractoryUntil_;
+            if (outsideRefractory && closure >= config_.minimumBlinkClosure &&
                 closure <= config_.maximumBlinkClosure)
             {
                 ++blinkCount_;
                 result.blinkEvent = true;
+                refractoryUntil_ = input.timestamp + config_.blinkRefractory;
+            }
+            else if (outsideRefractory && closure > config_.maximumBlinkClosure &&
+                     closure < config_.maximumLongBlinkClosure)
+            {
+                ++longBlinkCount_;
+                result.longBlinkEvent = true;
+                refractoryUntil_ = input.timestamp + config_.blinkRefractory;
             }
             closureStarted_.reset();
             reopeningStarted_.reset();
@@ -177,11 +202,20 @@ EyeMetricResult EyeTemporalMetrics::update(const EyeMetricInput& input) noexcept
     result.state = state_;
     result.openness = openness;
     result.blinkCount = blinkCount_;
+    result.longBlinkCount = longBlinkCount_;
+    result.prolongedClosureCount = prolongedClosureCount_;
     if (state_ == EyeState::Closed && closureStarted_)
     {
         result.closureDuration = input.timestamp - *closureStarted_;
         result.prolongedClosure =
             result.closureDuration >= config_.prolongedClosure;
+        if (result.prolongedClosure && !prolongedClosureEmitted_)
+        {
+            prolongedClosureEmitted_ = true;
+            ++prolongedClosureCount_;
+            result.prolongedClosureCount = prolongedClosureCount_;
+            result.prolongedClosureEvent = true;
+        }
     }
     updatePerclos(input.timestamp, result);
     return result;

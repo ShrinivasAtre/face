@@ -82,10 +82,24 @@ int main()
                "absence confirms"))
         return 1;
 
+    MonitoringAvailabilityConfig ac;
+    ac.recordAfter = 500ms;
+    ac.notifyAfter = 2s;
+    MonitoringAvailabilityFsm availability(ac);
+    availability.update(0ms, ObservationUsability::Usable);
+    availability.update(100ms, ObservationUsability::Occluded);
+    auto ar = availability.update(600ms, ObservationUsability::Occluded);
+    if (!check(ar.recordEvent && ar.episodeCount == 1 && !ar.notify, "unavailable episode recorded")) return 1;
+    ar = availability.update(2100ms, ObservationUsability::Occluded);
+    if (!check(ar.notifyEvent && ar.notify, "unavailable notification delayed")) return 1;
+    ar = availability.update(2200ms, ObservationUsability::Usable);
+    if (!check(!ar.unavailable && !ar.notify, "availability recovery clears notification")) return 1;
+
     DrowsinessConfig dcfg;
     dcfg.recoveryDuration = 500ms;
+    dcfg.minimumAlertHold = 0ms;
     DrowsinessFsm drowsy(dcfg);
-    DrowsinessInput di{0ms, ObservationUsability::Usable, PresenceState::Present, 0.10F, false, false};
+    DrowsinessInput di{0ms, ObservationUsability::Usable, PresenceState::Present, 0.10F, false, false, false};
     if (!check(drowsy.update(di).state == DrowsinessState::Normal, "normal evidence"))
         return 1;
     di.timestamp = 100ms;

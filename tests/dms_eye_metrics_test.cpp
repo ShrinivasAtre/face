@@ -22,6 +22,8 @@ int main()
     EyeTemporalConfig config;
     config.minimumBlinkClosure = 80ms;
     config.maximumBlinkClosure = 500ms;
+    config.maximumLongBlinkClosure = 1200ms;
+    config.blinkRefractory = 150ms;
     config.reopenConfirmation = 80ms;
     config.prolongedClosure = 1500ms;
     config.perclosWindow = 1s;
@@ -45,14 +47,38 @@ int main()
         !check(sample(300ms, 0.30F).blinkEvent, "confirmed blink") ||
         !check(sample(310ms, 0.30F).blinkCount == 1, "single count")) return 1;
 
-    sample(400ms, 0.11F);
-    const auto longClosure = sample(2000ms, 0.11F);
+    sample(500ms, 0.11F);
+    const auto longClosure = sample(2100ms, 0.11F);
     if (!check(longClosure.prolongedClosure, "prolonged closure") ||
         !check(longClosure.closureDuration == 1600ms, "closure duration")) return 1;
 
-    const auto unknown = sample(2100ms, 0.30F, ObservationUsability::Occluded);
+    const auto unknown = sample(2200ms, 0.30F, ObservationUsability::Occluded);
     if (!check(unknown.state == EyeState::Unknown, "occlusion is unknown") ||
         !check(unknown.blinkCount == 1, "occlusion cannot create blink")) return 1;
+
+    metrics.reset();
+    sample(0ms, 0.30F);
+    sample(100ms, 0.11F);
+    sample(900ms, 0.30F);
+    const auto longBlink = sample(1000ms, 0.30F);
+    if (!check(longBlink.longBlinkEvent && longBlink.longBlinkCount == 1,
+               "long blink counted separately") ||
+        !check(longBlink.blinkCount == 0, "long blink is not ordinary blink")) return 1;
+    sample(1050ms, 0.11F);
+    sample(1150ms, 0.30F);
+    const auto refractory = sample(1250ms, 0.30F);
+    if (!check(!refractory.blinkEvent && refractory.blinkCount == 0,
+               "refractory suppresses split blink")) return 1;
+
+    metrics.reset();
+    sample(0ms, 0.30F);
+    sample(100ms, 0.11F);
+    const auto prolongedEvent = sample(1600ms, 0.11F);
+    const auto prolongedHeld = sample(1700ms, 0.11F);
+    if (!check(prolongedEvent.prolongedClosureEvent && prolongedEvent.prolongedClosureCount == 1,
+               "prolonged closure emits once") ||
+        !check(!prolongedHeld.prolongedClosureEvent && prolongedHeld.prolongedClosureCount == 1,
+               "prolonged closure does not repeat")) return 1;
 
     metrics.reset();
     for (int index = 0; index <= 10; ++index)

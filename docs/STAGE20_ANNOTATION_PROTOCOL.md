@@ -100,3 +100,5 @@ annotation file can be scored. `scripts/score_stage20_agreement.ps1` compares
 exactly two independent annotators, reports event F1 and boundary differences,
 and identifies groups requiring adjudication. These CSV interfaces are the
 tool-neutral import/export boundary for a spreadsheet or video annotation UI.
+Step-by-step instructions for a human operator are in
+`docs/STAGE20_TIMESTAMPING_OPERATOR_GUIDE.md`.

@@ -65,4 +65,3 @@ replace LBF.
 4. Run the same downstream metric implementation for PFLD, LBF, and MediaPipe.
 5. Record accuracy and resource evidence separately for Windows x64, x64
    Ubuntu, Orin aarch64, and later Raspberry Pi 5.
-

@@ -8,4 +8,3 @@
 bool mapPfldEyeLandmarks(
     const std::vector<FaceLandmark>& source,
     SemanticEyeLandmarks& result);
-

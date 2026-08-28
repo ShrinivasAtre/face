@@ -47,4 +47,3 @@ bool mapPfldEyeLandmarks(
     }
     return true;
 }
-

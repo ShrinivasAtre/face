@@ -1,6 +1,7 @@
 # Sponsor Demo Validation Evidence
 
-Validation date: 2026-08-27  
+Validation date: 2026-08-27
+
 Packaged source revision: `94ccdda2831297a11076f83d610dd87a79750b30`
 
 ## Privacy boundary

@@ -42,4 +42,3 @@ int main(int argc, char** argv)
     SemanticEyeLandmarks eyes;
     return mapPfldEyeLandmarks(landmarks, eyes) ? 0 : 1;
 }
-

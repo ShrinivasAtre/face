@@ -97,4 +97,3 @@ authorize their use, and specify:
 - whether anonymous aggregate metrics and checksums may be committed;
 - whether face identity/recognition annotations are excluded from Stage 19;
 - whether new recording is permitted if coverage is insufficient.
-

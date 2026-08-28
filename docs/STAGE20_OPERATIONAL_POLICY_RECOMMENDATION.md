@@ -1,7 +1,7 @@
 # Stage 20 operational threshold and event-policy recommendation
 
 Date: 2026-08-28
-Status: proposed for product-owner approval; not a production-accuracy claim
+Status: approved by the product owner on 2026-08-28; not a production-accuracy claim
 
 ## Scope
 
@@ -106,9 +106,9 @@ Continuous raw video retention is outside this policy.
 Only the highest active priority should drive the primary HMI alert. Lower
 events remain logged so competing audible warnings do not stack.
 
-## Approval decisions
+## Approved decisions
 
-The product owner should approve or amend:
+The product owner approved the proposal as written on 2026-08-28, including:
 
 1. the ordinary/long/prolonged closure boundaries of 700/1500 ms;
 2. PERCLOS 60 s, 80% coverage, 20% warning, and 35% drowsy values;
@@ -121,6 +121,7 @@ The product owner should approve or amend:
 9. anonymous event/aggregate retention duration and whether raw video is ever
    retained in the production product.
 
-After approval, these values become named configuration profiles rather than
-hard-coded provider behavior. Annotated evaluation can propose a controlled
-revision with before/after evidence.
+These values are now the approved Stage 20 operational policy. They must become
+named configuration profiles rather than hard-coded provider behavior.
+Annotated evaluation may propose a controlled revision only with before/after
+evidence and a documented product-policy review.

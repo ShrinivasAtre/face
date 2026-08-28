@@ -379,7 +379,9 @@ Produce self-contained CMake application packages for Windows x64, x64 Ubuntu, O
 1. **Completed — plan freeze:** overall scope, architecture and acceptance criteria accepted on 2026-08-22.
 2. **After Stage 17:** review whether optimized MediaPipe remains a serious production candidate.
 3. **After Stage 19:** select the production facial-geometry direction.
-4. **During Stage 20:** approve operational event definitions and thresholds.
+4. **Completed 2026-08-28 — Stage 20:** operational event definitions,
+   thresholds, calibration behavior, HMI policy, and recognition separation
+   approved as proposed.
 5. **Before Stage 21 product integration:** approve recognition/privacy policy and object taxonomy.
 6. **When Raspberry Pi is available:** confirm hardware, access and optional accelerator scope.
 
@@ -411,6 +413,13 @@ proposed for product-owner review in
 `docs/STAGE20_OPERATIONAL_POLICY_RECOMMENDATION.md`. They remain engineering
 defaults rather than compliance or production-accuracy claims until approved
 and evaluated against timestamped annotations.
+
+The product owner approved the Task 6 proposal without changes on 2026-08-28.
+The blink/long-blink/prolonged-closure boundaries, PERCLOS and yawn policy,
+pose/distraction/presence/availability thresholds, automatic calibration and
+reacquisition, HMI matrix, recognition separation, and privacy boundary are now
+the accepted Stage 20 operational policy. Production-accuracy claims still
+require timestamped annotations and subject/session-disjoint evaluation.
 
 ## Inputs currently unavailable
 

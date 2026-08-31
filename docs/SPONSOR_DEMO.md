@@ -117,13 +117,21 @@ pipeline.
 
 ## Future path
 
-1. Complete Stage 20 operational definitions and connect provider-neutral eye quality/calibration to the live and recorded pipeline.
-2. Annotate a larger visible-light/IR multi-person dataset; report event precision, recall, F1, false alarms per hour, count error, delay, and robustness slices.
-3. Add yawn, head pose/movement, gaze, distraction, presence, and occlusion temporal FSMs.
-4. Select the production facial/eye model from measured target-device evidence; consider a scheduled eye-ROI model rather than running it every frame.
-5. Add consented recognition and separate cigarette/hand-held-object models after privacy policy and object taxonomy approval.
-6. Produce final native packages for Windows, Ubuntu x64, Orin, and Raspberry Pi 5; Raspberry Pi claims wait for device validation.
-7. Run sustained performance, thermal, memory, and final camera acceptance gates on every target.
+1. Timestamp a larger visible-light/IR multi-person dataset and the selected
+   dashcam events; report event precision, recall, F1, false alarms per hour,
+   count error, delay, and robustness slices.
+2. Visually review and classify the approved local eye-ROI crop benchmark.
+   Model training remains a separate explicit approval gate and also requires
+   sufficient subject diversity plus a leakage-safe split.
+3. Select the production facial/eye model from measured accuracy and
+   target-device evidence; retain scheduled eye refinement rather than requiring
+   it on every frame.
+4. Add consented recognition and separate cigarette/hand-held-object models
+   after privacy policy and object taxonomy approval.
+5. Produce final native packages for Windows, Ubuntu x64, Orin, and Raspberry
+   Pi 5; Raspberry Pi claims wait for device validation.
+6. Run sustained performance, thermal, memory, accuracy, and final camera
+   acceptance gates on every target.
 
 ## Evidence and source
 

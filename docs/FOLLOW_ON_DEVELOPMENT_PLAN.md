@@ -11,7 +11,7 @@
 - Stage 18 status: **COMPLETE — implementation and Windows/Ubuntu/Orin validation passed on 2026-08-24**
 - Stage 19 status: **IN PROGRESS — approved by the user on 2026-08-24**
 - Stage 20 status: **IN PROGRESS — mechanisms and approved policy implemented; production-accuracy gate remains open**
-- Sponsor recorded-video demonstration: **IN PROGRESS — authorized 2026-08-31**
+- Sponsor recorded-video demonstration: **IMPLEMENTED AND PACKAGED — final physical rehearsal pending**
 - Later stages in this document are architectural commitments or benchmark gates, not accepted implementations.
 
 ## Plan governance
@@ -356,8 +356,14 @@ Stage 19/20 accuracy gates and must not claim production or safety readiness.
 - Show unavailable provider capabilities explicitly rather than synthesizing
   an event from unsupported landmarks.
 - Accept videos by local path. Recordings, audio, frames, traces, annotations,
-  and per-video results remain outside Git and outside distributable packages.
-- Include launchers and operator documentation, but no sponsor-selected video.
+  and per-video results remain outside Git.
+- The user subsequently requested a single-folder/ZIP meeting package that
+  includes videos for an offline Windows sponsor computer. Therefore, a curated
+  recording subset may be included only in separately generated external
+  meeting archives. Those archives remain outside Git, must identify their
+  privacy status, and require permission to show the selected recording.
+- Include launchers, an anonymous video catalog, package verification, and
+  operator documentation.
 
 ### Acceptance gate
 
@@ -376,8 +382,30 @@ Stage 19/20 accuracy gates and must not claim production or safety readiness.
 - At least one private representative recording and one dashcam recording run
   successfully on each available platform. Private data and results are not
   committed.
+- The external meeting archive contains all application/runtime payloads and
+  its selected videos in one directory tree, has a payload checksum verifier,
+  and passes verification plus self-test after a fresh extraction.
 - User action is required only for final GUI observation/rehearsal on Windows
   and the Orin desktop after headless/build evidence passes.
+
+### Implementation evidence (2026-09-01)
+
+- Added a recorded-video sponsor display backed by the Stage 20 semantic/FSM
+  pipeline, end-of-file handling, persistent summary, aggregate schema-5 output,
+  and Windows/Orin launchers with a 15-video anonymous menu.
+- Added external package support for curated video payloads, all-payload
+  checksums, offline verification, Windows application-local runtime DLLs, and
+  an Orin software H.264 fallback for recordings rejected by the automatic
+  Jetson decoder path.
+- Windows and Orin Release builds each passed all 23 CTests. Fresh external
+  packages passed their manifests and deterministic self-tests; direct
+  recorded-video runs succeeded with zero unrequested eye crops.
+- The Windows ZIP and Orin archive, including private videos, remain outside
+  Git. Checksums and detailed evidence are recorded in
+  `docs/SPONSOR_DEMO_VALIDATION.md`.
+- The implementation/package gate is complete. Final visual rehearsal on the
+  different Windows sponsor computer and the Orin desktop remains the marked
+  user-action gate.
 
 ## Stage 21 — recognition and object/context events
 

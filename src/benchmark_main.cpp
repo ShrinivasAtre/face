@@ -394,6 +394,22 @@ class InputFrames
         // default GStreamer selection can route ordinary MP4 input through a
         // hardware decoder that rejects otherwise valid recordings.
         capture_.open(path.string(), cv::CAP_FFMPEG);
+#ifndef _WIN32
+        if (!capture_.isOpened())
+        {
+            std::string escapedPath;
+            for (const char character : path.string())
+            {
+                if (character == '\\' || character == '"') escapedPath.push_back('\\');
+                escapedPath.push_back(character);
+            }
+            const std::string softwareH264Pipeline =
+                "filesrc location=\"" + escapedPath +
+                "\" ! qtdemux ! h264parse ! avdec_h264 ! videoconvert "
+                "! video/x-raw,format=BGR ! appsink sync=false";
+            capture_.open(softwareH264Pipeline, cv::CAP_GSTREAMER);
+        }
+#endif
         if (!capture_.isOpened())
             capture_.open(path.string());
         if (!capture_.isOpened())

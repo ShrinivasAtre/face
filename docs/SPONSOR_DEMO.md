@@ -57,7 +57,11 @@ results under `results/`. It requires an active desktop display session.
 
 Connect one V4L2 camera before starting a live run. Press `Q` or `Esc` in the video window to exit. The GUI requires an active desktop display session.
 
-Prerequisites: a JetPack-compatible Linux aarch64 system with the OpenCV 4.8, EGL/GLES, and JetPack multimedia shared libraries used by the build.
+Prerequisites: a JetPack-compatible Linux aarch64 system with the OpenCV 4.8,
+EGL/GLES and JetPack multimedia shared libraries used by the build, plus the
+GStreamer `qtdemux`, `h264parse`, `avdec_h264`, `videoconvert` and `appsink`
+plugins. The recorded-video reader uses this software H.264 fallback when the
+automatic Jetson MP4 path rejects a recording.
 
 ## Expected deterministic result
 

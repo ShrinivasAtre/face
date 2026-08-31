@@ -36,6 +36,8 @@ bool parseBenchmarkOptions(int argc, const char* const argv[],
     bool warmupSeen = false;
     bool framesSeen = false;
     bool eyeCropEverySeen = false;
+    bool sponsorDemoSeen = false;
+    bool sponsorDemoAutoExitSeen = false;
 
     for (int index = 1; index < argc; ++index)
     {
@@ -49,6 +51,28 @@ bool parseBenchmarkOptions(int argc, const char* const argv[],
             }
             options.showHelp = true;
             return true;
+        }
+        if (argument == "--sponsor-demo")
+        {
+            if (sponsorDemoSeen)
+            {
+                error = "--sponsor-demo may be specified only once.";
+                return false;
+            }
+            sponsorDemoSeen = true;
+            options.sponsorDemo = true;
+            continue;
+        }
+        if (argument == "--sponsor-demo-auto-exit")
+        {
+            if (sponsorDemoAutoExitSeen)
+            {
+                error = "--sponsor-demo-auto-exit may be specified only once.";
+                return false;
+            }
+            sponsorDemoAutoExitSeen = true;
+            options.sponsorDemoAutoExit = true;
+            continue;
         }
 
         const auto parsePath = [&](const char* prefix, bool& seen,
@@ -138,6 +162,11 @@ bool parseBenchmarkOptions(int argc, const char* const argv[],
         error = "--input is required.";
         return false;
     }
+    if (options.sponsorDemoAutoExit && !options.sponsorDemo)
+    {
+        error = "--sponsor-demo-auto-exit requires --sponsor-demo.";
+        return false;
+    }
     if (options.backend == BackendKind::Pfld && !pfldModelSeen)
     {
         error = "--pfld-model is required for the PFLD backend.";
@@ -159,5 +188,5 @@ std::string benchmarkUsage(const char* programName)
         " [--pfld-model=<landmarks_68_pfld.onnx>]"
         " [--warmup=N] [--frames=N] [--output=results.json]"
         " [--trace=frames.csv] [--eye-crops-dir=directory]"
-        " [--eye-crop-every=N]";
+        " [--eye-crop-every=N] [--sponsor-demo] [--sponsor-demo-auto-exit]";
 }

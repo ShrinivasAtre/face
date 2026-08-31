@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -lt 1 || $# -gt 2 ]]; then
-    echo "Usage: ./scripts/package_application.sh <cmake-build-dir> [output-dir]" >&2
+if [[ $# -lt 1 || $# -gt 3 ]]; then
+    echo "Usage: ./scripts/package_application.sh <cmake-build-dir> [output-dir] [video-dir]" >&2
     exit 2
 fi
 
@@ -11,6 +11,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 SOURCE_REVISION="$(git -c safe.directory="${REPO_ROOT}" -C "${REPO_ROOT}" rev-parse HEAD)"
 BUILD_DIR="$(realpath "$1")"
 OUTPUT_DIR="${2:-${REPO_ROOT}/dist/application/linux-aarch64}"
+VIDEO_DIR="${3:-}"
 OUTPUT_DIR="$(realpath -m "${OUTPUT_DIR}")"
 if [[ "${OUTPUT_DIR}" == "/" || "${OUTPUT_DIR}" == "${REPO_ROOT}" ]]; then
     echo "ERROR: Unsafe application package output directory: ${OUTPUT_DIR}" >&2
@@ -19,6 +20,7 @@ fi
 
 declare -A INPUTS=(
     [yunet_demo]="${BUILD_DIR}/yunet_demo"
+    [face_benchmark]="${BUILD_DIR}/face_benchmark"
     [dms_sponsor_selftest]="${BUILD_DIR}/dms_sponsor_selftest"
     [libFaceMediaPipe.so]="${BUILD_DIR}/libFaceMediaPipe.so"
     [FaceMediaPipe.MANIFEST.txt]="${BUILD_DIR}/FaceMediaPipe.MANIFEST.txt"
@@ -27,7 +29,10 @@ declare -A INPUTS=(
     [models/mediapipe/face_landmarker.task]="${BUILD_DIR}/models/mediapipe/face_landmarker.task"
     [run_face.sh]="${SCRIPT_DIR}/run_deployed_face.sh"
     [run_self_test.sh]="${SCRIPT_DIR}/run_sponsor_selftest.sh"
+    [run_video_demo.sh]="${SCRIPT_DIR}/run_sponsor_video_demo.sh"
+    [verify_package.sh]="${SCRIPT_DIR}/verify_sponsor_package.sh"
     [test-data/synthetic_eye_sequence.csv]="${REPO_ROOT}/demo/synthetic_eye_sequence.csv"
+    [VIDEO_CATALOG.md]="${REPO_ROOT}/demo/SPONSOR_VIDEO_CATALOG.md"
     [README_SPONSOR_DEMO.md]="${REPO_ROOT}/docs/SPONSOR_DEMO.md"
 )
 for relative in "${!INPUTS[@]}"; do
@@ -37,13 +42,13 @@ for relative in "${!INPUTS[@]}"; do
     fi
 done
 
-for binary in "${INPUTS[yunet_demo]}" "${INPUTS[libFaceMediaPipe.so]}"; do
+for binary in "${INPUTS[yunet_demo]}" "${INPUTS[face_benchmark]}" "${INPUTS[libFaceMediaPipe.so]}"; do
     if ! file "${binary}" | grep -q 'ARM aarch64'; then
         echo "ERROR: Expected an ARM aarch64 binary: ${binary}" >&2
         exit 5
     fi
 done
-if readelf -d "${INPUTS[yunet_demo]}" | grep -q 'Shared library: \[libFaceMediaPipe.so\]'; then
+if readelf -d "${INPUTS[yunet_demo]}" "${INPUTS[face_benchmark]}" | grep -q 'Shared library: \[libFaceMediaPipe.so\]'; then
     echo 'ERROR: The application links directly to libFaceMediaPipe.so.' >&2
     exit 6
 fi
@@ -65,8 +70,19 @@ for relative in "${!INPUTS[@]}"; do
     mkdir -p "$(dirname "${OUTPUT_DIR}/${relative}")"
     cp "${INPUTS[${relative}]}" "${OUTPUT_DIR}/${relative}"
 done
+if [[ -n "${VIDEO_DIR}" ]]; then
+    VIDEO_DIR="$(realpath "${VIDEO_DIR}")"
+    mkdir -p "${OUTPUT_DIR}/videos"
+    while IFS= read -r -d '' video; do
+        relative="${video#${VIDEO_DIR}/}"
+        mkdir -p "$(dirname "${OUTPUT_DIR}/videos/${relative}")"
+        cp "${video}" "${OUTPUT_DIR}/videos/${relative}"
+    done < <(find "${VIDEO_DIR}" -type f \( -iname '*.mp4' -o -iname '*.avi' -o -iname '*.mov' -o -iname '*.mkv' \) -print0)
+fi
 chmod 755 "${OUTPUT_DIR}/yunet_demo" "${OUTPUT_DIR}/dms_sponsor_selftest" \
-    "${OUTPUT_DIR}/run_face.sh" "${OUTPUT_DIR}/run_self_test.sh"
+    "${OUTPUT_DIR}/face_benchmark" "${OUTPUT_DIR}/run_face.sh" \
+    "${OUTPUT_DIR}/run_self_test.sh" "${OUTPUT_DIR}/run_video_demo.sh"
+chmod 755 "${OUTPUT_DIR}/verify_package.sh"
 
 mapfile -t HASH_LINES < <(
     cd "${OUTPUT_DIR}"
@@ -97,6 +113,8 @@ mapfile -t DEPENDENCIES < <(
     echo './run_face.sh yunet'
     echo './run_face.sh mediapipe'
     echo './run_self_test.sh'
+    echo './run_video_demo.sh mediapipe'
+    echo './verify_package.sh'
     echo 'platform_prerequisites:'
     echo 'JetPack-compatible Linux aarch64 runtime'
     echo 'OpenCV 4.8 shared libraries'

@@ -3,7 +3,9 @@ param(
     [string]$BuildDir,
 
     [string]$Configuration = 'Release',
-    [string]$OutputDir = ''
+    [string]$OutputDir = '',
+
+    [string]$VideoDir = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -23,6 +25,7 @@ if ($OutputDir -eq $driveRoot -or $OutputDir -eq $RepoRoot) {
 $AppDir = Join-Path $BuildDir $Configuration
 $Inputs = [ordered]@{
     'yunet_demo.exe' = Join-Path $AppDir 'yunet_demo.exe'
+    'face_benchmark.exe' = Join-Path $AppDir 'face_benchmark.exe'
     'dms_sponsor_selftest.exe' = Join-Path $AppDir 'dms_sponsor_selftest.exe'
     'FaceMediaPipe.dll' = Join-Path $AppDir 'FaceMediaPipe.dll'
     'opencv_world480.dll' = Join-Path $AppDir 'opencv_world480.dll'
@@ -32,8 +35,19 @@ $Inputs = [ordered]@{
     'models/mediapipe/face_landmarker.task' = Join-Path $AppDir 'models\mediapipe\face_landmarker.task'
     'run_face.ps1' = Join-Path $PSScriptRoot 'run_deployed_face.ps1'
     'run_self_test.ps1' = Join-Path $PSScriptRoot 'run_sponsor_selftest.ps1'
+    'run_video_demo.ps1' = Join-Path $PSScriptRoot 'run_sponsor_video_demo.ps1'
+    'verify_package.ps1' = Join-Path $PSScriptRoot 'verify_sponsor_package.ps1'
     'test-data/synthetic_eye_sequence.csv' = Join-Path $RepoRoot 'demo\synthetic_eye_sequence.csv'
+    'VIDEO_CATALOG.md' = Join-Path $RepoRoot 'demo\SPONSOR_VIDEO_CATALOG.md'
     'README_SPONSOR_DEMO.md' = Join-Path $RepoRoot 'docs\SPONSOR_DEMO.md'
+}
+$RuntimeDlls = @('msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll', 'concrt140.dll')
+foreach ($runtimeDll in $RuntimeDlls) {
+    $runtimePath = Join-Path $env:SystemRoot "System32\$runtimeDll"
+    if (-not (Test-Path $runtimePath -PathType Leaf)) {
+        throw "Required application-local Visual C++ runtime is missing: $runtimePath"
+    }
+    $Inputs[$runtimeDll] = $runtimePath
 }
 foreach ($entry in $Inputs.GetEnumerator()) {
     if (-not (Test-Path $entry.Value -PathType Leaf)) {
@@ -61,13 +75,14 @@ function Find-Dumpbin {
 }
 
 $Dumpbin = Find-Dumpbin
-foreach ($binary in @($Inputs['yunet_demo.exe'], $Inputs['FaceMediaPipe.dll'])) {
+foreach ($binary in @($Inputs['yunet_demo.exe'], $Inputs['face_benchmark.exe'], $Inputs['FaceMediaPipe.dll'])) {
     $headers = (& $Dumpbin /headers $binary | Out-String)
     if ($LASTEXITCODE -ne 0 -or $headers -notmatch '8664 machine \(x64\)') {
         throw "Expected an x64 PE binary: $binary"
     }
 }
-$dependencyOutput = (& $Dumpbin /dependents $Inputs['yunet_demo.exe'] | Out-String)
+$dependencyOutput = ((& $Dumpbin /dependents $Inputs['yunet_demo.exe'] | Out-String) +
+    (& $Dumpbin /dependents $Inputs['face_benchmark.exe'] | Out-String))
 if ($LASTEXITCODE -ne 0) { throw 'Could not inspect application dependencies.' }
 $dependencies = [regex]::Matches(
     $dependencyOutput, '(?im)^\s+([A-Za-z0-9_.-]+\.dll)\s*$') |
@@ -95,6 +110,18 @@ foreach ($entry in $Inputs.GetEnumerator()) {
     New-Item -ItemType Directory -Force (Split-Path $destination -Parent) | Out-Null
     Copy-Item -LiteralPath $entry.Value -Destination $destination
 }
+if ($VideoDir) {
+    $VideoDir = (Resolve-Path $VideoDir).Path
+    $videoFiles = @(Get-ChildItem $VideoDir -Recurse -File |
+        Where-Object { $_.Extension -match '^\.(mp4|avi|mov|mkv)$' })
+    if ($videoFiles.Count -eq 0) { throw "No supported video files found in: $VideoDir" }
+    foreach ($video in $videoFiles) {
+        $relative = $video.FullName.Substring($VideoDir.TrimEnd('\').Length + 1)
+        $destination = Join-Path $OutputDir (Join-Path 'videos' $relative)
+        New-Item -ItemType Directory -Force (Split-Path $destination -Parent) | Out-Null
+        Copy-Item -LiteralPath $video.FullName -Destination $destination
+    }
+}
 
 $hashLines = Get-ChildItem $OutputDir -Recurse -File |
     Sort-Object FullName |
@@ -121,9 +148,11 @@ $manifestLines = @(
     'powershell -ExecutionPolicy Bypass -File .\run_face.ps1 yunet'
     'powershell -ExecutionPolicy Bypass -File .\run_face.ps1 mediapipe'
     'powershell -ExecutionPolicy Bypass -File .\run_self_test.ps1'
+    'powershell -ExecutionPolicy Bypass -File .\run_video_demo.ps1 mediapipe'
+    'powershell -ExecutionPolicy Bypass -File .\verify_package.ps1'
     'platform_prerequisites:'
     'Windows x64 system DLLs'
-    'Microsoft Visual C++ runtime compatible with the build toolchain'
+    'Windows Media Foundation codecs for the selected video format'
 )
 [System.IO.File]::WriteAllText(
     (Join-Path $OutputDir 'APPLICATION_MANIFEST.txt'),

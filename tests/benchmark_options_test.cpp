@@ -32,6 +32,14 @@ int main()
     ok &= expect(parseBenchmarkOptions(4, crops, options, error), "crop options");
     ok &= expect(options.eyeCropsDirectory == "private" && options.eyeCropEvery == 9,
                  "crop option values");
+    const char* demo[] = {"bench", "--input=face.mp4", "--sponsor-demo",
+                          "--sponsor-demo-auto-exit"};
+    ok &= expect(parseBenchmarkOptions(4, demo, options, error), "sponsor demo option");
+    ok &= expect(options.sponsorDemo && options.sponsorDemoAutoExit,
+                 "sponsor demo enabled");
+    const char* autoExitOnly[] = {"bench", "--input=face.mp4", "--sponsor-demo-auto-exit"};
+    ok &= expect(!parseBenchmarkOptions(3, autoExitOnly, options, error),
+                 "auto exit requires demo");
 
     const char* pfld[] = {"bench", "--input=face.mp4", "--backend=pfld",
                           "--pfld-model=landmarks.onnx"};

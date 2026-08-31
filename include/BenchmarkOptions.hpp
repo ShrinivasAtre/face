@@ -17,6 +17,8 @@ struct BenchmarkOptions
     std::size_t warmupFrames = 10;
     std::size_t measuredFrames = 100;
     std::size_t eyeCropEvery = 6;
+    bool sponsorDemo = false;
+    bool sponsorDemoAutoExit = false;
     bool showHelp = false;
 };
 

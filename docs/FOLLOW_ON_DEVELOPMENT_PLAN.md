@@ -6,10 +6,12 @@
 - Completed predecessor: 16-step MediaPipe integration program
 - Plan state: **ACCEPTED AND FROZEN**
 - Plan accepted by the user: **2026-08-22**
-- Current formal stage: **Stage 19 — YuNet + PFLD versus YuNet + LBF benchmark**
+- Current formal stages: **Stage 19 dataset expansion and Stage 20 accuracy acceptance**
 - Stage 17 status: **COMPLETE — implementation, sustained tests, and Windows/Orin camera validation passed**
 - Stage 18 status: **COMPLETE — implementation and Windows/Ubuntu/Orin validation passed on 2026-08-24**
 - Stage 19 status: **IN PROGRESS — approved by the user on 2026-08-24**
+- Stage 20 status: **IN PROGRESS — mechanisms and approved policy implemented; production-accuracy gate remains open**
+- Sponsor recorded-video demonstration: **IN PROGRESS — authorized 2026-08-31**
 - Later stages in this document are architectural commitments or benchmark gates, not accepted implementations.
 
 ## Plan governance
@@ -335,6 +337,47 @@ Implement calibrated eye openness, EAR, PERCLOS, blink, yawn, head pose, gaze, d
   on Windows x64 and Orin aarch64 and all 20 applicable tests on native Ubuntu
   24.04 x64. The Orin head-pose estimator test was confirmed as an ARM aarch64
   executable.
+
+## Sponsor recorded-video demonstration gate — 2026-08-31
+
+### Objective
+
+Provide a reproducible engineering demonstration on Windows x64 and Orin
+aarch64 that accepts a sponsor-selected local video, displays the approved
+Stage 20 provider-neutral states/events/counters while the recording plays,
+and presents end-of-video statistics. The demonstration does not replace the
+Stage 19/20 accuracy gates and must not claim production or safety readiness.
+
+### Scope and privacy boundary
+
+- Reuse the recorded-input Stage 20 pipeline and named approved policy; do not
+  create a second set of event algorithms for the UI.
+- Support YuNet/LBF and MediaPipe through their existing runtime contracts.
+- Show unavailable provider capabilities explicitly rather than synthesizing
+  an event from unsupported landmarks.
+- Accept videos by local path. Recordings, audio, frames, traces, annotations,
+  and per-video results remain outside Git and outside distributable packages.
+- Include launchers and operator documentation, but no sponsor-selected video.
+
+### Acceptance gate
+
+- A single documented command launches a local video on each platform.
+- Playback shows driver presence, eye state/openness, blink/long-blink/
+  prolonged-closure counts, PERCLOS when available, yawn, head zone/counts,
+  gaze/distraction availability, monitoring availability, drowsiness, source
+  time, backend and processing rate.
+- End-of-video output records the same aggregate schema used by headless
+  evaluation and the final display remains reviewable until the operator exits.
+- `Q` or `Esc` exits cleanly; invalid paths and unavailable backends fail with
+  actionable diagnostics.
+- Focused and full Release tests pass on Windows and Orin. Both packages are
+  checked for architecture, dependencies, models, and no direct MediaPipe
+  bridge linkage.
+- At least one private representative recording and one dashcam recording run
+  successfully on each available platform. Private data and results are not
+  committed.
+- User action is required only for final GUI observation/rehearsal on Windows
+  and the Orin desktop after headless/build evidence passes.
 
 ## Stage 21 — recognition and object/context events
 

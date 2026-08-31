@@ -21,6 +21,8 @@
 #endif
 
 #include <opencv2/imgcodecs.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgproc.hpp>
 #include <opencv2/videoio.hpp>
 
 #include <algorithm>
@@ -31,6 +33,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <sstream>
@@ -289,6 +292,75 @@ const char *drowsinessName(dms::DrowsinessState state) noexcept
     }
 }
 
+std::string optionalPercent(std::optional<float> value)
+{
+    return value ? cv::format("%.1f%%", *value * 100.0F) : "N/A";
+}
+
+void drawSponsorOverlay(cv::Mat& frame, BackendKind backend, dms::MonotonicTime timestamp,
+                        dms::ObservationUsability eyeUsability,
+                        const dms::EyeMetricResult& eye, const dms::YawnResult& yawn,
+                        const dms::HeadPoseResult& head, const dms::DistractionResult& distraction,
+                        dms::PresenceState presence,
+                        const dms::MonitoringAvailabilityResult& availability,
+                        const dms::DrowsinessResult& drowsiness, double processingFps,
+                        bool gazeAvailable, std::uint64_t distractionCount, bool complete)
+{
+    const int panelWidth = std::min(780, frame.cols - 20);
+    const int panelHeight = std::min(330, frame.rows - 20);
+    cv::Mat panel = frame(cv::Rect(10, 10, panelWidth, panelHeight));
+    cv::Mat shade(panel.size(), panel.type(), cv::Scalar(18, 18, 18));
+    cv::addWeighted(shade, 0.72, panel, 0.28, 0.0, panel);
+    const cv::Scalar normal(240, 240, 240), good(80, 230, 100), warn(40, 190, 255), bad(70, 70, 255);
+    std::vector<std::pair<std::string, cv::Scalar>> lines;
+    lines.push_back({complete ? "DMS ENGINEERING DEMO - VIDEO COMPLETE"
+                              : "DMS ENGINEERING DEMO - DEVELOPMENT BUILD", complete ? good : normal});
+    lines.push_back({std::string("Backend: ") + backendName(backend) + "  Time: " +
+                     cv::format("%.2fs", std::chrono::duration<double>(timestamp).count()) +
+                     "  Processing: " + cv::format("%.1f FPS", processingFps), normal});
+    lines.push_back({"Driver: " + std::string(presenceName(presence)) +
+                     "  Monitoring: " + (availability.unavailable ? "UNAVAILABLE" : "available"),
+                     availability.notify ? bad : (availability.unavailable ? warn : good)});
+    lines.push_back({"Eyes: " + std::string(eyeStateName(eye.state)) +
+                     "  Openness: " + optionalPercent(eye.openness) +
+                     "  Quality: " + usabilityName(eyeUsability),
+                     eye.state == dms::EyeState::Closed ? warn : normal});
+    lines.push_back({"Blinks: " + std::to_string(eye.blinkCount) +
+                     "  Long: " + std::to_string(eye.longBlinkCount) +
+                     "  Prolonged: " + std::to_string(eye.prolongedClosureCount) +
+                     "  PERCLOS: " + optionalPercent(eye.perclos),
+                     eye.prolongedClosure ? bad : normal});
+    lines.push_back({"Yawns: " + std::to_string(yawn.count) +
+                     "  Head: " + headZoneName(head.zone) +
+                     "  L/R/U/D: " + std::to_string(head.leftCount) + "/" +
+                     std::to_string(head.rightCount) + "/" + std::to_string(head.upCount) + "/" +
+                     std::to_string(head.downCount), yawn.active ? warn : normal});
+    lines.push_back({"Gaze: " + std::string(gazeAvailable ? gazeZoneName(distraction.gaze) : "N/A for provider") +
+                     "  Distraction: " + (distraction.distracted ? "YES" : "no") +
+                     " (" + std::to_string(distractionCount) + ")" +
+                     "  Drowsiness: " + drowsinessName(drowsiness.state),
+                     drowsiness.state == dms::DrowsinessState::Drowsy ? bad :
+                         (drowsiness.state == dms::DrowsinessState::Warning ? warn : normal)});
+    std::string event = "Event: ";
+    if (eye.prolongedClosureEvent) event += "PROLONGED CLOSURE";
+    else if (eye.longBlinkEvent) event += "LONG BLINK";
+    else if (eye.blinkEvent) event += "BLINK";
+    else if (yawn.event) event += "YAWN";
+    else if (head.movementEvent) event += "HEAD MOVEMENT";
+    else if (distraction.event) event += "DISTRACTION";
+    else event += "-";
+    lines.push_back({event, event == "Event: -" ? normal : warn});
+    int y = 37;
+    for (const auto& line : lines)
+    {
+        cv::putText(frame, line.first, {25, y}, cv::FONT_HERSHEY_SIMPLEX, 0.62,
+                    cv::Scalar(0, 0, 0), 4, cv::LINE_AA);
+        cv::putText(frame, line.first, {25, y}, cv::FONT_HERSHEY_SIMPLEX, 0.62,
+                    line.second, 1, cv::LINE_AA);
+        y += 37;
+    }
+}
+
 class InputFrames
 {
   public:
@@ -331,7 +403,7 @@ class InputFrames
         return true;
     }
 
-    bool next(cv::Mat &frame)
+    bool next(cv::Mat &frame, bool restartAtEnd = true)
     {
         if (!sequence_.empty())
         {
@@ -353,6 +425,7 @@ class InputFrames
             clock_.advance(capture_.get(cv::CAP_PROP_POS_MSEC));
             return true;
         }
+        if (!restartAtEnd) return false;
         capture_.set(cv::CAP_PROP_POS_FRAMES, 0.0);
         if (!capture_.read(frame) || frame.empty())
             return false;
@@ -368,6 +441,13 @@ class InputFrames
     dms::MonotonicTime timestamp() const noexcept
     {
         return clock_.timestamp();
+    }
+
+    bool isVideo() const noexcept { return capture_.isOpened(); }
+    double framesPerSecond() const noexcept
+    {
+        const double fps = capture_.isOpened() ? capture_.get(cv::CAP_PROP_FPS) : 30.0;
+        return std::isfinite(fps) && fps > 0.0 ? fps : 30.0;
     }
 
   private:
@@ -408,6 +488,11 @@ int main(int argc, char **argv)
         if (!input.open(options.input))
         {
             std::cerr << "Error: Cannot open benchmark input: " << options.input << '\n';
+            return 1;
+        }
+        if (options.sponsorDemo && !input.isVideo())
+        {
+            std::cerr << "Error: --sponsor-demo requires a video file input.\n";
             return 1;
         }
 
@@ -528,6 +613,7 @@ int main(int argc, char **argv)
                             << std::fixed << std::setprecision(3);
         }
         cv::Mat frame;
+        cv::Size inputSize;
         FaceResult faceResult;
         Samples samples;
         samples.capture.reserve(options.measuredFrames);
@@ -542,30 +628,42 @@ int main(int argc, char **argv)
         std::size_t lowQualityEyeFrames = 0;
         std::size_t occludedEyeFrames = 0;
         std::size_t distractedFrames = 0;
+        std::uint64_t distractionEventCount = 0;
         std::size_t monitoringUnavailableFrames = 0, monitoringNotifyFrames = 0;
+        std::size_t renderedFrames = 0;
+        std::size_t measuredFrames = 0;
         dms::EyeMetricResult finalEyeMetrics;
         dms::YawnResult finalYawn;
         dms::HeadPoseResult finalHeadPose;
         dms::DistractionResult finalDistraction;
         dms::PresenceState finalPresence = dms::PresenceState::Unknown;
         dms::DrowsinessResult finalDrowsiness;
+        dms::MonitoringAvailabilityResult finalAvailability;
+        dms::ObservationUsability finalEyeUsability = dms::ObservationUsability::Missing;
+        bool finalGazeAvailable = false;
+        bool userStoppedDemo = false;
+        cv::Mat finalDisplayFrame;
         std::optional<dms::MonotonicTime> absentSince;
         std::optional<dms::MonotonicTime> invalidPoseSince;
         const std::uint64_t initialResidentMemory = currentResidentMemoryBytes();
 
-        const std::size_t totalFrames = options.warmupFrames + options.measuredFrames;
+        const std::size_t totalFrames = options.sponsorDemo
+            ? std::numeric_limits<std::size_t>::max()
+            : options.warmupFrames + options.measuredFrames;
         const std::clock_t cpuStart = std::clock();
         const auto wallStart = Clock::now();
         for (std::size_t index = 0; index < totalFrames; ++index)
         {
             const auto totalStart = Clock::now();
             const auto captureStart = totalStart;
-            if (!input.next(frame))
+            if (!input.next(frame, !options.sponsorDemo))
             {
+                if (options.sponsorDemo) break;
                 std::cerr << "Error: Input ended and could not restart.\n";
                 return 1;
             }
             const auto captureEnd = Clock::now();
+            inputSize = frame.size();
             const auto backendStart = captureEnd;
             const bool backendSuccess = backend->process(frame, faceResult);
             const auto backendEnd = Clock::now();
@@ -589,7 +687,7 @@ int main(int argc, char **argv)
                                 : mapBackendEyeLandmarks(options.backend, faceResult, eyes);
                 if (eyeMapped)
                 {
-                    if (eyeCropManifest && index >= options.warmupFrames)
+                    if (eyeCropManifest.is_open() && index >= options.warmupFrames)
                     {
                         const std::size_t measuredFrame = index - options.warmupFrames;
                         if (measuredFrame % options.eyeCropEvery == 0)
@@ -733,11 +831,15 @@ int main(int argc, char **argv)
                     {input.timestamp(), eyeInput.usability, finalPresence,
                      finalEyeMetrics.perclos, finalEyeMetrics.prolongedClosure,
                      finalEyeMetrics.longBlinkEvent, finalYawn.event});
-                const auto availability = availabilityFsm.update(input.timestamp(), eyeInput.usability);
-                if (availability.unavailable) ++monitoringUnavailableFrames;
-                if (availability.notify) ++monitoringNotifyFrames;
+                finalAvailability = availabilityFsm.update(input.timestamp(), eyeInput.usability);
+                finalEyeUsability = eyeInput.usability;
+                finalGazeAvailable = gazeValid;
+                if (finalAvailability.unavailable) ++monitoringUnavailableFrames;
+                if (finalAvailability.notify) ++monitoringNotifyFrames;
                 if (finalDistraction.distracted)
                     ++distractedFrames;
+                if (finalDistraction.event)
+                    ++distractionEventCount;
 
                 samples.capture.push_back(milliseconds(captureEnd - captureStart));
                 samples.backend.push_back(milliseconds(backendEnd - backendStart));
@@ -747,6 +849,7 @@ int main(int argc, char **argv)
                     ++successfulFrames;
                 if (backendSuccess && faceResult.detected)
                     ++detectedFrames;
+                ++measuredFrames;
                 if (trace)
                 {
                     trace << (index - options.warmupFrames) << ','
@@ -797,14 +900,41 @@ int main(int argc, char **argv)
                           << (finalDistraction.distracted ? 1 : 0) << ','
                           << (finalDistraction.event ? 1 : 0) << ','
                           << presenceName(finalPresence) << ','
-                          << (availability.unavailable ? 1 : 0) << ',' << (availability.notify ? 1 : 0) << ','
-                          << availability.episodeCount << ','
+                          << (finalAvailability.unavailable ? 1 : 0) << ',' << (finalAvailability.notify ? 1 : 0) << ','
+                          << finalAvailability.episodeCount << ','
                           << drowsinessName(finalDrowsiness.state) << ','
                           << finalDrowsiness.recentYawns;
                     trace << ',' << faceResult.faceBox.x << ',' << faceResult.faceBox.y << ','
                           << faceResult.faceBox.width << ',' << faceResult.faceBox.height << ','
                           << milliseconds(backendEnd - backendStart) << ',' << milliseconds(semanticEnd - totalStart)
                           << '\n';
+                }
+                if (options.sponsorDemo)
+                {
+                    if (faceResult.detected)
+                        cv::rectangle(frame, faceResult.faceBox, cv::Scalar(255, 120, 0), 2);
+                    cv::Mat displayFrame;
+                    if (frame.cols < 960)
+                        cv::resize(frame, displayFrame, {}, 2.0, 2.0, cv::INTER_LINEAR);
+                    else
+                        displayFrame = frame.clone();
+                    const double frameMs = milliseconds(semanticEnd - totalStart);
+                    const double processingFps = frameMs > 0.0 ? 1000.0 / frameMs : 0.0;
+                    finalDisplayFrame = displayFrame.clone();
+                    drawSponsorOverlay(displayFrame, options.backend, input.timestamp(), finalEyeUsability,
+                                       finalEyeMetrics, finalYawn, finalHeadPose, finalDistraction,
+                                       finalPresence, finalAvailability, finalDrowsiness, processingFps,
+                                       finalGazeAvailable, distractionEventCount, false);
+                    cv::imshow("Face DMS Sponsor Engineering Demo", displayFrame);
+                    ++renderedFrames;
+                    const int frameDelay = static_cast<int>(std::lround(1000.0 / input.framesPerSecond()));
+                    const int wait = std::max(1, frameDelay - static_cast<int>(std::lround(frameMs)));
+                    const int key = cv::waitKey(wait);
+                    if (key == 27 || key == 'q' || key == 'Q')
+                    {
+                        userStoppedDemo = true;
+                        break;
+                    }
                 }
             }
         }
@@ -831,18 +961,18 @@ int main(int argc, char **argv)
              << "  \"build_configuration\": \"" << buildConfiguration() << "\",\n"
              << "  \"input\": \"" << jsonEscape(options.input.string()) << "\",\n"
              << "  \"input_kind\": \"" << input.kind() << "\",\n"
-             << "  \"input_width\": " << frame.cols << ",\n"
-             << "  \"input_height\": " << frame.rows << ",\n"
+             << "  \"input_width\": " << inputSize.width << ",\n"
+             << "  \"input_height\": " << inputSize.height << ",\n"
              << "  \"warmup_frames\": " << options.warmupFrames << ",\n"
-             << "  \"measured_frames\": " << options.measuredFrames << ",\n"
+             << "  \"measured_frames\": " << measuredFrames << ",\n"
              << "  \"successful_frames\": " << successfulFrames << ",\n"
              << "  \"detected_frames\": " << detectedFrames << ",\n"
              << "  \"dropped_frames\": 0,\n"
              << "  \"superseded_frames\": 0,\n"
-             << "  \"rendered_frames\": 0,\n"
+             << "  \"rendered_frames\": " << renderedFrames << ",\n"
              << "  \"eye_crop_pairs_written\": " << eyeCropPairsWritten << ",\n"
              << "  \"eye_crop_failures\": " << eyeCropFailures << ",\n"
-             << "  \"throughput_fps\": " << (measuredSeconds > 0.0 ? options.measuredFrames / measuredSeconds : 0.0)
+             << "  \"throughput_fps\": " << (measuredSeconds > 0.0 ? measuredFrames / measuredSeconds : 0.0)
              << ",\n"
              << "  \"process_cpu_percent_of_total_capacity\": " << cpuPercentCapacity << ",\n"
              << "  \"logical_cpu_count\": " << logicalCpus << ",\n"
@@ -877,8 +1007,10 @@ int main(int argc, char **argv)
              << "    \"head_up_count\": " << finalHeadPose.upCount << ",\n"
              << "    \"head_down_count\": " << finalHeadPose.downCount << ",\n"
              << "    \"distracted_frames\": " << distractedFrames << ",\n"
+             << "    \"distraction_event_count\": " << distractionEventCount << ",\n"
              << "    \"monitoring_unavailable_frames\": " << monitoringUnavailableFrames << ",\n"
              << "    \"monitoring_notify_frames\": " << monitoringNotifyFrames << ",\n"
+             << "    \"monitoring_episode_count\": " << finalAvailability.episodeCount << ",\n"
              << "    \"final_presence\": \"" << presenceName(finalPresence) << "\",\n"
              << "    \"final_drowsiness\": \"" << drowsinessName(finalDrowsiness.state) << "\"\n"
              << "  },\n"
@@ -900,7 +1032,21 @@ int main(int argc, char **argv)
             file << json.str();
         }
         std::cout << json.str();
-        return successfulFrames == options.measuredFrames ? 0 : 1;
+        if (options.sponsorDemo && !options.sponsorDemoAutoExit &&
+            !userStoppedDemo && !finalDisplayFrame.empty())
+        {
+            drawSponsorOverlay(finalDisplayFrame, options.backend, input.timestamp(), finalEyeUsability,
+                               finalEyeMetrics, finalYawn, finalHeadPose, finalDistraction,
+                               finalPresence, finalAvailability, finalDrowsiness,
+                               measuredSeconds > 0.0 ? measuredFrames / measuredSeconds : 0.0,
+                               finalGazeAvailable, distractionEventCount, true);
+            cv::putText(finalDisplayFrame, "Press any key to exit", {25, finalDisplayFrame.rows - 25},
+                        cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 255, 255), 2, cv::LINE_AA);
+            cv::imshow("Face DMS Sponsor Engineering Demo", finalDisplayFrame);
+            cv::waitKey(0);
+        }
+        if (options.sponsorDemo) cv::destroyAllWindows();
+        return successfulFrames == measuredFrames ? 0 : 1;
     }
     catch (const std::exception &exception)
     {

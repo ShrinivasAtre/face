@@ -246,6 +246,7 @@ add_executable(yunet_demo
 
 add_executable(face_benchmark
     src/benchmark_main.cpp
+    src/EyeCropExtractor.cpp
     src/AppPaths.cpp
     src/BackendOptions.cpp
     src/BenchmarkOptions.cpp
@@ -734,6 +735,15 @@ if(BUILD_TESTING)
         NAME benchmark_options_test
         COMMAND benchmark_options_test
     )
+
+    add_executable(eye_crop_extractor_test
+        tests/eye_crop_extractor_test.cpp
+        src/EyeCropExtractor.cpp
+    )
+    target_include_directories(eye_crop_extractor_test PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include ${OpenCV_INCLUDE_DIRS})
+    target_link_libraries(eye_crop_extractor_test PRIVATE ${OpenCV_LIBS})
+    add_test(NAME eye_crop_extractor_test COMMAND eye_crop_extractor_test)
 
     add_executable(dms_core_test
         tests/dms_core_test.cpp

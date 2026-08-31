@@ -12,9 +12,11 @@ struct BenchmarkOptions
     std::filesystem::path input;
     std::filesystem::path output;
     std::filesystem::path trace;
+    std::filesystem::path eyeCropsDirectory;
     std::filesystem::path pfldModel;
     std::size_t warmupFrames = 10;
     std::size_t measuredFrames = 100;
+    std::size_t eyeCropEvery = 6;
     bool showHelp = false;
 };
 

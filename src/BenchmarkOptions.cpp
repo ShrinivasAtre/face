@@ -31,9 +31,11 @@ bool parseBenchmarkOptions(int argc, const char* const argv[],
     bool inputSeen = false;
     bool outputSeen = false;
     bool traceSeen = false;
+    bool eyeCropsSeen = false;
     bool pfldModelSeen = false;
     bool warmupSeen = false;
     bool framesSeen = false;
+    bool eyeCropEverySeen = false;
 
     for (int index = 1; index < argc; ++index)
     {
@@ -73,6 +75,7 @@ bool parseBenchmarkOptions(int argc, const char* const argv[],
         if (parsePath("--input=", inputSeen, options.input) ||
             parsePath("--output=", outputSeen, options.output) ||
             parsePath("--trace=", traceSeen, options.trace) ||
+            parsePath("--eye-crops-dir=", eyeCropsSeen, options.eyeCropsDirectory) ||
             parsePath("--pfld-model=", pfldModelSeen, options.pfldModel))
         {
             if (!error.empty()) return false;
@@ -119,7 +122,8 @@ bool parseBenchmarkOptions(int argc, const char* const argv[],
             return true;
         };
         if (parseCountOption("--warmup=", warmupSeen, options.warmupFrames) ||
-            parseCountOption("--frames=", framesSeen, options.measuredFrames))
+            parseCountOption("--frames=", framesSeen, options.measuredFrames) ||
+            parseCountOption("--eye-crop-every=", eyeCropEverySeen, options.eyeCropEvery))
         {
             if (!error.empty()) return false;
             continue;
@@ -154,5 +158,6 @@ std::string benchmarkUsage(const char* programName)
         " --input=<image-or-video> [--backend=yunet|pfld|mediapipe]"
         " [--pfld-model=<landmarks_68_pfld.onnx>]"
         " [--warmup=N] [--frames=N] [--output=results.json]"
-        " [--trace=frames.csv]";
+        " [--trace=frames.csv] [--eye-crops-dir=directory]"
+        " [--eye-crop-every=N]";
 }

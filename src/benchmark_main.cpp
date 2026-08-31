@@ -9,6 +9,7 @@
 #include "DmsHeadPoseEstimator.hpp"
 #include "DmsTemporalEvents.hpp"
 #include "DmsPolicy.hpp"
+#include "EyeCropExtractor.hpp"
 #include "FaceBackend.hpp"
 #include "PfldEyeLandmarkMapper.hpp"
 #include "RecordedFrameClock.hpp"
@@ -496,6 +497,36 @@ int main(int argc, char **argv)
                      "backend_ms,end_to_end_ms\n";
             trace << std::fixed << std::setprecision(6);
         }
+        std::ofstream eyeCropManifest;
+        std::filesystem::path rightEyeCropDirectory;
+        std::filesystem::path leftEyeCropDirectory;
+        std::size_t eyeCropPairsWritten = 0;
+        std::size_t eyeCropFailures = 0;
+        if (!options.eyeCropsDirectory.empty())
+        {
+            rightEyeCropDirectory = options.eyeCropsDirectory / "right";
+            leftEyeCropDirectory = options.eyeCropsDirectory / "left";
+            std::error_code directoryError;
+            std::filesystem::create_directories(rightEyeCropDirectory, directoryError);
+            if (!directoryError)
+                std::filesystem::create_directories(leftEyeCropDirectory, directoryError);
+            if (directoryError)
+            {
+                std::cerr << "Error: Cannot create eye-crop directory: "
+                          << options.eyeCropsDirectory << " (" << directoryError.message() << ")\n";
+                return 1;
+            }
+            eyeCropManifest.open(options.eyeCropsDirectory / "manifest.csv",
+                                 std::ios::binary | std::ios::trunc);
+            if (!eyeCropManifest)
+            {
+                std::cerr << "Error: Cannot write eye-crop manifest in: "
+                          << options.eyeCropsDirectory << '\n';
+                return 1;
+            }
+            eyeCropManifest << "frame,timestamp_ms,side,relative_path,width,height\n"
+                            << std::fixed << std::setprecision(3);
+        }
         cv::Mat frame;
         FaceResult faceResult;
         Samples samples;
@@ -558,6 +589,46 @@ int main(int argc, char **argv)
                                 : mapBackendEyeLandmarks(options.backend, faceResult, eyes);
                 if (eyeMapped)
                 {
+                    if (eyeCropManifest && index >= options.warmupFrames)
+                    {
+                        const std::size_t measuredFrame = index - options.warmupFrames;
+                        if (measuredFrame % options.eyeCropEvery == 0)
+                        {
+                            const auto writeEyeCrop = [&](const char* side,
+                                                          const EyeLandmarks& eye,
+                                                          bool mirror,
+                                                          const std::filesystem::path& directory) {
+                                cv::Mat crop;
+                                if (!extractAlignedEyeCrop(frame, eye, mirror, crop))
+                                {
+                                    ++eyeCropFailures;
+                                    return false;
+                                }
+                                std::ostringstream filename;
+                                filename << "frame_" << std::setw(6) << std::setfill('0')
+                                         << measuredFrame << ".png";
+                                const std::filesystem::path outputPath = directory / filename.str();
+                                if (!cv::imwrite(outputPath.string(), crop))
+                                {
+                                    ++eyeCropFailures;
+                                    return false;
+                                }
+                                const std::filesystem::path relative =
+                                    std::filesystem::relative(outputPath, options.eyeCropsDirectory);
+                                eyeCropManifest << measuredFrame << ','
+                                                << std::chrono::duration<double, std::milli>(input.timestamp()).count()
+                                                << ',' << side << ',' << relative.generic_string() << ','
+                                                << crop.cols << ',' << crop.rows << '\n';
+                                return true;
+                            };
+                            const bool rightWritten = writeEyeCrop(
+                                "right", eyes.rightEye, false, rightEyeCropDirectory);
+                            const bool leftWritten = writeEyeCrop(
+                                "left", eyes.leftEye, false, leftEyeCropDirectory);
+                            if (rightWritten && leftWritten)
+                                ++eyeCropPairsWritten;
+                        }
+                    }
                     semanticSuccess = tracker.process(frame, eyes);
                 }
             }
@@ -769,6 +840,8 @@ int main(int argc, char **argv)
              << "  \"dropped_frames\": 0,\n"
              << "  \"superseded_frames\": 0,\n"
              << "  \"rendered_frames\": 0,\n"
+             << "  \"eye_crop_pairs_written\": " << eyeCropPairsWritten << ",\n"
+             << "  \"eye_crop_failures\": " << eyeCropFailures << ",\n"
              << "  \"throughput_fps\": " << (measuredSeconds > 0.0 ? options.measuredFrames / measuredSeconds : 0.0)
              << ",\n"
              << "  \"process_cpu_percent_of_total_capacity\": " << cpuPercentCapacity << ",\n"

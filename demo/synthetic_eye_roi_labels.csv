@@ -1,0 +1,4 @@
+clip_id,frame,timestamp_ms,side,visibility,eye_state,occluder,quality,annotator_id,notes
+T01,0,0.000,left,visible,open,none,accepted,ann-synthetic,synthetic open eye
+T01,0,0.000,right,visible,closed,none,accepted,ann-synthetic,synthetic closed eye
+T01,6,200.000,left,occluded,unknown,hand,accepted,ann-synthetic,synthetic occlusion

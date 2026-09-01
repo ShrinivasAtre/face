@@ -536,6 +536,35 @@ Cross-platform build evidence at commit `3b61201`:
 No training crops were extracted and no eye-ROI model was trained. Both remain
 behind the separately required explicit product-owner approval.
 
+### Eye-ROI crop readiness audit — 2026-09-01
+
+The product owner subsequently approved local, non-Git eye-region crop
+extraction for a benchmark, explicitly excluding model training. The extractor
+produced 1,414 left/right pairs (2,828 crops) from six timestamped clips with
+zero missing files, decode failures, or dimension errors. Anonymous audit and a
+private balanced visual review found that event-interval-derived candidate
+classes are not dense frame-level truth, the set is 75.42% unlabelled-visible,
+only two subjects are represented, and the sole IR slice covers one
+subject/session. Required partial, glasses, invalid-quality, domain-balanced
+occlusion, and hard-negative crop labels are absent or insufficient.
+
+The data is accepted for extractor QA and annotation-queue development but is
+rejected as a training-ready or production-selection dataset. Random crop
+splits are prohibited; both eye sides, neighboring frames, events, sessions,
+and subjects must remain grouped. No training approval is requested. Detailed
+anonymous conclusions and the next data gate are recorded in
+`docs/STAGE20_EYE_ROI_CROP_AUDIT.md`; all images, mappings, per-crop data, and
+contact sheets remain outside Git.
+
+The six-clip schema-5 event checkpoint is summarized in
+`docs/STAGE20_ACCURACY_CHECKPOINT.md`. Ordinary blink F1 is 0.806, long-blink F1
+is 0.667, prolonged-closure F1 is 0.333, yawn F1 is 0.889, and explicit
+eye-occlusion recall is zero. Horizontal gaze is partially supported; vertical
+gaze and head-direction event matching are currently zero. Dense eye-state and
+visibility truth is absent, so PERCLOS/openness and duration-weighted state
+accuracy cannot yet be scored. These results keep the production-accuracy gate
+open and do not justify changing the approved policy thresholds.
+
 ## Inputs currently unavailable
 
 The requested `orin.txt` and `windows.txt` console logs were not present in the repository or supplied workspace when this plan was created. Stage 17 can begin from source instrumentation, but the logs should be added as non-secret validation inputs when available so their original runs can be correlated with the new measurements.

@@ -48,6 +48,18 @@ Do not include names or other identity data in notes or annotator identifiers.
 Both eye sides, neighboring samples, and every event from a subject/session
 must remain in the same partition. Augmented variants inherit the source split.
 
+Prepare independent, session-grouped templates with:
+
+```text
+python scripts/prepare_eye_roi_annotation_batches.py --manifest <private-candidate-manifest.csv> --clip-mapping <private-clip-mapping.csv> --output-dir <new-private-batch-directory> --annotator-id <anonymous-a> --annotator-id <anonymous-b>
+```
+
+The output directory must not already exist. The tool records the candidate
+manifest checksum and anonymous source-video checksums, keeps complete
+subject/session groups together, and creates separate templates for each
+annotator. Annotators must not open one another's templates or model
+predictions before both passes are complete.
+
 ## Validation
 
 Run:

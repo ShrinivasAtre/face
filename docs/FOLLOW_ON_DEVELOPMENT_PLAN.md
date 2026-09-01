@@ -575,6 +575,15 @@ false positives increased, and eye-occlusion recall remains zero. Detailed
 anonymous metrics and the decision to retain the approved thresholds are in
 `docs/STAGE20_ACCURACY_GATE_RERUN.md`.
 
+Dense eye-state/visibility annotation preparation now has a deterministic
+session-grouped batch generator. The private 2,828-crop manifest was frozen by
+checksum and expanded into independent templates for two anonymous annotators.
+Each annotator receives three complete subject/session batches: 1,722 rows for
+the first visible session, 290 rows for the IR session, and 816 rows for the
+second visible session. Labels and templates remain outside Git. Human review,
+independent second-pass completion, validation, and adjudication are the next
+open gate.
+
 ## Inputs currently unavailable
 
 The requested `orin.txt` and `windows.txt` console logs were not present in the repository or supplied workspace when this plan was created. Stage 17 can begin from source instrumentation, but the logs should be added as non-secret validation inputs when available so their original runs can be correlated with the new measurements.

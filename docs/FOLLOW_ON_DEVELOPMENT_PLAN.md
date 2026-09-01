@@ -565,6 +565,16 @@ visibility truth is absent, so PERCLOS/openness and duration-weighted state
 accuracy cannot yet be scored. These results keep the production-accuracy gate
 open and do not justify changing the approved policy thresholds.
 
+The pose/gaze semantic correction was subsequently validated at commit
+`536f1a4` on Windows x64, Ubuntu 24.04 x64, and Orin aarch64. A deterministic
+trace-to-prediction converter was added and reproduced the retained 126-row
+pre-correction prediction CSV exactly. The full 8,501-frame rerun removed all
+ten unmatched vertical-gaze predictions and created the expected physical
+left/right/up head matches, but vertical-gaze recall remains zero, gaze-left
+false positives increased, and eye-occlusion recall remains zero. Detailed
+anonymous metrics and the decision to retain the approved thresholds are in
+`docs/STAGE20_ACCURACY_GATE_RERUN.md`.
+
 ## Inputs currently unavailable
 
 The requested `orin.txt` and `windows.txt` console logs were not present in the repository or supplied workspace when this plan was created. Stage 17 can begin from source instrumentation, but the logs should be added as non-secret validation inputs when available so their original runs can be correlated with the new measurements.

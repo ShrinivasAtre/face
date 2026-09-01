@@ -54,6 +54,9 @@ evaluation must rerun all six traces, regenerate predictions, and compare:
 - head direction matching after sign normalization; and
 - gentle vertical head/gaze sensitivity across more subjects/sessions.
 
-Windows focused tests, the private head/gaze rerun, and the full 23-test Release
-suite passed. Ubuntu x64 and Orin aarch64 validation are still required before
-this correction is considered cross-platform complete.
+Windows x64 and Orin aarch64 passed all 23 Release tests at follow-up commit
+`536f1a4`; Ubuntu 24.04 x64 passed all 22 applicable tests on its accepted
+runtime-disabled path. Focused test coverage now verifies both semantic yaw and
+pitch signs. The six-clip rerun and updated anonymous metrics are recorded in
+`docs/STAGE20_ACCURACY_GATE_RERUN.md`. The correction is cross-platform
+complete, while the production-accuracy gate remains open.

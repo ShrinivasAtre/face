@@ -47,7 +47,8 @@ int main()
         !check(result.reprojectionErrorPixels < 0.1F, "frontal reprojection"))
         return 1;
     if (!check(estimateHeadPose(projected(20.0 * CV_PI / 180.0), {640, 480}, result), "turned pose") ||
-        !check(std::abs(std::abs(result.yawDegrees) - 20.0F) < 1.0F, "turned yaw recovered"))
+        !check(std::abs(result.yawDegrees + 20.0F) < 1.0F,
+               "OpenCV-positive yaw normalized to semantic left"))
         return 1;
     if (!check(!estimateHeadPose(projected(0.0), {}, result), "invalid frame rejected"))
         return 1;

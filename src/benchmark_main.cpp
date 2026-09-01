@@ -832,7 +832,8 @@ int main(int argc, char **argv)
                     calibratedPose ? std::optional<float>(calibratedPose->yawDegrees) : std::nullopt,
                     calibratedPose ? std::optional<float>(calibratedPose->pitchDegrees) : std::nullopt);
                 const auto gazeUsability = gazeValid && gaze.interEyeAgreement >= 0.30F &&
-                                                   eyeInput.usability == dms::ObservationUsability::Usable
+                                                   eyeInput.usability == dms::ObservationUsability::Usable &&
+                                                   finalEyeMetrics.state == dms::EyeState::Open
                     ? dms::ObservationUsability::Usable : dms::ObservationUsability::Missing;
                 finalDistraction = distractionFsm.update(
                     input.timestamp(), gazeUsability,

@@ -11,6 +11,8 @@
 
 struct HeadPoseAngles
 {
+    // DMS semantic convention: yaw is negative left / positive right;
+    // pitch is negative up / positive down.
     float yawDegrees = 0.0F;
     float pitchDegrees = 0.0F;
     float rollDegrees = 0.0F;

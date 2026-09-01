@@ -132,8 +132,13 @@ bool estimateHeadPose(const SemanticFaceGeometry &geometry, cv::Size frameSize, 
             const cv::Point2d delta = projected[index] - imagePoints[index];
             squaredError += delta.dot(delta);
         }
-        result.pitchDegrees = static_cast<float>(angles[0]);
-        result.yawDegrees = static_cast<float>(angles[1]);
+        // OpenCV's camera-coordinate Euler signs are opposite to the DMS
+        // semantic convention used by HeadPoseFsm: negative yaw means the
+        // driver turned left and negative pitch means the driver looked up.
+        // Normalize at this provider-neutral adapter boundary so downstream
+        // event logic and every backend expose the same physical directions.
+        result.pitchDegrees = static_cast<float>(-angles[0]);
+        result.yawDegrees = static_cast<float>(-angles[1]);
         result.rollDegrees = static_cast<float>(angles[2]);
         result.reprojectionErrorPixels = static_cast<float>(std::sqrt(squaredError / projected.size()));
     }

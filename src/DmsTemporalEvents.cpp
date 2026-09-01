@@ -138,6 +138,7 @@ HeadPoseResult HeadPoseFsm::update(MonotonicTime timestamp, ObservationUsability
     if (!usable(quality) || !yaw || !pitch || !std::isfinite(*yaw) || !std::isfinite(*pitch))
     {
         zone_ = HeadZone::Unknown;
+        candidateZone_ = HeadZone::Unknown;
         candidateSince_.reset();
         out.zone = zone_;
         return out;
@@ -226,6 +227,7 @@ DistractionResult DistractionFsm::update(MonotonicTime timestamp, ObservationUsa
     if (!usable(quality) || !horizontal || !vertical || !std::isfinite(*horizontal) || !std::isfinite(*vertical))
     {
         gaze_ = GazeZone::Unknown;
+        candidate_ = GazeZone::Unknown;
         candidateSince_.reset();
         awaySince_.reset();
         recoverySince_.reset();

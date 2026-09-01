@@ -50,6 +50,11 @@ int main()
     hr = head.update(900ms, ObservationUsability::Usable, 0.0F, 25.0F);
     if (!check(hr.downCount == 1, "vertical movement counted after neutral"))
         return 1;
+    head.update(1000ms, ObservationUsability::Missing, std::nullopt, std::nullopt);
+    head.update(1100ms, ObservationUsability::Usable, 0.0F, 25.0F);
+    hr = head.update(1200ms, ObservationUsability::Usable, 0.0F, 25.0F);
+    if (!check(hr.zone == HeadZone::Down, "head zone reacquires after missing observation"))
+        return 1;
 
     DistractionConfig dc;
     dc.gazeConfirmation = 100ms;
@@ -67,6 +72,11 @@ int main()
     distraction.update(1000ms, ObservationUsability::Usable, 0.0F, 0.0F, HeadZone::Neutral);
     dr = distraction.update(1200ms, ObservationUsability::Usable, 0.0F, 0.0F, HeadZone::Neutral);
     if (!check(!dr.distracted, "forward recovery clears distraction"))
+        return 1;
+    distraction.update(1300ms, ObservationUsability::Missing, std::nullopt, std::nullopt, HeadZone::Unknown);
+    distraction.update(1400ms, ObservationUsability::Usable, 0.0F, 0.0F, HeadZone::Neutral);
+    dr = distraction.update(1500ms, ObservationUsability::Usable, 0.0F, 0.0F, HeadZone::Neutral);
+    if (!check(dr.gaze == GazeZone::Forward, "gaze reacquires after missing observation"))
         return 1;
 
     PresenceConfig pc;

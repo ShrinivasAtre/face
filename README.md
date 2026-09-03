@@ -1,6 +1,8 @@
 # face
 Face recognition
 
+Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+
 For Orin
 cmake -S . -B build -DOpenCV_DIR=/usr/local/opencv-4.8.0-contrib/lib/cmake/opencv4
 

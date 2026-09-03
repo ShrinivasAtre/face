@@ -195,6 +195,7 @@ add_library(dms_core STATIC
     src/DriverIdentityMatcher.cpp
     src/DriverProfileDatabase.cpp
     src/EncryptedProfileBundle.cpp
+    src/DmsPresentationConfig.cpp
 )
 
 add_library(pfld_landmark_provider STATIC
@@ -621,6 +622,12 @@ if(BUILD_TESTING)
     )
     target_link_libraries(dms_eye_metrics_test PRIVATE dms_core)
     add_test(NAME dms_eye_metrics_test COMMAND dms_eye_metrics_test)
+
+    add_executable(dms_presentation_config_test
+        tests/dms_presentation_config_test.cpp
+    )
+    target_link_libraries(dms_presentation_config_test PRIVATE dms_core)
+    add_test(NAME dms_presentation_config_test COMMAND dms_presentation_config_test)
 
     add_executable(driver_identity_matcher_test
         tests/driver_identity_matcher_test.cpp

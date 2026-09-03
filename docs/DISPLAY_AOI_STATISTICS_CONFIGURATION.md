@@ -87,7 +87,9 @@ PERCLOS when coverage or classification domains differ.
 
 ## Safe implementation sequence
 
-1. Add a provider-neutral configuration value object and validation tests.
+1. **Implemented on `feature/stage24-display-aoi-statistics`:** add a
+   provider-neutral configuration value object, fail-closed validation,
+   normalized-to-pixel ROI conversion and deterministic tests.
 2. Add a deterministic configuration loader with schema versioning.
 3. Apply display flags only in rendering.
 4. Apply processing ROI before face detection and transform results back to
@@ -98,3 +100,15 @@ PERCLOS when coverage or classification domains differ.
    window trimming and non-monotonic time.
 7. Present proposed defaults and UI wording for approval before product use.
 
+## Stage 24 objective and acceptance criteria
+
+Stage 24 makes presentation selection, driver-seat processing ROI and the
+sponsor-requested eye/blink statistics configurable without coupling those
+contracts to OpenCV, a camera backend or an operating system.
+
+The first increment is accepted when default configuration validates, invalid
+schema/ROI/statistics values fail closed with actionable errors, a disabled ROI
+maps to the full frame, enabled normalized ROIs convert deterministically at
+frame boundaries, and the behavior is covered by a registered C++ test. This
+increment does not activate ROI processing or alter approved monitoring
+thresholds.

@@ -89,3 +89,13 @@ accuracy must be established first.
 Task 5 option evaluation is complete at architecture level. Dataset creation,
 training, and device benchmarking are follow-on implementation work, not yet an
 accuracy result.
+
+### Gate status — 2026-09-03
+
+Adjudicated dense scoring triggers the benchmark condition: model-known eye
+state is 87.82% overall and 78.10% in the sole IR session, while explicit
+eye-occlusion event recall remains zero. Training is nevertheless deferred.
+The available labels cover only two subjects and the crop audit rejected the
+set as training-ready. Complete and audit the approved second recording batch,
+then obtain separate product-owner approval before any training command is run.
+See `docs/STAGE20_EYE_AVAILABILITY_ANALYSIS.md`.

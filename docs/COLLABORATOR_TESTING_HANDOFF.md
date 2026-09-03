@@ -148,6 +148,17 @@ python scripts/validate_eye_roi_labels.py <private-labels.csv> --manifest <priva
 The labeling contract is in `docs/STAGE20_EYE_ROI_LABELING_PROTOCOL.md`.
 Training requires a later, separate, explicit product-owner approval.
 
+## Second recording batch
+
+Local preparation and crop extraction are approved; training remains excluded.
+The private batch root is `D:\work\TestClips\stage20-second-batch`, with original
+files placed in its `incoming` directory using the exact C07-C18 inventory
+filenames. The inventory requires explicit private consent confirmation before
+`scripts/freeze_stage20_recording_batch.ps1` will freeze checksums and produce
+the private clip mapping. Follow
+`docs/STAGE20_SECOND_BATCH_RECORDING_GUIDE.md`; never commit the inventory,
+recordings, checksums-to-private-path mapping, crops, traces, or annotations.
+
 ## Sponsor-demo status
 
 The separate sponsor branch supplies a silent recorded-video engineering demo

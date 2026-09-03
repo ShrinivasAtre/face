@@ -159,6 +159,10 @@ foreach ($group in @($finalEyes | Group-Object batch_id,clip_id,frame)) {
         prediction_known=[int]($predicted -ne 'unknown')
         correct=[int]($truth -ne 'unknown' -and $predicted -ne 'unknown' -and $truth -eq $predicted)
         trace_eye_openness=$trace.eye_openness; trace_eye_usability=$trace.eye_usability
+        trace_detected=$trace.detected; trace_semantic_valid=$trace.semantic_valid
+        trace_eye_quality_confidence=$trace.eye_quality_confidence
+        trace_eye_visibility=$trace.eye_visibility; trace_eye_contrast=$trace.eye_contrast
+        trace_yaw_degrees=$trace.yaw_degrees; trace_pitch_degrees=$trace.pitch_degrees
         trace_perclos=$trace.perclos; trace_perclos_coverage=$trace.perclos_coverage
     }
 }
@@ -271,10 +275,68 @@ foreach ($group in @($perclosWindows | Where-Object comparable -eq 1 | Group-Obj
     }
 }
 
+$confusion = @()
+foreach ($group in @($samples | Where-Object truth_evaluable -eq 1 |
+    Group-Object batch_id,truth_state,predicted_state)) {
+    $values=@($group.Group);$parts=$group.Name -split ', ',3
+    $confusion += [pscustomobject]@{
+        batch_id=$parts[0];truth_state=$parts[1];predicted_state=$parts[2]
+        samples=$values.Count
+        duration_ms=[math]::Round(($values.duration_ms|Measure-Object -Sum).Sum,3)
+    }
+}
+$availability = @()
+$usabilityEpisodes=@{}
+foreach($clip in @($samples|Where-Object truth_evaluable -eq 1|Group-Object clip_id)){
+    $previous=''
+    foreach($sample in @($clip.Group|Sort-Object{[double]$_.timestamp_ms})){
+        if($sample.trace_eye_usability-ne$previous){
+            $episodeKey="$($sample.batch_id)|$($sample.trace_eye_usability)"
+            $usabilityEpisodes[$episodeKey]=1+$(if($usabilityEpisodes.ContainsKey($episodeKey)){$usabilityEpisodes[$episodeKey]}else{0})
+            $previous=$sample.trace_eye_usability
+        }
+    }
+}
+function Average-Numeric($values) {
+    $numeric=@($values|Where-Object{-not[string]::IsNullOrWhiteSpace($_)}|ForEach-Object{[double]$_})
+    if(-not$numeric.Count){return ''}
+    return [math]::Round(($numeric|Measure-Object -Average).Average,6)
+}
+function Maximum-AbsoluteNumeric($values) {
+    $numeric=@($values|Where-Object{-not[string]::IsNullOrWhiteSpace($_)}|ForEach-Object{[math]::Abs([double]$_)})
+    if(-not$numeric.Count){return ''}
+    return [math]::Round(($numeric|Measure-Object -Maximum).Maximum,6)
+}
+foreach ($group in @($samples | Where-Object truth_evaluable -eq 1 |
+    Group-Object batch_id,trace_eye_usability)) {
+    $values=@($group.Group);$parts=$group.Name -split ', ',2
+    $known=@($values|Where-Object prediction_known -eq 1)
+    $duration=($values.duration_ms|Measure-Object -Sum).Sum
+    $knownDuration=($known.duration_ms|Measure-Object -Sum).Sum
+    $availability += [pscustomobject]@{
+        batch_id=$parts[0];trace_eye_usability=$parts[1];samples=$values.Count
+        episodes=$usabilityEpisodes["$($parts[0])|$($parts[1])"]
+        model_known_samples=$known.Count
+        model_known_fraction=[math]::Round($known.Count/$values.Count,6)
+        duration_ms=[math]::Round($duration,3)
+        model_known_duration_fraction=if($duration){[math]::Round($knownDuration/$duration,6)}else{0}
+        mean_eye_openness=Average-Numeric $values.trace_eye_openness
+        detected_fraction=[math]::Round(@($values|Where-Object trace_detected -eq '1').Count/$values.Count,6)
+        semantic_valid_fraction=[math]::Round(@($values|Where-Object trace_semantic_valid -eq '1').Count/$values.Count,6)
+        mean_quality_confidence=Average-Numeric $values.trace_eye_quality_confidence
+        mean_visibility=Average-Numeric $values.trace_eye_visibility
+        mean_contrast=Average-Numeric $values.trace_eye_contrast
+        maximum_absolute_yaw=Maximum-AbsoluteNumeric $values.trace_yaw_degrees
+        maximum_absolute_pitch=Maximum-AbsoluteNumeric $values.trace_pitch_degrees
+    }
+}
+
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
 $agreement | Export-Csv -NoTypeInformation -Encoding utf8BOM -LiteralPath (Join-Path $OutputDirectory 'dense-eye-agreement.csv')
 $samples | Sort-Object clip_id,{[int]$_.frame} | Export-Csv -NoTypeInformation -Encoding utf8BOM -LiteralPath (Join-Path $OutputDirectory 'dense-eye-samples.csv')
 $summary | Export-Csv -NoTypeInformation -Encoding utf8BOM -LiteralPath (Join-Path $OutputDirectory 'dense-eye-state-summary.csv')
 $perclosWindows | Export-Csv -NoTypeInformation -Encoding utf8BOM -LiteralPath (Join-Path $OutputDirectory 'dense-eye-perclos-windows.csv')
 $perclosSummary | Export-Csv -NoTypeInformation -Encoding utf8BOM -LiteralPath (Join-Path $OutputDirectory 'dense-eye-perclos-summary.csv')
+$confusion | Export-Csv -NoTypeInformation -Encoding utf8BOM -LiteralPath (Join-Path $OutputDirectory 'dense-eye-confusion.csv')
+$availability | Export-Csv -NoTypeInformation -Encoding utf8BOM -LiteralPath (Join-Path $OutputDirectory 'dense-eye-availability-summary.csv')
 $summary | Format-Table -AutoSize

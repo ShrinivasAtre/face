@@ -10,7 +10,7 @@
 - Stage 17 status: **COMPLETE — implementation, sustained tests, and Windows/Orin camera validation passed**
 - Stage 18 status: **COMPLETE — implementation and Windows/Ubuntu/Orin validation passed on 2026-08-24**
 - Stage 19 status: **IN PROGRESS — approved by the user on 2026-08-24**
-- Stage 20 status: **IN PROGRESS — mechanisms and approved policy implemented; production-accuracy gate remains open**
+- Stage 20 status: **IN PROGRESS — mechanisms, approved policy, first dense scoring, and second-batch tooling complete; new recordings and production-accuracy evidence remain open**
 - Sponsor recorded-video demonstration: **IMPLEMENTED AND PACKAGED — final physical rehearsal pending**
 - Later stages in this document are architectural commitments or benchmark gates, not accepted implementations.
 
@@ -592,6 +592,15 @@ and the conditional eye-ROI model gate remain open. The scorer produced
 0.0064 mean absolute PERCLOS error; the mostly-open single-session slice is
 tooling evidence rather than a production gate. See
 `docs/STAGE20_DENSE_EYE_STATE_RESULTS.md`.
+
+The product owner approved preparation, local extraction, and double review of
+a second private recording batch on 2026-09-03, still excluding model training.
+The batch initializer reserves anonymous clips C07-C18 for three additional
+subjects across visible eye-state, genuine IR, clear-glasses, and occlusion
+sessions. The recording guide, consent-explicit inventory, checksum freeze
+tool, and deterministic tests are committed. Recording and ingestion are now
+the external data dependency; see `docs/STAGE20_SECOND_BATCH_RECORDING_GUIDE.md`
+and `docs/STAGE20_STATUS.md`.
 
 ## Inputs currently unavailable
 

@@ -561,6 +561,11 @@ if(BUILD_TESTING)
             COMMAND ${FACE_POWERSHELL_EXECUTABLE} -NoProfile -File
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/score_dense_eye_roi_labels_test.ps1
         )
+        add_test(
+            NAME stage20_recording_batch_test
+            COMMAND ${FACE_POWERSHELL_EXECUTABLE} -NoProfile -File
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/stage20_recording_batch_test.ps1
+        )
     endif()
 
 

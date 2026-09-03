@@ -43,6 +43,8 @@ try {
     $summary = Import-Csv -LiteralPath (Join-Path $output 'dense-eye-state-summary.csv') |
         Where-Object batch_id -eq 'ALL'
     $perclos = Import-Csv -LiteralPath (Join-Path $output 'dense-eye-perclos-summary.csv')
+    $confusion = @(Import-Csv -LiteralPath (Join-Path $output 'dense-eye-confusion.csv'))
+    $availability = @(Import-Csv -LiteralPath (Join-Path $output 'dense-eye-availability-summary.csv'))
     if ($agreement.adjudicated_rows -ne '1' -or $agreement.eye_state_agreement -ne '0.833333') {
         throw 'Unexpected agreement result'
     }
@@ -53,6 +55,9 @@ try {
     if ($perclos.comparable_windows -ne '1' -or $perclos.mean_absolute_error -ne '0' -or
         $perclos.mean_truth_perclos -ne '0.5' -or $perclos.mean_model_perclos -ne '0.5') {
         throw 'Unexpected fixed-window PERCLOS score'
+    }
+    if($confusion.Count-ne2-or$availability.Count-ne1-or$availability[0].model_known_fraction-ne'1'){
+        throw 'Unexpected confusion or availability summary'
     }
     Write-Output 'dense eye ROI scoring test PASSED'
 } finally {

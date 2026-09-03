@@ -192,6 +192,7 @@ add_library(dms_core STATIC
     src/DmsTemporalEvents.cpp
     src/DmsPolicy.cpp
     src/RecordedFrameClock.cpp
+    src/DriverIdentityMatcher.cpp
 )
 
 add_library(pfld_landmark_provider STATIC
@@ -259,6 +260,18 @@ add_executable(face_benchmark
     src/YuNetPfldBackend.cpp
     src/BlinkTracker.cpp
 )
+
+add_executable(face_recognition_baseline
+    src/recognition_baseline.cpp
+)
+target_include_directories(face_recognition_baseline PRIVATE ${OpenCV_INCLUDE_DIRS})
+target_link_libraries(face_recognition_baseline PRIVATE ${OpenCV_LIBS})
+
+add_executable(face_pad_baseline
+    src/pad_baseline.cpp
+)
+target_include_directories(face_pad_baseline PRIVATE ${OpenCV_INCLUDE_DIRS})
+target_link_libraries(face_pad_baseline PRIVATE ${OpenCV_LIBS})
 
 add_executable(dms_sponsor_selftest
     src/sponsor_selftest.cpp
@@ -580,6 +593,12 @@ if(BUILD_TESTING)
     )
     target_link_libraries(dms_eye_metrics_test PRIVATE dms_core)
     add_test(NAME dms_eye_metrics_test COMMAND dms_eye_metrics_test)
+
+    add_executable(driver_identity_matcher_test
+        tests/driver_identity_matcher_test.cpp
+    )
+    target_link_libraries(driver_identity_matcher_test PRIVATE dms_core)
+    add_test(NAME driver_identity_matcher_test COMMAND driver_identity_matcher_test)
 
     add_executable(backend_face_geometry_mapper_test
         tests/backend_face_geometry_mapper_test.cpp

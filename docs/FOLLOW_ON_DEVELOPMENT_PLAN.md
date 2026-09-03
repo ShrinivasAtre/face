@@ -426,6 +426,20 @@ Add consented driver recognition plus cigarette-at-mouth and hand-held-object/dr
 - **USER INPUT — DATA/POLICY/PRODUCT:** approve the initial hand-held-object taxonomy and unknown-object behavior.
 - **USER INPUT — DATA/POLICY/PRODUCT:** after pretrained baselines are reported, approve any proposed data annotation, training, or fine-tuning effort. Production inference remains pure C++ even if offline training uses Python.
 
+### Driver-identification authorization — 2026-09-03
+
+The product owner separated driver identification from later object/context
+work and authorized Stage 21 Steps 21.0--21.3 on
+`feature/stage21-driver-identification`. Scope includes documentation,
+provider-neutral interfaces/tests, private local evaluation, and pretrained
+baseline benchmarking. Training, threshold approval, merge, and release remain
+excluded. The approved baseline is offline identification only, at most 50
+drivers, portable profiles, photo/video/live enrollment, retained enrollment
+images, generic DMS behavior for unknown drivers, controlled automatic profile
+improvement, mandatory spoof protection, and initial Windows/Ubuntu/Orin
+support for India. See `docs/STAGE21_DRIVER_IDENTIFICATION_PLAN.md` and
+`docs/STAGE21_PRODUCT_PRIVACY_DECISION_RECORD.md`.
+
 ## Stage 22 — native packaging matrix and Raspberry Pi enablement
 
 ### Objective

@@ -44,9 +44,12 @@ Likewise, a display crop must not silently become a processing crop.
       cumulative_enabled
       rolling_enabled
 
-The eventual file syntax may be JSON, TOML or another dependency-free format.
-Selection is an implementation decision only after parser, schema evolution and
-deployment constraints are reviewed.
+The implemented schema-1 file is a dependency-free UTF-8 `key=value` format
+with dotted keys. It permits blank lines and full-line `#` comments. The loader
+requires `schema_version`, rejects duplicate and unknown keys, accepts only
+canonical `true`/`false` booleans, and applies the same semantic validation as
+the in-memory value object. Omitted recognized settings retain documented safe
+defaults. See `config/dms-presentation.example.conf`.
 
 ## Area-of-interest rules
 
@@ -90,7 +93,8 @@ PERCLOS when coverage or classification domains differ.
 1. **Implemented on `feature/stage24-display-aoi-statistics`:** add a
    provider-neutral configuration value object, fail-closed validation,
    normalized-to-pixel ROI conversion and deterministic tests.
-2. Add a deterministic configuration loader with schema versioning.
+2. **Implemented:** add a deterministic dependency-free configuration loader
+   with mandatory schema versioning and strict key/value validation.
 3. Apply display flags only in rendering.
 4. Apply processing ROI before face detection and transform results back to
    full-frame coordinates.

@@ -32,6 +32,14 @@ truth conservatively, aligns sampled frames to schema-5 traces, and emits
 private per-sample data plus anonymous summaries. Its synthetic test checks a
 known disagreement, adjudication overlay, combined-eye state, and score.
 
+Cross-platform validation at commit `7799e2e`:
+
+- Windows x64 Release build passed and all 24 registered tests passed,
+  including the synthetic dense-eye scoring test.
+- Orin aarch64 Release build passed and all 23 applicable tests passed.
+  PowerShell is not installed on the Orin, so the PowerShell-only scorer test is
+  not registered there; no C++ runtime source changed in this increment.
+
 ## State-evaluation contract
 
 A paired frame is evaluable only when both eye crops are `quality=accepted`,

@@ -459,6 +459,49 @@ Produce self-contained CMake application packages for Windows x64, x64 Ubuntu, O
 - **USER INPUT — DATA/POLICY/PRODUCT:** confirm whether a Hailo accelerator is present and its exact model before the optional Hailo path begins.
 - **USER ACTION — CAMERA/DEVICE:** at the final gate, make the camera available on each physical target and visually confirm live behavior. The agent performs all builds, commands, packaging, and non-interactive validation.
 
+## Stage 23 — CPU/core and memory instrumentation
+
+**Status: IN PROGRESS**
+
+### Objective
+
+Extend the existing deterministic benchmark with reproducible run metadata,
+periodic CPU/memory/thread sampling, explicit operating phases, and component
+latency attribution. This stage characterizes resource use without changing DMS
+policy thresholds, scheduling, model behavior, or production resource limits.
+
+### Scope
+
+- Preserve existing aggregate CPU, resident-memory and latency fields while
+  adding a versioned compatible result schema.
+- Sample process CPU, per-logical-core system CPU, resident/private memory and
+  process thread count on Windows and Linux.
+- Mark startup, warm-up, initial calibration, normal processing and
+  recalibration samples.
+- Attribute capture, backend, face-geometry, eye mapping/EAR, eye
+  quality/calibration, temporal FSM and output latency.
+- Keep raw resource traces and private input paths outside Git; retain only
+  approved anonymous aggregate evidence.
+
+### Acceptance gate
+
+- Focused option and resource-profiler tests pass on Windows x64 and Orin
+  aarch64; an Ubuntu x64 build validates the generic Linux collector.
+- A deterministic recorded-input run produces valid schema-6 JSON and resource
+  CSV with matching sample counts and the expected logical-core columns.
+- Profiling on/off comparison shows no DMS output changes and quantifies the
+  profiler overhead before any performance conclusion is accepted.
+- The benchmark guide documents phase meanings, metric units, privacy rules and
+  repeatable commands.
+- Windows and Orin evidence is recorded before Stage 23 is marked complete.
+
+### Authorization and exclusions
+
+The product owner authorized Steps 1--4 (schema/metadata, sampling, phase
+markers and component timing) on 2026-09-03. CPU affinity, hard CPU limits,
+production budget selection, threshold changes, merge and release are not part
+of this implementation gate.
+
 ## Formal review checkpoints
 
 1. **Completed — plan freeze:** overall scope, architecture and acceptance criteria accepted on 2026-08-22.

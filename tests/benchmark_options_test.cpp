@@ -27,6 +27,14 @@ int main()
     ok &= expect(options.input == "face.jpg" && options.output == "result.json",
                  "paths");
     ok &= expect(options.trace == "frames.csv", "trace path");
+    const char* resources[] = {"bench", "--input=face.mp4",
+                               "--resource-trace=resources.csv",
+                               "--resource-sample-ms=125"};
+    ok &= expect(parseBenchmarkOptions(4, resources, options, error),
+                 "resource profiling options");
+    ok &= expect(options.resourceTrace == "resources.csv" &&
+                 options.resourceSampleMilliseconds == 125 && options.resourceProfile,
+                 "resource profiling values");
     const char* crops[] = {"bench", "--input=face.mp4", "--eye-crops-dir=private",
                            "--eye-crop-every=9"};
     ok &= expect(parseBenchmarkOptions(4, crops, options, error), "crop options");

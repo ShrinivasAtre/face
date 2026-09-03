@@ -31,13 +31,16 @@ bool parseBenchmarkOptions(int argc, const char* const argv[],
     bool inputSeen = false;
     bool outputSeen = false;
     bool traceSeen = false;
+    bool resourceTraceSeen = false;
     bool eyeCropsSeen = false;
     bool pfldModelSeen = false;
     bool warmupSeen = false;
     bool framesSeen = false;
     bool eyeCropEverySeen = false;
+    bool resourceSampleSeen = false;
     bool sponsorDemoSeen = false;
     bool sponsorDemoAutoExitSeen = false;
+    bool resourceProfileSeen = false;
 
     for (int index = 1; index < argc; ++index)
     {
@@ -74,6 +77,17 @@ bool parseBenchmarkOptions(int argc, const char* const argv[],
             options.sponsorDemoAutoExit = true;
             continue;
         }
+        if (argument == "--resource-profile")
+        {
+            if (resourceProfileSeen)
+            {
+                error = "--resource-profile may be specified only once.";
+                return false;
+            }
+            resourceProfileSeen = true;
+            options.resourceProfile = true;
+            continue;
+        }
 
         const auto parsePath = [&](const char* prefix, bool& seen,
                                    std::filesystem::path& destination) -> bool
@@ -99,6 +113,7 @@ bool parseBenchmarkOptions(int argc, const char* const argv[],
         if (parsePath("--input=", inputSeen, options.input) ||
             parsePath("--output=", outputSeen, options.output) ||
             parsePath("--trace=", traceSeen, options.trace) ||
+            parsePath("--resource-trace=", resourceTraceSeen, options.resourceTrace) ||
             parsePath("--eye-crops-dir=", eyeCropsSeen, options.eyeCropsDirectory) ||
             parsePath("--pfld-model=", pfldModelSeen, options.pfldModel))
         {
@@ -152,6 +167,12 @@ bool parseBenchmarkOptions(int argc, const char* const argv[],
             if (!error.empty()) return false;
             continue;
         }
+        if (parseCountOption("--resource-sample-ms=", resourceSampleSeen,
+                             options.resourceSampleMilliseconds))
+        {
+            if (!error.empty()) return false;
+            continue;
+        }
 
         error = "Unsupported argument: " + argument;
         return false;
@@ -162,6 +183,7 @@ bool parseBenchmarkOptions(int argc, const char* const argv[],
         error = "--input is required.";
         return false;
     }
+    if (resourceTraceSeen) options.resourceProfile = true;
     if (options.sponsorDemoAutoExit && !options.sponsorDemo)
     {
         error = "--sponsor-demo-auto-exit requires --sponsor-demo.";
@@ -188,5 +210,6 @@ std::string benchmarkUsage(const char* programName)
         " [--pfld-model=<landmarks_68_pfld.onnx>]"
         " [--warmup=N] [--frames=N] [--output=results.json]"
         " [--trace=frames.csv] [--eye-crops-dir=directory]"
+        " [--resource-profile] [--resource-trace=resources.csv] [--resource-sample-ms=N]"
         " [--eye-crop-every=N] [--sponsor-demo] [--sponsor-demo-auto-exit]";
 }

@@ -62,8 +62,9 @@ tested. The default remains unrestricted OS scheduling.
 ## Acceptance sequence
 
 1. Reuse the existing face_benchmark JSON timing and overall CPU/RSS fields.
-2. Add an external sampler for per-core CPU, process threads, temperature and
-   throttling without perturbing inference timing.
+2. Add an optional in-process sampler for portable process/per-core CPU,
+   process threads and memory, then correlate target-specific temperature and
+   throttling from external BSP tools without perturbing inference timing.
 3. Add explicit benchmark modes for R1, R4, R5, R6 and R7 comparisons.
 4. Run identical recorded input on Windows x64, Ubuntu x64 and Orin aarch64.
 5. Run camera scenarios only after notifying the user that physical camera
@@ -71,3 +72,18 @@ tested. The default remains unrestricted OS scheduling.
 6. Define any CPU/cadence budget only after evidence review; do not silently
    make a measured maximum into a product requirement.
 
+## Implementation checkpoint — 2026-09-03
+
+Steps 1--4 are implemented on `feature/stage23-resource-instrumentation` as
+schema 6.
+The benchmark now emits source/platform/compiler metadata, periodic process and
+per-core CPU samples, resident/private memory, thread count, operational phase
+summaries and component latency distributions. Windows uses native process
+counters and logical-processor performance information; Linux uses `getrusage`
+and `/proc`. Raw samples are optional CSV output.
+
+A Windows Release smoke run on a private recorded clip produced parseable JSON,
+18 matching CSV/JSON samples, and eight logical-core values per sample. This is
+implementation evidence only, not a performance baseline. Focused tests,
+profiler overhead measurement, Ubuntu/Orin validation and target-specific
+thermal collection remain open.

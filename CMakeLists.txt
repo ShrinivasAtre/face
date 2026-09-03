@@ -253,6 +253,7 @@ add_executable(yunet_demo
 
 add_executable(face_benchmark
     src/benchmark_main.cpp
+    src/ResourceProfiler.cpp
     src/EyeCropExtractor.cpp
     src/AppPaths.cpp
     src/BackendOptions.cpp
@@ -265,6 +266,21 @@ add_executable(face_benchmark
     src/YuNetLbfBackend.cpp
     src/YuNetPfldBackend.cpp
     src/BlinkTracker.cpp
+)
+
+execute_process(
+    COMMAND git -c safe.directory=${CMAKE_CURRENT_SOURCE_DIR}
+        rev-parse --short=12 HEAD
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    OUTPUT_VARIABLE FACE_SOURCE_REVISION
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+)
+if(FACE_SOURCE_REVISION STREQUAL "")
+    set(FACE_SOURCE_REVISION "unknown")
+endif()
+target_compile_definitions(face_benchmark PRIVATE
+    FACE_SOURCE_REVISION="${FACE_SOURCE_REVISION}"
 )
 
 add_executable(face_recognition_baseline
@@ -786,6 +802,17 @@ if(BUILD_TESTING)
         NAME benchmark_options_test
         COMMAND benchmark_options_test
     )
+
+    add_executable(resource_profiler_test
+        tests/resource_profiler_test.cpp
+        src/ResourceProfiler.cpp
+    )
+    target_include_directories(resource_profiler_test PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    if(WIN32)
+        target_link_libraries(resource_profiler_test PRIVATE Psapi)
+    endif()
+    add_test(NAME resource_profiler_test COMMAND resource_profiler_test)
 
     add_executable(eye_crop_extractor_test
         tests/eye_crop_extractor_test.cpp

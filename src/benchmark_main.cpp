@@ -13,6 +13,7 @@
 #include "FaceBackend.hpp"
 #include "PfldEyeLandmarkMapper.hpp"
 #include "RecordedFrameClock.hpp"
+#include "ResourceProfiler.hpp"
 #include "YuNetLbfBackend.hpp"
 #include "YuNetPfldBackend.hpp"
 
@@ -56,12 +57,21 @@ namespace
 {
 using Clock = std::chrono::steady_clock;
 
+#ifndef FACE_SOURCE_REVISION
+#define FACE_SOURCE_REVISION "unknown"
+#endif
+
 struct Samples
 {
     std::vector<double> capture;
     std::vector<double> backend;
     std::vector<double> semantic;
     std::vector<double> total;
+    std::vector<double> faceGeometry;
+    std::vector<double> eyeMappingAndEar;
+    std::vector<double> eyeQualityAndCalibration;
+    std::vector<double> temporalFsms;
+    std::vector<double> output;
 };
 
 struct Summary
@@ -166,6 +176,32 @@ const char *buildConfiguration() noexcept
 #endif
 }
 
+const char *platformName() noexcept
+{
+#ifdef _WIN32
+    return "windows-x64";
+#elif defined(__aarch64__)
+    return "linux-aarch64";
+#elif defined(__x86_64__)
+    return "linux-x64";
+#else
+    return "unknown";
+#endif
+}
+
+const char *compilerName() noexcept
+{
+#ifdef _MSC_VER
+    return "msvc";
+#elif defined(__clang__)
+    return "clang-" __clang_version__;
+#elif defined(__GNUC__)
+    return "gcc-" __VERSION__;
+#else
+    return "unknown";
+#endif
+}
+
 std::string jsonEscape(const std::string &input)
 {
     std::ostringstream output;
@@ -206,6 +242,21 @@ void writeSummary(std::ostream &output, const char *name, const Summary &value, 
     output << "    \"" << name << "\": {"
            << "\"mean\": " << value.mean << ", \"p50\": " << value.p50 << ", \"p95\": " << value.p95
            << ", \"p99\": " << value.p99 << ", \"min\": " << value.minimum << ", \"max\": " << value.maximum << "}"
+           << (trailingComma ? "," : "") << '\n';
+}
+
+void writeResourceSummary(std::ostream& output, const char* name,
+                          const ResourceSummary& value, bool trailingComma)
+{
+    output << "    \"" << name << "\": {\"samples\": " << value.samples
+           << ", \"process_cpu_mean_percent_total_capacity\": " << value.processCpuMean
+           << ", \"process_cpu_peak_percent_total_capacity\": " << value.processCpuPeak
+           << ", \"system_cpu_mean_percent\": " << value.systemCpuMean
+           << ", \"system_cpu_peak_core_percent\": " << value.systemCpuPeakCore
+           << ", \"resident_memory_min_bytes\": " << value.residentMemoryMinimumBytes
+           << ", \"resident_memory_max_bytes\": " << value.residentMemoryMaximumBytes
+           << ", \"private_memory_max_bytes\": " << value.privateMemoryMaximumBytes
+           << ", \"thread_count_max\": " << value.threadCountMaximum << "}"
            << (trailingComma ? "," : "") << '\n';
 }
 
@@ -500,6 +551,13 @@ int main(int argc, char **argv)
 
     try
     {
+        ResourceProfiler resourceProfiler(
+            std::chrono::milliseconds(options.resourceSampleMilliseconds));
+        if (options.resourceProfile)
+        {
+            resourceProfiler.start();
+            resourceProfiler.setPhase("startup");
+        }
         InputFrames input;
         if (!input.open(options.input))
         {
@@ -551,6 +609,7 @@ int main(int argc, char **argv)
         dms::EyeTemporalMetrics eyeMetrics(policy.eyeCalibration, policy.eye);
         dms::EyeOpenCalibrator eyeCalibrator(policy.eyeOpenCalibration);
         bool eyeCalibrationApplied = false;
+        bool calibrationCompletedOnce = false;
         dms::ObservationQualityGate qualityGate(policy.eyeQuality);
         EyeQualityAssessor eyeQualityAssessor;
         dms::YawnFsm yawnFsm(policy.yawn);
@@ -636,6 +695,11 @@ int main(int argc, char **argv)
         samples.backend.reserve(options.measuredFrames);
         samples.semantic.reserve(options.measuredFrames);
         samples.total.reserve(options.measuredFrames);
+        samples.faceGeometry.reserve(options.measuredFrames);
+        samples.eyeMappingAndEar.reserve(options.measuredFrames);
+        samples.eyeQualityAndCalibration.reserve(options.measuredFrames);
+        samples.temporalFsms.reserve(options.measuredFrames);
+        samples.output.reserve(options.measuredFrames);
         std::size_t detectedFrames = 0;
         std::size_t successfulFrames = 0;
         std::size_t usableEyeFrames = 0;
@@ -670,6 +734,12 @@ int main(int argc, char **argv)
         const auto wallStart = Clock::now();
         for (std::size_t index = 0; index < totalFrames; ++index)
         {
+            if (index < options.warmupFrames)
+                resourceProfiler.setPhase("warmup");
+            else if (!eyeCalibrationApplied)
+                resourceProfiler.setPhase(calibrationCompletedOnce ? "recalibration" : "calibration");
+            else
+                resourceProfiler.setPhase("processing");
             const auto totalStart = Clock::now();
             const auto captureStart = totalStart;
             if (!input.next(frame, !options.sponsorDemo))
@@ -688,6 +758,7 @@ int main(int argc, char **argv)
             SemanticEyeLandmarks eyes;
             bool eyeMapped = false;
             SemanticFaceGeometry faceGeometry;
+            const auto faceGeometryStart = Clock::now();
             const bool faceGeometryValid = mapBackendFaceGeometry(options.backend, faceResult, faceGeometry);
             const std::optional<float> mouthOpenness = faceGeometryValid
                 ? calculateMouthOpenness(faceGeometry) : std::nullopt;
@@ -696,6 +767,8 @@ int main(int argc, char **argv)
                 estimateHeadPose(faceGeometry, frame.size(), poseAngles);
             SemanticGaze gaze;
             const bool gazeValid = mapBackendGaze(options.backend, faceResult, gaze);
+            const auto faceGeometryEnd = Clock::now();
+            const auto eyeMappingStart = faceGeometryEnd;
             if (backendSuccess && faceResult.detected)
             {
                 eyeMapped = options.backend == BackendKind::Pfld
@@ -746,10 +819,12 @@ int main(int argc, char **argv)
                     semanticSuccess = tracker.process(frame, eyes);
                 }
             }
+            const auto eyeMappingEnd = Clock::now();
             const auto semanticEnd = Clock::now();
 
             if (index >= options.warmupFrames)
             {
+                const auto qualityCalibrationStart = Clock::now();
                 dms::EyeMetricInput eyeInput;
                 eyeInput.timestamp = input.timestamp();
                 if (!faceResult.detected)
@@ -804,6 +879,7 @@ int main(int argc, char **argv)
                     {
                         eyeMetrics.setCalibration(*calibratedEyes);
                         eyeCalibrationApplied = true;
+                        calibrationCompletedOnce = true;
                     }
                     else
                         eyeInput.usability = dms::ObservationUsability::Recovering;
@@ -820,6 +896,9 @@ int main(int argc, char **argv)
                 else if (semanticSuccess && eyeInput.usability != dms::ObservationUsability::Usable &&
                          eyeInput.usability != dms::ObservationUsability::Recovering)
                     ++lowQualityEyeFrames;
+
+                const auto qualityCalibrationEnd = Clock::now();
+                const auto temporalFsmsStart = qualityCalibrationEnd;
 
                 const auto geometryUsability = faceGeometryValid
                     ? dms::ObservationUsability::Usable : dms::ObservationUsability::Missing;
@@ -857,11 +936,18 @@ int main(int argc, char **argv)
                     ++distractedFrames;
                 if (finalDistraction.event)
                     ++distractionEventCount;
+                const auto temporalFsmsEnd = Clock::now();
 
                 samples.capture.push_back(milliseconds(captureEnd - captureStart));
                 samples.backend.push_back(milliseconds(backendEnd - backendStart));
                 samples.semantic.push_back(milliseconds(semanticEnd - semanticStart));
-                samples.total.push_back(milliseconds(semanticEnd - totalStart));
+                samples.total.push_back(milliseconds(temporalFsmsEnd - totalStart));
+                samples.faceGeometry.push_back(milliseconds(faceGeometryEnd - faceGeometryStart));
+                samples.eyeMappingAndEar.push_back(milliseconds(eyeMappingEnd - eyeMappingStart));
+                samples.eyeQualityAndCalibration.push_back(
+                    milliseconds(qualityCalibrationEnd - qualityCalibrationStart));
+                samples.temporalFsms.push_back(milliseconds(temporalFsmsEnd - temporalFsmsStart));
+                const auto outputStart = Clock::now();
                 if (backendSuccess)
                     ++successfulFrames;
                 if (backendSuccess && faceResult.detected)
@@ -923,7 +1009,8 @@ int main(int argc, char **argv)
                           << finalDrowsiness.recentYawns;
                     trace << ',' << faceResult.faceBox.x << ',' << faceResult.faceBox.y << ','
                           << faceResult.faceBox.width << ',' << faceResult.faceBox.height << ','
-                          << milliseconds(backendEnd - backendStart) << ',' << milliseconds(semanticEnd - totalStart)
+                          << milliseconds(backendEnd - backendStart) << ','
+                          << milliseconds(temporalFsmsEnd - totalStart)
                           << '\n';
                 }
                 if (options.sponsorDemo)
@@ -950,12 +1037,25 @@ int main(int argc, char **argv)
                     if (key == 27 || key == 'q' || key == 'Q')
                     {
                         userStoppedDemo = true;
+                        samples.output.push_back(milliseconds(Clock::now() - outputStart));
                         break;
                     }
                 }
+                samples.output.push_back(milliseconds(Clock::now() - outputStart));
             }
         }
         const auto wallEnd = Clock::now();
+        if (options.resourceProfile)
+        {
+            resourceProfiler.setPhase("shutdown");
+            resourceProfiler.stop();
+        }
+        if (!options.resourceTrace.empty() &&
+            !resourceProfiler.writeCsv(options.resourceTrace, error))
+        {
+            std::cerr << "Error: " << error << '\n';
+            return 1;
+        }
         const std::clock_t cpuEnd = std::clock();
         const double wallSeconds = std::chrono::duration<double>(wallEnd - wallStart).count();
         const double measuredSeconds = [&]() {
@@ -973,9 +1073,14 @@ int main(int argc, char **argv)
 
         std::ostringstream json;
         json << std::fixed << std::setprecision(6) << "{\n"
-             << "  \"schema_version\": 5,\n"
+             << "  \"schema_version\": 6,\n"
              << "  \"backend\": \"" << backendName(options.backend) << "\",\n"
              << "  \"build_configuration\": \"" << buildConfiguration() << "\",\n"
+             << "  \"benchmark_metadata\": {\"source_revision\": \"" << FACE_SOURCE_REVISION
+             << "\", \"platform\": \"" << platformName() << "\", \"compiler\": \""
+             << compilerName() << "\", \"resource_sample_interval_ms\": "
+             << options.resourceSampleMilliseconds << ", \"resource_profiling_enabled\": "
+             << (options.resourceProfile ? "true" : "false") << "},\n"
              << "  \"input\": \"" << jsonEscape(options.input.string()) << "\",\n"
              << "  \"input_kind\": \"" << input.kind() << "\",\n"
              << "  \"input_width\": " << inputSize.width << ",\n"
@@ -997,6 +1102,14 @@ int main(int argc, char **argv)
              << "  \"final_resident_memory_bytes\": " << finalResidentMemory << ",\n"
              << "  \"resident_memory_growth_bytes\": " << residentMemoryGrowth << ",\n"
              << "  \"peak_resident_memory_bytes\": " << peakResidentMemoryBytes() << ",\n"
+             << "  \"resource_profile\": {\n";
+        writeResourceSummary(json, "overall", resourceProfiler.summarize(), true);
+        writeResourceSummary(json, "startup", resourceProfiler.summarize("startup"), true);
+        writeResourceSummary(json, "warmup", resourceProfiler.summarize("warmup"), true);
+        writeResourceSummary(json, "calibration", resourceProfiler.summarize("calibration"), true);
+        writeResourceSummary(json, "processing", resourceProfiler.summarize("processing"), true);
+        writeResourceSummary(json, "recalibration", resourceProfiler.summarize("recalibration"), false);
+        json << "  },\n"
              << "  \"eye_metrics\": {\n"
              << "    \"policy_profile\": \"" << policy.name << "\",\n"
              << "    \"closed_ear_calibration\": " << eyeMetrics.calibration().closedEar << ",\n"
@@ -1035,6 +1148,11 @@ int main(int argc, char **argv)
         writeSummary(json, "capture", summarize(samples.capture), true);
         writeSummary(json, "backend", summarize(samples.backend), true);
         writeSummary(json, "semantic", summarize(samples.semantic), true);
+        writeSummary(json, "face_geometry", summarize(samples.faceGeometry), true);
+        writeSummary(json, "eye_mapping_and_ear", summarize(samples.eyeMappingAndEar), true);
+        writeSummary(json, "eye_quality_and_calibration", summarize(samples.eyeQualityAndCalibration), true);
+        writeSummary(json, "temporal_fsms", summarize(samples.temporalFsms), true);
+        writeSummary(json, "output", summarize(samples.output), true);
         writeSummary(json, "end_to_end", summarize(samples.total), false);
         json << "  }\n}\n";
 

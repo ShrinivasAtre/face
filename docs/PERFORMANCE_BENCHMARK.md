@@ -4,7 +4,7 @@
 
 `face_benchmark` runs the production backend and semantic eye/blink path without a camera or GUI. It accepts a still image (repeated without decode cost) or a video (decoded sequentially and restarted at end), performs warm-up frames, and writes versioned JSON results.
 
-Schema version 3 also feeds the provider-neutral Stage 20 eye metric FSM. Video
+Schema version 6 also feeds the provider-neutral Stage 20 eye metric FSM. Video
 presentation timestamps are converted to a strictly monotonic recorded timeline;
 duplicate, missing, backward, and loop-reset timestamps advance by the nominal
 frame period. Temporal durations therefore describe recording time rather than
@@ -36,11 +36,23 @@ Configure an enabled Release build using the platform's accepted MediaPipe runti
 face_benchmark --backend=yunet|mediapipe --input=<image-or-video> --warmup=10 --frames=100 --output=<result.json>
 ```
 
+For periodic CPU/core, memory and thread sampling, add:
+
+```text
+--resource-profile --resource-trace=<private-resource-samples.csv> --resource-sample-ms=200
+```
+
+`--resource-profile` enables periodic sampling; specifying `--resource-trace`
+also enables it. The resource trace contains elapsed time, operational phase, process CPU as a
+percentage of total machine capacity, resident/private bytes, process thread
+count, and a semicolon-separated utilization value for every logical core.
+Keep raw traces outside Git when they can be associated with private input.
+
 The executable locates the deployed models and runtime bridge relative to itself, exactly like `yunet_demo`.
 
 ## Result contract
 
-Schema version 2 records:
+Schema version 6 records:
 
 - backend, optimized/debug build configuration, input kind and decoded dimensions;
 - warm-up, measured, successful and detected frame counts;
@@ -49,6 +61,17 @@ Schema version 2 records:
 - process CPU as a percentage of total logical-CPU capacity;
 - logical CPU count, initial/final/peak resident memory and resident-memory growth;
 - mean, p50, p95, p99, minimum and maximum latency for input acquisition, backend processing, semantic eye/blink processing and end-to-end processing.
+- source revision, target platform, compiler and resource-sampling interval;
+- sampled resource summaries overall and for startup, warm-up, calibration,
+  processing and recalibration;
+- component latency for face geometry, eye mapping/EAR, eye quality/calibration,
+  temporal FSMs and output in addition to the stable aggregate timings.
+
+`calibration` is the initial quality-gated eye-open calibration period.
+`recalibration` begins after an accepted calibration is reset by the existing
+absence/invalid-geometry policy. A phase with zero samples was shorter than the
+configured sampling interval or was not entered; it must not be interpreted as
+zero resource usage.
 
 The backend measurement includes any bridge-side BGR-to-RGB conversion, inference and result conversion. Bridge-internal timings may be added as a compatible diagnostic extension, but must not replace the end-to-end measurement.
 

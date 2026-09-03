@@ -586,8 +586,11 @@ on 2026-09-03. Deterministic dense-state scoring now reports 87.82%
 duration-weighted model-known coverage, 98.50% conditional state accuracy, and
 86.51% end-to-end accuracy over 1,216 evaluable paired samples. Availability,
 especially in the single IR session, is the dominant remaining eye-state
-failure. Thresholds remain unchanged; fixed-window PERCLOS scoring and the
-conditional eye-ROI model gate remain open. See
+failure. Thresholds remain unchanged; broader fixed-window PERCLOS validation
+and the conditional eye-ROI model gate remain open. The scorer produced
+230 comparable 60-second windows on the only sufficiently long clip, with
+0.0064 mean absolute PERCLOS error; the mostly-open single-session slice is
+tooling evidence rather than a production gate. See
 `docs/STAGE20_DENSE_EYE_STATE_RESULTS.md`.
 
 ## Inputs currently unavailable

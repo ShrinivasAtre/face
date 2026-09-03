@@ -32,7 +32,7 @@ truth conservatively, aligns sampled frames to schema-5 traces, and emits
 private per-sample data plus anonymous summaries. Its synthetic test checks a
 known disagreement, adjudication overlay, combined-eye state, and score.
 
-Cross-platform validation at commit `7799e2e`:
+Initial cross-platform validation at commit `7799e2e`:
 
 - Windows x64 Release build passed and all 24 registered tests passed,
   including the synthetic dense-eye scoring test.
@@ -76,16 +76,30 @@ dominant failure is therefore availability rather than open/closed confusion.
 IR has 78.10% model-known coverage despite perfect conditional classification,
 and the explicit occlusion clip has only 50.26% evaluable human truth.
 
+## Fixed-window PERCLOS
+
+The scorer also integrates adjudicated truth and schema-5 PERCLOS over aligned
+60-second windows. A window is comparable only when human-known coverage is at
+least the approved 80% and the model publishes PERCLOS. C04 is the only clip
+longer than 60 seconds: its 230 comparable windows have mean absolute error
+0.006355 and maximum absolute error 0.016100. Mean truth PERCLOS is 0.013587;
+mean model PERCLOS is 0.019939.
+
+This is a narrow, mostly-open visible-light slice. It validates the scoring
+path but cannot establish PERCLOS accuracy across fatigue, IR, occlusion, or
+subjects. The other five clips are shorter than the approved window and
+correctly produce no comparable 60-second result.
+
 ## Interpretation and next gate
 
 This evidence supports conservative unknown-state handling and shows strong
 classification when the calibrated temporal state is available. It does not
 close the production gate: only two subjects and three sessions are represented,
 IR covers one subject/session, and model-known coverage remains weakest on IR.
-The aggregate closed fractions are diagnostic, not a fixed-window PERCLOS
-accuracy claim.
+The aggregate closed fractions remain diagnostic. The fixed-window C04 result
+is retained as development evidence, not a production PERCLOS accuracy claim.
 
-Keep the approved thresholds unchanged. Next, add fixed-window truth PERCLOS
-scoring with explicit human-known coverage, then determine whether the IR and
+Keep the approved thresholds unchanged. Next, determine whether the IR and
 occlusion availability shortfall triggers the documented eye-ROI model
-evaluation gate. Model training still requires separate approval.
+evaluation gate and collect longer subject/session-disjoint PERCLOS recordings.
+Model training still requires separate approval.

@@ -3,10 +3,16 @@ param(
     [Parameter(Mandatory=$true)] [string] $AnnotatorBDirectory,
     [Parameter(Mandatory=$true)] [string] $AdjudicationCsv,
     [Parameter(Mandatory=$true)] [string] $TraceDirectory,
-    [Parameter(Mandatory=$true)] [string] $OutputDirectory
+    [Parameter(Mandatory=$true)] [string] $OutputDirectory,
+    [double] $PerclosWindowMs = 60000.0,
+    [double] $MinimumTruthCoverage = 0.80
 )
 
 $ErrorActionPreference = 'Stop'
+if ($PerclosWindowMs -le 0.0) { throw 'PerclosWindowMs must be positive' }
+if ($MinimumTruthCoverage -lt 0.0 -or $MinimumTruthCoverage -gt 1.0) {
+    throw 'MinimumTruthCoverage must be in [0, 1]'
+}
 $fields = @('visibility', 'eye_state', 'occluder', 'quality')
 $allowed = @{
     visibility = @('visible', 'partial', 'occluded', 'invalid', 'uncertain')
@@ -213,8 +219,62 @@ foreach ($group in @($samples | Group-Object batch_id,clip_id)) {
 }
 $summary += Summarize @($samples) 'ALL' 'ALL'
 
+$perclosWindows = @()
+foreach ($clip in @($samples | Group-Object clip_id)) {
+    $ordered = @($clip.Group | Sort-Object {[double]$_.timestamp_ms})
+    $clipStart = [double]$ordered[0].timestamp_ms
+    foreach ($endpoint in $ordered) {
+        $endMs = [double]$endpoint.timestamp_ms
+        $startMs = $endMs - $PerclosWindowMs
+        if ($startMs -lt $clipStart) { continue }
+        $knownMs = 0.0; $closedMs = 0.0
+        foreach ($sample in $ordered) {
+            $sampleStart = [double]$sample.timestamp_ms
+            $sampleEnd = $sampleStart + [double]$sample.duration_ms
+            $overlap = [math]::Min($sampleEnd, $endMs) - [math]::Max($sampleStart, $startMs)
+            if ($overlap -le 0.0 -or $sample.truth_evaluable -ne 1) { continue }
+            $knownMs += $overlap
+            if ($sample.truth_state -eq 'closed') { $closedMs += $overlap }
+        }
+        $coverage = $knownMs / $PerclosWindowMs
+        $truthPerclos = if ($coverage -ge $MinimumTruthCoverage -and $knownMs -gt 0.0) {
+            $closedMs / $knownMs
+        } else { $null }
+        $modelPerclos = $null
+        if (-not [string]::IsNullOrWhiteSpace($endpoint.trace_perclos)) {
+            $modelPerclos = [double]$endpoint.trace_perclos
+        }
+        $comparable = $null -ne $truthPerclos -and $null -ne $modelPerclos
+        $perclosWindows += [pscustomobject]@{
+            batch_id=$endpoint.batch_id; clip_id=$endpoint.clip_id; end_frame=$endpoint.frame
+            start_ms=[math]::Round($startMs,3); end_ms=[math]::Round($endMs,3)
+            truth_known_coverage=[math]::Round($coverage,6)
+            truth_perclos=if($null-ne$truthPerclos){[math]::Round($truthPerclos,6)}else{''}
+            model_perclos=if($null-ne$modelPerclos){[math]::Round($modelPerclos,6)}else{''}
+            model_perclos_coverage=$endpoint.trace_perclos_coverage
+            comparable=[int]$comparable
+            absolute_error=if($comparable){[math]::Round([math]::Abs($truthPerclos-$modelPerclos),6)}else{''}
+        }
+    }
+}
+
+$perclosSummary = @()
+foreach ($group in @($perclosWindows | Where-Object comparable -eq 1 | Group-Object batch_id,clip_id)) {
+    $values = @($group.Group)
+    $parts = $group.Name -split ', ',2
+    $perclosSummary += [pscustomobject]@{
+        batch_id=$parts[0]; clip_id=$parts[1]; comparable_windows=$values.Count
+        mean_absolute_error=[math]::Round(($values.absolute_error | Measure-Object -Average).Average,6)
+        maximum_absolute_error=[math]::Round(($values.absolute_error | Measure-Object -Maximum).Maximum,6)
+        mean_truth_perclos=[math]::Round(($values.truth_perclos | Measure-Object -Average).Average,6)
+        mean_model_perclos=[math]::Round(($values.model_perclos | Measure-Object -Average).Average,6)
+    }
+}
+
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
 $agreement | Export-Csv -NoTypeInformation -Encoding utf8BOM -LiteralPath (Join-Path $OutputDirectory 'dense-eye-agreement.csv')
 $samples | Sort-Object clip_id,{[int]$_.frame} | Export-Csv -NoTypeInformation -Encoding utf8BOM -LiteralPath (Join-Path $OutputDirectory 'dense-eye-samples.csv')
 $summary | Export-Csv -NoTypeInformation -Encoding utf8BOM -LiteralPath (Join-Path $OutputDirectory 'dense-eye-state-summary.csv')
+$perclosWindows | Export-Csv -NoTypeInformation -Encoding utf8BOM -LiteralPath (Join-Path $OutputDirectory 'dense-eye-perclos-windows.csv')
+$perclosSummary | Export-Csv -NoTypeInformation -Encoding utf8BOM -LiteralPath (Join-Path $OutputDirectory 'dense-eye-perclos-summary.csv')
 $summary | Format-Table -AutoSize

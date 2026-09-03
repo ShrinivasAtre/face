@@ -113,8 +113,11 @@ Dense sampled open/closed/visibility truth is now available for the six private
 development clips. Over 1,216 evaluable paired samples, duration-weighted
 model-known coverage is 87.82%, conditional state accuracy is 98.50%, and
 end-to-end accuracy is 86.51%. Availability is weakest in the single IR
-session. Fixed-window PERCLOS and openness-regression accuracy are not yet
-claimed; see `docs/STAGE20_DENSE_EYE_STATE_RESULTS.md`.
+session. The only clip long enough for a 60-second window produced 230
+comparable windows with 0.0064 mean absolute PERCLOS error, but it is one
+mostly-open visible session and not a production accuracy claim.
+Openness-regression accuracy is not yet available; see
+`docs/STAGE20_DENSE_EYE_STATE_RESULTS.md`.
 
 ## Eye-ROI benchmark status
 

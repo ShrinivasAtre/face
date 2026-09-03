@@ -84,6 +84,16 @@ and `/proc`. Raw samples are optional CSV output.
 
 A Windows Release smoke run on a private recorded clip produced parseable JSON,
 18 matching CSV/JSON samples, and eight logical-core values per sample. This is
-implementation evidence only, not a performance baseline. Focused tests,
-profiler overhead measurement, Ubuntu/Orin validation and target-specific
-thermal collection remain open.
+implementation evidence only, not a performance baseline. Repeated profiler
+overhead measurement, Ubuntu validation and target-specific thermal collection
+remain open.
+
+Orin aarch64 validation at commit `f5cc99a` used a fresh
+`~/common/p23/face-stage23` checkout, the accepted Stage 17 MediaPipe runtime,
+GCC 13.3.0 and OpenCV 4.8.0. The Release build passed all 22 applicable CTests,
+including `resource_profiler_test`. A 20-frame checksum-pinned still-image
+smoke run detected all 20 frames and produced schema-6 output with 186 matching
+resource samples across all six logical cores. The observed 5.507 FPS and
+resource values are smoke evidence only, not a repeated benchmark baseline.
+Profiler overhead, recorded-video phase coverage, thermals and sustained-run
+evidence remain open.

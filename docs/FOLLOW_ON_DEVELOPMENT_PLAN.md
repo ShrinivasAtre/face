@@ -502,6 +502,19 @@ markers and component timing) on 2026-09-03. CPU affinity, hard CPU limits,
 production budget selection, threshold changes, merge and release are not part
 of this implementation gate.
 
+### Initial implementation evidence — 2026-09-03
+
+- Windows x64 Release built successfully and all 28 registered tests passed.
+  A private recorded-video smoke run produced matching schema-6 JSON/CSV
+  samples with all eight logical-core columns populated.
+- Orin aarch64 Release built from a fresh `~/common/p23/face-stage23` checkout
+  at commit `f5cc99a`; all 22 applicable tests passed. The checksum-pinned
+  still-image MediaPipe smoke run detected 20/20 frames, produced 186 matching
+  samples and populated all six logical-core columns.
+- These short runs validate instrumentation plumbing. Repeated profiling-on/off
+  overhead, recorded calibration/processing phase coverage, thermal correlation
+  and sustained-resource characterization remain required for completion.
+
 ## Formal review checkpoints
 
 1. **Completed — plan freeze:** overall scope, architecture and acceptance criteria accepted on 2026-08-22.

@@ -554,6 +554,15 @@ endif()
 # ============================================================
 
 if(BUILD_TESTING)
+    find_program(FACE_POWERSHELL_EXECUTABLE NAMES pwsh powershell)
+    if(FACE_POWERSHELL_EXECUTABLE)
+        add_test(
+            NAME score_dense_eye_roi_labels_test
+            COMMAND ${FACE_POWERSHELL_EXECUTABLE} -NoProfile -File
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/score_dense_eye_roi_labels_test.ps1
+        )
+    endif()
+
 
     add_test(
         NAME dms_sponsor_selftest

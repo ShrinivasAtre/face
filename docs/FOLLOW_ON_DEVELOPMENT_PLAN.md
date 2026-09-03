@@ -581,8 +581,14 @@ checksum and expanded into independent templates for two anonymous annotators.
 Each annotator receives three complete subject/session batches: 1,722 rows for
 the first visible session, 290 rows for the IR session, and 816 rows for the
 second visible session. Labels and templates remain outside Git. Human review,
-independent second-pass completion, validation, and adjudication are the next
-open gate.
+independent second-pass completion, validation, and adjudication were completed
+on 2026-09-03. Deterministic dense-state scoring now reports 87.82%
+duration-weighted model-known coverage, 98.50% conditional state accuracy, and
+86.51% end-to-end accuracy over 1,216 evaluable paired samples. Availability,
+especially in the single IR session, is the dominant remaining eye-state
+failure. Thresholds remain unchanged; fixed-window PERCLOS scoring and the
+conditional eye-ROI model gate remain open. See
+`docs/STAGE20_DENSE_EYE_STATE_RESULTS.md`.
 
 ## Inputs currently unavailable
 

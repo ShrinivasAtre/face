@@ -109,8 +109,12 @@ found concrete sign, gating, reacquisition, threshold, and annotation-contract
 issues. See `docs/STAGE20_ACCURACY_CHECKPOINT.md` and the latest pose/gaze review
 before repeating those scores.
 
-Dense open/closed/visibility state truth is not yet available, so eye-state
-accuracy, known coverage, openness error, and PERCLOS error cannot be claimed.
+Dense sampled open/closed/visibility truth is now available for the six private
+development clips. Over 1,216 evaluable paired samples, duration-weighted
+model-known coverage is 87.82%, conditional state accuracy is 98.50%, and
+end-to-end accuracy is 86.51%. Availability is weakest in the single IR
+session. Fixed-window PERCLOS and openness-regression accuracy are not yet
+claimed; see `docs/STAGE20_DENSE_EYE_STATE_RESULTS.md`.
 
 ## Eye-ROI benchmark status
 

@@ -12,7 +12,7 @@ Date: 2026-09-03
 | 6 | Recognition/enrollment/PAD/profile interfaces | Complete for 21.0--21.3 | Provider-neutral contracts and matcher test added; export/session implementations deferred |
 | 7 | Prototype and production evaluation protocols | Complete | Five-person prototype explicitly separated from production evidence |
 | 8 | Pretrained candidate/license research | Complete | SFace evaluation-only; InsightFace public weights excluded; PAD candidate recorded |
-| 9 | Local pretrained baselines | Partial | Windows measured; Ubuntu build/tests pass but OpenCV 4.6 cannot execute either model; Orin transfer approval pending |
+| 9 | Local pretrained baselines | Complete | Windows public-fixture recognition/PAD plumbing and latency measured; no accuracy/threshold claim |
 
 ## Current constraints
 
@@ -22,3 +22,5 @@ Date: 2026-09-03
 - Merge and release are not authorized.
 - The Ubuntu candidate runtime must be upgraded or replaced before model support
   can be claimed; the current provider-neutral matcher itself passes on Ubuntu.
+- Orin model/runtime validation remains part of the later Stage 21.7 platform
+  gate, not the completed local-baseline gate.

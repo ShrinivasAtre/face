@@ -54,13 +54,13 @@ claim Ubuntu support through the current distribution runtime. The next model
 gate must either validate a pinned newer OpenCV build or introduce a separately
 packaged provider such as ONNX Runtime, then rerun the exact hashes.
 
-## Orin status
+## Orin status for later Stage 21.7
 
 The configured Orin is reachable and reports aarch64 with OpenCV 4.8.0. Copying
 the exact committed Git bundle and external evaluation assets to its fresh
 `~/common/p21` root requires explicit authorization for source/model transfer.
-No Orin Stage 21 build or model result is claimed until that transfer is approved
-and the exact commit and hashes are verified on-device.
+No Orin Stage 21 build or model result is claimed. That cross-platform work is
+part of the later Stage 21.7 gate, outside this completed local baseline.
 
 ## Commands
 
@@ -78,8 +78,9 @@ schema-1 JSON object and never save an image or embedding.
 
 ## Next evidence gate
 
-Resolve the Ubuntu runtime compatibility and run the exact commit/model/fixture
-hashes on Orin aarch64. Then collect separately consented five-person
+The authorized local-baseline gate is complete. Before platform acceptance,
+resolve the Ubuntu runtime compatibility and run the exact commit/model/fixture
+hashes on Orin aarch64. Separately collect consented five-person
 enrollment/probe/PAD data
 before reporting identity or spoof accuracy. A larger representative dataset is
 still required for production thresholds and a 50-driver gallery claim.

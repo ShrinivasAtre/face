@@ -26,7 +26,7 @@ excluded.
 | 21.1 | Provider-neutral architecture/interfaces | Implemented | Interfaces and deterministic matcher test pass |
 | 21.2 | Evaluation/data protocol | Complete for prototype | Leakage-safe protocol and metrics recorded |
 | 21.3a | Model/license survey | Complete | Candidate, exclusion, and provenance matrix recorded |
-| 21.3b | Local pretrained baseline | Windows complete; cross-platform pending | Reproducible public-fixture measurements recorded |
+| 21.3b | Local pretrained baseline | Partial | Windows measured; Ubuntu OpenCV 4.6 incompatibility recorded; Orin pending |
 | 21.3c | Five-person private baseline | Waiting for data | Specific identity/PAD consent and enrollment captures available |
 | 21.4 | Enrollment application | Not authorized | Separate implementation approval after baseline review |
 | 21.5 | Runtime integration/session FSM | Not authorized | Separate implementation approval after threshold review |

@@ -40,6 +40,28 @@ pair is the identical image, and two downloaded digital photographs are not
 valid camera-captured bona-fide/PAD samples. The contradictory PAD outputs
 demonstrate why a threshold or accuracy claim from these fixtures is prohibited.
 
+## Ubuntu x64 result
+
+A fresh checkout of commit `0e3ef41` configured and built in Ubuntu 24.04 x64
+with GCC 13.3.0, CMake 3.28.3, and the distribution OpenCV 4.6.0. All 20
+applicable CTests passed, including `driver_identity_matcher_test`.
+
+All four external input SHA-256 values matched Windows. Both SFace and
+`anti-spoof-mn3` failed at model execution with OpenCV DNN reporting
+`Layer with requested id=-1 not found`. This is a runtime/model compatibility
+failure in OpenCV 4.6.0; no latency or score is reported. The candidate cannot
+claim Ubuntu support through the current distribution runtime. The next model
+gate must either validate a pinned newer OpenCV build or introduce a separately
+packaged provider such as ONNX Runtime, then rerun the exact hashes.
+
+## Orin status
+
+The configured Orin is reachable and reports aarch64 with OpenCV 4.8.0. Copying
+the exact committed Git bundle and external evaluation assets to its fresh
+`~/common/p21` root requires explicit authorization for source/model transfer.
+No Orin Stage 21 build or model result is claimed until that transfer is approved
+and the exact commit and hashes are verified on-device.
+
 ## Commands
 
 ```text
@@ -56,7 +78,8 @@ schema-1 JSON object and never save an image or embedding.
 
 ## Next evidence gate
 
-Run the same binaries and exact model/fixture hashes on Ubuntu x64 and Orin
-aarch64. Then collect separately consented five-person enrollment/probe/PAD data
+Resolve the Ubuntu runtime compatibility and run the exact commit/model/fixture
+hashes on Orin aarch64. Then collect separately consented five-person
+enrollment/probe/PAD data
 before reporting identity or spoof accuracy. A larger representative dataset is
 still required for production thresholds and a 50-driver gallery claim.

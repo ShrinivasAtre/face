@@ -13,6 +13,7 @@ Date: 2026-09-03
 | 7 | Prototype and production evaluation protocols | Complete | Five-person prototype explicitly separated from production evidence |
 | 8 | Pretrained candidate/license research | Complete | SFace evaluation-only; InsightFace public weights excluded; PAD candidate recorded |
 | 9 | Local pretrained baselines | Complete | Windows public-fixture recognition/PAD plumbing and latency measured; no accuracy/threshold claim |
+| 10 | Stage 21.4 encrypted profile foundation | In progress | Windows CNG store, profile lifecycle, media capture/export, and tests implemented; import/Linux crypto/provider integration remain |
 
 ## Current constraints
 

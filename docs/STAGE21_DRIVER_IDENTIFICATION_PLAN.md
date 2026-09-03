@@ -28,7 +28,7 @@ excluded.
 | 21.3a | Model/license survey | Complete | Candidate, exclusion, and provenance matrix recorded |
 | 21.3b | Local pretrained baseline | Complete | Windows public-fixture inference/latency measured; Ubuntu compatibility finding recorded |
 | 21.3c | Five-person private baseline | Waiting for data | Specific identity/PAD consent and enrollment captures available |
-| 21.4 | Enrollment application | Not authorized | Separate implementation approval after baseline review |
+| 21.4 | Enrollment application | Authorized; in progress | Encrypted Windows profile foundation passes; import, Linux crypto, provider integration and usability remain |
 | 21.5 | Runtime integration/session FSM | Not authorized | Separate implementation approval after threshold review |
 | 21.6 | Security/privacy verification | Planned | Threat, deletion, portability, and key tests pass |
 | 21.7 | Windows/Ubuntu/Orin acceptance | Planned | Cross-platform accuracy/resource gates pass |

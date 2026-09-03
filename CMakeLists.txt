@@ -193,6 +193,8 @@ add_library(dms_core STATIC
     src/DmsPolicy.cpp
     src/RecordedFrameClock.cpp
     src/DriverIdentityMatcher.cpp
+    src/DriverProfileDatabase.cpp
+    src/EncryptedProfileBundle.cpp
 )
 
 add_library(pfld_landmark_provider STATIC
@@ -211,6 +213,10 @@ target_include_directories(dms_core
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
+
+if(WIN32)
+    target_link_libraries(dms_core PUBLIC bcrypt)
+endif()
 
 target_include_directories(pfld_landmark_provider
     PUBLIC
@@ -272,6 +278,12 @@ add_executable(face_pad_baseline
 )
 target_include_directories(face_pad_baseline PRIVATE ${OpenCV_INCLUDE_DIRS})
 target_link_libraries(face_pad_baseline PRIVATE ${OpenCV_LIBS})
+
+add_executable(driver_profile_admin
+    src/driver_profile_admin.cpp
+)
+target_include_directories(driver_profile_admin PRIVATE ${OpenCV_INCLUDE_DIRS})
+target_link_libraries(driver_profile_admin PRIVATE dms_core ${OpenCV_LIBS})
 
 add_executable(dms_sponsor_selftest
     src/sponsor_selftest.cpp
@@ -599,6 +611,12 @@ if(BUILD_TESTING)
     )
     target_link_libraries(driver_identity_matcher_test PRIVATE dms_core)
     add_test(NAME driver_identity_matcher_test COMMAND driver_identity_matcher_test)
+
+    add_executable(driver_profile_database_test
+        tests/driver_profile_database_test.cpp
+    )
+    target_link_libraries(driver_profile_database_test PRIVATE dms_core)
+    add_test(NAME driver_profile_database_test COMMAND driver_profile_database_test)
 
     add_executable(backend_face_geometry_mapper_test
         tests/backend_face_geometry_mapper_test.cpp

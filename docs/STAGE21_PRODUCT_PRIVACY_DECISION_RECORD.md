@@ -43,15 +43,22 @@ Data Protection Act, 2023 and Digital Personal Data Protection Rules, 2025.
    embeddings, names, or unrestricted similarity histories.
 9. Identity failure never disables ordinary DMS behavior.
 
-## Deferred decisions before Stage 21.4
+## Approved Stage 21.4 defaults
 
-- export key mechanism: passphrase-derived portable key or recipient public key;
-- who is an authorized enrollment/profile administrator;
-- image and embedding retention duration;
-- maximum templates/images per profile;
-- backup and deletion propagation policy;
-- display-name visibility and audit retention;
-- recovery behavior after lost export credentials.
+- export key mechanism: passphrase-derived portable key;
+- lifecycle authority: separate administrator/operator utility;
+- retention: until explicit deletion;
+- capacity: ten images and ten embeddings per profile;
+- backup/export deletion: warning and independent deletion required;
+- lost export passphrase: no recovery or backdoor.
+
+The product owner approved the recommended Stage 21.4 defaults on 2026-09-03:
+passphrase-protected AES-256-GCM portable bundles, protected local storage,
+administrator-only lifecycle operations, retain-until-delete, ten images and ten
+embeddings per profile, bounded automatic replacement with rollback, complete
+profile deletion, explicit import conflict handling, and no lost-passphrase
+backdoor. Implementation, tests, and documentation are authorized; private
+enrollment, production thresholds, merge, and release remain excluded.
 
 ## Deferred decisions before Stage 21.5
 

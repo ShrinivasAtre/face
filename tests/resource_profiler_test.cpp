@@ -19,9 +19,9 @@ int main()
     ResourceProfiler profiler(std::chrono::milliseconds(10));
     profiler.start();
     profiler.setPhase("calibration");
-    std::this_thread::sleep_for(std::chrono::milliseconds(45));
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
     profiler.setPhase("processing");
-    std::this_thread::sleep_for(std::chrono::milliseconds(35));
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
     profiler.stop();
 
     bool ok = true;

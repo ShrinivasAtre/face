@@ -17,6 +17,7 @@
 #else
 #include <dirent.h>
 #include <sys/resource.h>
+#include <sys/syscall.h>
 #include <unistd.h>
 #endif
 
@@ -182,6 +183,15 @@ void ResourceProfiler::stop()
 
 void ResourceProfiler::run()
 {
+#ifdef _WIN32
+    // Resource collection is diagnostic work and must yield to inference.
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_BELOW_NORMAL);
+#else
+    // Linux nice values are per-thread when applied to the kernel thread id.
+    const long threadId = syscall(SYS_gettid);
+    if (threadId > 0)
+        setpriority(PRIO_PROCESS, static_cast<id_t>(threadId), 10);
+#endif
     auto previousCpus = cpuTimes();
     std::uint64_t previousProcess = processCpuTime();
     auto previousTime = std::chrono::steady_clock::now();

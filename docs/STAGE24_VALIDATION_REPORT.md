@@ -4,8 +4,9 @@ Date: 2026-09-04
 
 ## Scope and claim boundary
 
-This report validates the committed Stage 24 configuration, processing-ROI and
-eye/blink statistics checkpoint through commit `8ce798c`. It is engineering
+This report validates the committed Stage 24 configuration, display-only AOI,
+processing-ROI and eye/blink statistics checkpoint through commit `2ab2a95`.
+It is engineering
 evidence, not a production UI approval, safety claim, threshold change or
 release authorization. The illustrative ROI profile is tied to the accepted
 engineering image and is not a recommended camera/vehicle ROI.
@@ -26,12 +27,17 @@ engineering image and is not a recommended camera/vehicle ROI.
   confirmed-driver/session epoch;
 - display configuration affects rendering only and does not disable detection,
   trace generation, monitoring FSMs or benchmark output.
+- display focus accepts only `full`, `face`, `eyes` or `mouth`; unavailable
+  semantic features produce a blank presentation view rather than exposing the
+  full frame, and the selected view is never passed back into processing;
+- live-camera benchmarking requires an explicit non-negative device index and
+  is mutually exclusive with checksum-pinned recorded input.
 
 ## Windows x64 Release gate
 
 - Toolchain: MSVC 19.51, Windows SDK 10.0.26100.0, OpenCV 4.8.0.
 - Fresh build directory: `build-stage24-validation`.
-- Result: 29 of 29 registered tests passed. Two PowerShell workflow tests are
+- Result: 30 of 30 registered tests passed. Two PowerShell workflow tests are
   Windows-only.
 - Validation image SHA-256:
   `525257a2263a0bfb1aecba45cfbfe5b0387aa16cb94216dc334e5c46dfa69e7c`.
@@ -56,6 +62,7 @@ Three repeated 30-frame YuNet/LBF resource runs used five warm-up frames and a
   runtime package enabled.
 - `face_benchmark` was confirmed as an ARM aarch64 ELF executable.
 - Result: 27 of 27 applicable tests passed.
+- Follow-up result at `2ab2a95`: 28 of 28 applicable tests passed.
 - The same validation-image checksum matched on-device.
 
 Three repeated 20-frame YuNet/LBF resource runs used five warm-up frames and a
@@ -69,6 +76,19 @@ Three repeated 20-frame YuNet/LBF resource runs used five warm-up frames and a
 These short repeated runs show that the ROI path is active and measurable on
 both targets. They do not replace target-camera accuracy, representative
 recorded-video validation or sustained thermal/resource benchmarking.
+
+### Orin live-camera availability checkpoint
+
+The ZEB LIVE PRO camera was available as `/dev/video0`. A headless 640x480
+YuNet run processed 900/900 measured frames at 30.01 FPS with no dropped or
+superseded frames. Mean calibration-phase load was 62.10% of total six-core
+capacity, calibration RSS varied by 40,960 bytes, maximum junction temperature
+was 51.093 C, maximum observed input power was 6,210 mW, and GPU utilization
+was zero. The unattended camera view contained no driver and therefore produced
+0/900 face detections; this validates capture and resource instrumentation only,
+not calibration, eye/event processing or live driver accuracy. Windows exposed
+only virtual/Remote Desktop camera devices, so its physical-camera run remains
+pending.
 
 ## Gate conclusion
 

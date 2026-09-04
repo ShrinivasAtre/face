@@ -23,6 +23,7 @@ increment.
 - PBKDF2-HMAC-SHA-256 with a unique 16-byte salt and at least 600,000 iterations;
 - AES-256-GCM with a new random 96-bit nonce and 128-bit authentication tag;
 - Windows uses the operating-system CNG implementation and system RNG;
+- Ubuntu/Orin-class Linux builds use OpenSSL 3 `libcrypto` and its DRBG;
 - the whole database payload is encrypted, including names, images, embeddings,
   model IDs, revisions, and automatic-update metadata when added;
 - wrong passwords, modified bytes, invalid sizes, weak KDF parameters, trailing
@@ -38,6 +39,9 @@ The 600,000 PBKDF2-HMAC-SHA-256 baseline follows current OWASP guidance:
 https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html
 AES-GCM provides authenticated encryption as specified by NIST SP 800-38D:
 https://www.nist.gov/publications/recommendation-block-cipher-modes-operation-galoiscounter-mode-gcm-and-gmac
+
+Bundle readers also cap the stored PBKDF2 work factor at 10,000,000 iterations
+to prevent an unauthenticated bundle header from causing unbounded CPU work.
 
 ## Usage
 
@@ -89,9 +93,15 @@ initialized and reopened a local-key store, exported it under a portable
 passphrase, imported it into a separate passphrase store, and recovered the
 expected profile. DPAPI operations require access to the Windows user profile.
 
+Ubuntu 24.04 with OpenSSL 3.0.13 passes all 21 registered tests. Bidirectional
+compatibility is verified: Ubuntu opens a Windows CNG-produced bundle and
+Windows opens an Ubuntu OpenSSL-produced bundle with the expected profile data.
+The same provider is intended for Orin, but Orin execution remains a separate
+platform gate.
+
 ## Remaining Stage 21.4 work
 
-1. Add an OpenSSL 3 provider and validate byte-compatible Ubuntu/Orin bundles.
+1. Validate the OpenSSL 3 provider and bundle compatibility on Orin.
 2. Integrate quality, alignment, embedding, and mandatory PAD providers after
    candidate selection; do not create production embeddings beforehand.
 3. Add bounded automatic-template replacement and rollback journal.

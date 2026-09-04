@@ -23,8 +23,9 @@ int main()
        !check(db.erase("driver-01",error)&&db.find("driver-01")==nullptr,"delete removes profile")) return 1;
 
     BundleCryptoConfig weak{100};
-    if(!check(!weak.validate(error),"weak KDF rejected")) return 1;
-#ifdef _WIN32
+    BundleCryptoConfig excessive{10000001};
+    if(!check(!weak.validate(error),"weak KDF rejected")||
+       !check(!excessive.validate(error),"excessive KDF rejected")) return 1;
     std::vector<std::uint8_t> bundle,plain;
     if(!check(encryptProfileBundle(bytes,"correct horse battery",{},bundle,error),"encrypt")||
        !check(bundle!=bytes,"not plaintext")||
@@ -32,6 +33,7 @@ int main()
        !check(!decryptProfileBundle(bundle,"incorrect passphrase",plain,error),"wrong passphrase rejected")) return 1;
     bundle[bundle.size()/2]^=1;
     if(!check(!decryptProfileBundle(bundle,"correct horse battery",plain,error),"tamper rejected")) return 1;
+#ifdef _WIN32
     std::vector<std::uint8_t> protectedKey;std::string localSecret,reopenedSecret;
     if(!check(createLocalProtectedProfileKey(protectedKey,localSecret,error),"protect local key")||
        !check(!protectedKey.empty()&&localSecret.size()==64,"local key shape")||
@@ -39,8 +41,8 @@ int main()
     protectedKey[protectedKey.size()/2]^=1;
     if(!check(!openLocalProtectedProfileKey(protectedKey,reopenedSecret,error),"tampered local key rejected")) return 1;
 #else
-    std::vector<std::uint8_t> bundle;
-    if(!check(!encryptProfileBundle(bytes,"correct horse battery",{},bundle,error),"missing provider fails closed")) return 1;
+    std::vector<std::uint8_t> protectedKey;std::string localSecret;
+    if(!check(!createLocalProtectedProfileKey(protectedKey,localSecret,error),"missing local-key provider fails closed")) return 1;
 #endif
     std::cout<<"driver profile database test PASSED\n";return 0;
 }

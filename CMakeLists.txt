@@ -217,6 +217,10 @@ target_include_directories(dms_core
 
 if(WIN32)
     target_link_libraries(dms_core PUBLIC bcrypt crypt32)
+else()
+    find_package(OpenSSL 3 REQUIRED COMPONENTS Crypto)
+    target_link_libraries(dms_core PUBLIC OpenSSL::Crypto)
+    target_compile_definitions(dms_core PRIVATE DMS_HAVE_OPENSSL=1)
 endif()
 
 target_include_directories(pfld_landmark_provider

@@ -7,6 +7,10 @@
 #define NOMINMAX
 #include <windows.h>
 #include <bcrypt.h>
+#elif defined(DMS_HAVE_OPENSSL)
+#include <openssl/crypto.h>
+#include <openssl/evp.h>
+#include <openssl/rand.h>
 #endif
 
 namespace dms
@@ -14,6 +18,7 @@ namespace dms
 namespace
 {
 constexpr std::uint32_t minimumIterations = 600000;
+constexpr std::uint32_t maximumIterations = 10000000;
 constexpr std::size_t saltSize = 16, nonceSize = 12, tagSize = 16, keySize = 32;
 constexpr std::size_t maximumPlaintext = 200 * 1024 * 1024;
 constexpr char magic[] = "DMSBND01";
@@ -40,20 +45,28 @@ bool makeAes(const std::uint8_t *raw,Algorithm &aes,Key &key,std::string &error)
     ULONG bytes=0,size=0;if(BCryptGetProperty(aes.value,BCRYPT_OBJECT_LENGTH,reinterpret_cast<PUCHAR>(&size),sizeof(size),&bytes,0)<0){error="unable to query AES key storage";return false;}
     key.object.resize(size);if(BCryptGenerateSymmetricKey(aes.value,&key.value,key.object.data(),size,const_cast<PUCHAR>(raw),static_cast<ULONG>(keySize),0)<0){error="unable to create AES key";return false;}return true;
 }
+#elif defined(DMS_HAVE_OPENSSL)
+struct CipherContext { EVP_CIPHER_CTX *value=EVP_CIPHER_CTX_new(); ~CipherContext(){EVP_CIPHER_CTX_free(value);} };
+bool derive(const std::string &pass,const std::uint8_t *salt,std::uint32_t iterations,std::uint8_t *key,std::string &error)
+{
+    if(PKCS5_PBKDF2_HMAC(pass.data(),static_cast<int>(pass.size()),salt,static_cast<int>(saltSize),
+                         static_cast<int>(iterations),EVP_sha256(),static_cast<int>(keySize),key)!=1)
+    {error="PBKDF2 failed";return false;}return true;
+}
 #endif
 } // namespace
 
 bool BundleCryptoConfig::validate(std::string &error) const noexcept
 {
-    if(pbkdf2Iterations<minimumIterations){error="PBKDF2 iterations must be at least 600000";return false;}error.clear();return true;
+    if(pbkdf2Iterations<minimumIterations||pbkdf2Iterations>maximumIterations){error="PBKDF2 iterations must be between 600000 and 10000000";return false;}error.clear();return true;
 }
 
 bool encryptProfileBundle(const std::vector<std::uint8_t>&plain,const std::string&pass,const BundleCryptoConfig&config,std::vector<std::uint8_t>&bundle,std::string&error) noexcept
 {
     bundle.clear();error.clear();
-#ifndef _WIN32
+#if !defined(_WIN32) && !defined(DMS_HAVE_OPENSSL)
     (void)plain;(void)pass;(void)config;error="AES-GCM bundle provider is not configured on this platform";return false;
-#else
+#elif defined(_WIN32)
     try {
         if(!config.validate(error)||pass.size()<12||pass.size()>1024||plain.empty()||plain.size()>maximumPlaintext){if(error.empty())error="invalid passphrase or plaintext size";return false;}
         std::uint8_t salt[saltSize],nonce[nonceSize],raw[keySize]{};
@@ -66,23 +79,57 @@ bool encryptProfileBundle(const std::vector<std::uint8_t>&plain,const std::strin
         if(BCryptEncrypt(key.value,const_cast<PUCHAR>(plain.data()),static_cast<ULONG>(plain.size()),&info,nullptr,0,cipher.data(),static_cast<ULONG>(cipher.size()),&written,0)<0||written!=cipher.size()){bundle.clear();error="AES-GCM encryption failed";return false;}
         bundle.insert(bundle.end(),cipher.begin(),cipher.end());bundle.insert(bundle.end(),tag.begin(),tag.end());return true;
     } catch(...) {bundle.clear();error="profile bundle encryption failed";return false;}
+#else
+    try {
+        if(!config.validate(error)||pass.size()<12||pass.size()>1024||plain.empty()||plain.size()>maximumPlaintext){if(error.empty())error="invalid passphrase or plaintext size";return false;}
+        std::uint8_t salt[saltSize],nonce[nonceSize],raw[keySize]{};
+        if(RAND_bytes(salt,sizeof salt)!=1||RAND_bytes(nonce,sizeof nonce)!=1){error="secure random generation failed";return false;}
+        if(!derive(pass,salt,config.pbkdf2Iterations,raw,error)){OPENSSL_cleanse(raw,sizeof raw);return false;}
+        bundle.assign(std::begin(magic),std::end(magic)-1);put32(bundle,1);put32(bundle,config.pbkdf2Iterations);bundle.insert(bundle.end(),salt,salt+saltSize);bundle.insert(bundle.end(),nonce,nonce+nonceSize);put64(bundle,plain.size());
+        const auto aadSize=bundle.size();std::vector<std::uint8_t> cipher(plain.size()),tag(tagSize);CipherContext ctx;int written=0,total=0;
+        const bool ok=ctx.value&&EVP_EncryptInit_ex(ctx.value,EVP_aes_256_gcm(),nullptr,nullptr,nullptr)==1&&
+          EVP_CIPHER_CTX_ctrl(ctx.value,EVP_CTRL_AEAD_SET_IVLEN,static_cast<int>(nonceSize),nullptr)==1&&
+          EVP_EncryptInit_ex(ctx.value,nullptr,nullptr,raw,nonce)==1&&
+          EVP_EncryptUpdate(ctx.value,nullptr,&written,bundle.data(),static_cast<int>(aadSize))==1&&
+          EVP_EncryptUpdate(ctx.value,cipher.data(),&written,plain.data(),static_cast<int>(plain.size()))==1;
+        total=written;int finalBytes=0;const bool finalOk=ok&&EVP_EncryptFinal_ex(ctx.value,cipher.data()+total,&finalBytes)==1&&
+          EVP_CIPHER_CTX_ctrl(ctx.value,EVP_CTRL_AEAD_GET_TAG,static_cast<int>(tagSize),tag.data())==1;
+        OPENSSL_cleanse(raw,sizeof raw);if(!finalOk||static_cast<std::size_t>(total+finalBytes)!=cipher.size()){bundle.clear();error="AES-GCM encryption failed";return false;}
+        bundle.insert(bundle.end(),cipher.begin(),cipher.end());bundle.insert(bundle.end(),tag.begin(),tag.end());return true;
+    } catch(...) {bundle.clear();error="profile bundle encryption failed";return false;}
 #endif
 }
 
 bool decryptProfileBundle(const std::vector<std::uint8_t>&bundle,const std::string&pass,std::vector<std::uint8_t>&plain,std::string&error) noexcept
 {
     plain.clear();error.clear();
-#ifndef _WIN32
+#if !defined(_WIN32) && !defined(DMS_HAVE_OPENSSL)
     (void)bundle;(void)pass;error="AES-GCM bundle provider is not configured on this platform";return false;
-#else
+#elif defined(_WIN32)
     try {
         const std::size_t fixed=8+4+4+saltSize+nonceSize+8;if(bundle.size()<fixed+tagSize||std::memcmp(bundle.data(),magic,8)!=0||pass.size()<12||pass.size()>1024){error="invalid encrypted bundle";return false;}
-        std::size_t offset=8;std::uint32_t version=0,iterations=0;std::uint64_t cipherSize=0;if(!get32(bundle,offset,version)||version!=1||!get32(bundle,offset,iterations)||iterations<minimumIterations){error="unsupported encrypted bundle";return false;}
+        std::size_t offset=8;std::uint32_t version=0,iterations=0;std::uint64_t cipherSize=0;if(!get32(bundle,offset,version)||version!=1||!get32(bundle,offset,iterations)||iterations<minimumIterations||iterations>maximumIterations){error="unsupported encrypted bundle";return false;}
         const auto *salt=bundle.data()+offset;offset+=saltSize;const auto *nonce=bundle.data()+offset;offset+=nonceSize;if(!get64(bundle,offset,cipherSize)||cipherSize==0||cipherSize>maximumPlaintext||cipherSize!=bundle.size()-fixed-tagSize){error="invalid encrypted bundle length";return false;}
         const auto aadSize=offset;const auto *cipher=bundle.data()+offset;const auto *tag=cipher+cipherSize;std::uint8_t raw[keySize]{};if(!derive(pass,salt,iterations,raw,error)){SecureZeroMemory(raw,sizeof raw);return false;}
         Algorithm aes;Key key;if(!makeAes(raw,aes,key,error)){SecureZeroMemory(raw,sizeof raw);return false;}SecureZeroMemory(raw,sizeof raw);plain.resize(static_cast<std::size_t>(cipherSize));
         BCRYPT_AUTHENTICATED_CIPHER_MODE_INFO info;BCRYPT_INIT_AUTH_MODE_INFO(info);info.pbNonce=const_cast<PUCHAR>(nonce);info.cbNonce=nonceSize;info.pbAuthData=const_cast<PUCHAR>(bundle.data());info.cbAuthData=static_cast<ULONG>(aadSize);info.pbTag=const_cast<PUCHAR>(tag);info.cbTag=tagSize;ULONG written=0;
         if(BCryptDecrypt(key.value,const_cast<PUCHAR>(cipher),static_cast<ULONG>(cipherSize),&info,nullptr,0,plain.data(),static_cast<ULONG>(plain.size()),&written,0)<0||written!=plain.size()){plain.clear();error="authentication failed or passphrase is incorrect";return false;}return true;
+    } catch(...) {plain.clear();error="profile bundle decryption failed";return false;}
+#else
+    try {
+        const std::size_t fixed=8+4+4+saltSize+nonceSize+8;if(bundle.size()<fixed+tagSize||std::memcmp(bundle.data(),magic,8)!=0||pass.size()<12||pass.size()>1024){error="invalid encrypted bundle";return false;}
+        std::size_t offset=8;std::uint32_t version=0,iterations=0;std::uint64_t cipherSize=0;if(!get32(bundle,offset,version)||version!=1||!get32(bundle,offset,iterations)||iterations<minimumIterations||iterations>maximumIterations){error="unsupported encrypted bundle";return false;}
+        const auto *salt=bundle.data()+offset;offset+=saltSize;const auto *nonce=bundle.data()+offset;offset+=nonceSize;if(!get64(bundle,offset,cipherSize)||cipherSize==0||cipherSize>maximumPlaintext||cipherSize!=bundle.size()-fixed-tagSize){error="invalid encrypted bundle length";return false;}
+        const auto aadSize=offset;const auto *cipher=bundle.data()+offset;const auto *tag=cipher+cipherSize;std::uint8_t raw[keySize]{};if(!derive(pass,salt,iterations,raw,error)){OPENSSL_cleanse(raw,sizeof raw);return false;}
+        CipherContext ctx;plain.resize(static_cast<std::size_t>(cipherSize));int written=0,total=0;
+        const bool ok=ctx.value&&EVP_DecryptInit_ex(ctx.value,EVP_aes_256_gcm(),nullptr,nullptr,nullptr)==1&&
+          EVP_CIPHER_CTX_ctrl(ctx.value,EVP_CTRL_AEAD_SET_IVLEN,static_cast<int>(nonceSize),nullptr)==1&&
+          EVP_DecryptInit_ex(ctx.value,nullptr,nullptr,raw,nonce)==1&&
+          EVP_DecryptUpdate(ctx.value,nullptr,&written,bundle.data(),static_cast<int>(aadSize))==1&&
+          EVP_DecryptUpdate(ctx.value,plain.data(),&written,cipher,static_cast<int>(cipherSize))==1;
+        total=written;const bool tagOk=ok&&EVP_CIPHER_CTX_ctrl(ctx.value,EVP_CTRL_AEAD_SET_TAG,static_cast<int>(tagSize),const_cast<std::uint8_t*>(tag))==1;
+        int finalBytes=0;const bool authenticated=tagOk&&EVP_DecryptFinal_ex(ctx.value,plain.data()+total,&finalBytes)==1;
+        OPENSSL_cleanse(raw,sizeof raw);if(!authenticated||static_cast<std::size_t>(total+finalBytes)!=plain.size()){plain.clear();error="authentication failed or passphrase is incorrect";return false;}return true;
     } catch(...) {plain.clear();error="profile bundle decryption failed";return false;}
 #endif
 }

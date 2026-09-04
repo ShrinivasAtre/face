@@ -48,6 +48,7 @@ std::cerr<<'\n';if(p.size()<12)throw std::runtime_error("passphrase must contain
 dms::DriverProfileDatabase load(const std::filesystem::path&p,const std::string&pass){if(!std::filesystem::exists(p))return {};std::string error;std::vector<std::uint8_t> plain;if(!dms::decryptProfileBundle(readFile(p),pass,plain,error))throw std::runtime_error(error);auto db=dms::DriverProfileDatabase::deserialize(plain,error);if(!db)throw std::runtime_error(error);return std::move(*db);}
 void save(const std::filesystem::path&p,const std::string&pass,const dms::DriverProfileDatabase&db){std::string error;auto plain=db.serialize(error);std::vector<std::uint8_t> bundle;if(plain.empty()||!dms::encryptProfileBundle(plain,pass,{},bundle,error))throw std::runtime_error(error);writeFileAtomic(p,bundle);}
 dms::EnrollmentSource source(const std::string&s){if(s=="photo")return dms::EnrollmentSource::Photo;if(s=="video")return dms::EnrollmentSource::Video;if(s=="live")return dms::EnrollmentSource::Live;throw std::runtime_error("source must be photo, video, or live");}
+dms::ImportConflict importConflict(const std::string&s){if(s=="reject")return dms::ImportConflict::Reject;if(s=="replace")return dms::ImportConflict::Replace;if(s=="new-id")return dms::ImportConflict::NewAnonymousId;throw std::runtime_error("conflict must be reject, replace, or new-id");}
 std::vector<std::uint8_t> capture(const std::string&s,const Args&a){cv::Mat frame;if(s=="photo")frame=cv::imread(required(a,"input"));else{cv::VideoCapture video;if(s=="live")video.open(std::stoi(a.count("camera")?a.at("camera"):"0"));else video.open(required(a,"input"));if(!video.isOpened())throw std::runtime_error("unable to open video/camera");for(int i=0;i<10;++i)if(!video.read(frame))break;}if(frame.empty())throw std::runtime_error("unable to obtain enrollment frame");std::vector<unsigned char> encoded;if(!cv::imencode(".jpg",frame,encoded,{cv::IMWRITE_JPEG_QUALITY,95}))throw std::runtime_error("unable to encode enrollment frame");return encoded;}
 }
 
@@ -60,7 +61,23 @@ int main(int argc,char**argv)
   else if(command=="delete"){if(!db.erase(required(args,"driver-id"),error))throw std::runtime_error(error);save(store,pass,db);}
   else if(command=="add-media"){auto kind=required(args,"source");float quality=std::stof(required(args,"quality"));dms::EnrollmentImage image{source(kind),quality,capture(kind,args)};if(!db.addImage(required(args,"driver-id"),std::move(image),error))throw std::runtime_error(error);save(store,pass,db);}
   else if(command=="export"){auto output=std::filesystem::path(required(args,"output"));if(output==store)throw std::runtime_error("export output must differ from store");auto bytes=readFile(store);std::vector<std::uint8_t> check;if(!dms::decryptProfileBundle(bytes,pass,check,error))throw std::runtime_error(error);writeFileAtomic(output,bytes);}
-  else throw std::runtime_error("commands: init, list, create, delete, add-media, export");
+  else if(command=="import"){
+   auto input=std::filesystem::path(required(args,"input"));if(input==store)throw std::runtime_error("import input must differ from store");
+   auto inputPass=passphrase("Import bundle passphrase: ");std::vector<std::uint8_t> plain;
+   if(!dms::decryptProfileBundle(readFile(input),inputPass,plain,error))throw std::runtime_error(error);
+   auto imported=dms::DriverProfileDatabase::deserialize(plain,error);if(!imported)throw std::runtime_error(error);
+   const auto policy=importConflict(required(args,"conflict"));auto updated=db;
+   if(policy==dms::ImportConflict::NewAnonymousId){
+    const auto sourceId=required(args,"source-driver-id");const auto *profile=imported->find(sourceId);
+    if(!profile)throw std::runtime_error("source driver ID not found in import bundle");
+    if(!updated.importProfile(*profile,policy,required(args,"new-driver-id"),error))throw std::runtime_error(error);
+   }else{
+    if(imported->profiles().empty())throw std::runtime_error("import bundle contains no profiles");
+    for(const auto&profile:imported->profiles())if(!updated.importProfile(profile,policy,"",error))throw std::runtime_error(error);
+   }
+   save(store,pass,updated);db=std::move(updated);
+  }
+  else throw std::runtime_error("commands: init, list, create, delete, add-media, export, import");
   std::cout<<command<<" completed\n";return 0;
  }catch(const std::exception&e){std::cerr<<"driver profile admin failed: "<<e.what()<<'\n';return 1;}
 }

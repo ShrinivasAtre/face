@@ -6,6 +6,7 @@
 #include "BlinkTracker.hpp"
 #include "DmsEyeMetrics.hpp"
 #include "DmsPresentationConfigLoader.hpp"
+#include "ProcessingRoiAdapter.hpp"
 #include "DmsEyeQualityAssessor.hpp"
 #include "DmsHeadPoseEstimator.hpp"
 #include "DmsTemporalEvents.hpp"
@@ -779,8 +780,18 @@ int main(int argc, char **argv)
             }
             const auto captureEnd = Clock::now();
             inputSize = frame.size();
+            cv::Mat processingFrame;
+            ProcessingRoiContext processingRoiContext;
+            if (!selectProcessingFrame(frame, presentationConfig.processingRoi,
+                                       processingFrame, processingRoiContext, error))
+            {
+                std::cerr << "Error: " << error << '\n';
+                return 1;
+            }
             const auto backendStart = captureEnd;
-            const bool backendSuccess = backend->process(frame, faceResult);
+            const bool backendSuccess = backend->process(processingFrame, faceResult);
+            restoreProcessingResult(processingRoiContext,
+                                    presentationConfig.processingRoi, faceResult);
             const auto backendEnd = Clock::now();
             const auto semanticStart = backendEnd;
             bool semanticSuccess = false;
@@ -1102,10 +1113,12 @@ int main(int argc, char **argv)
         const std::uint64_t finalResidentMemory = currentResidentMemoryBytes();
         const std::int64_t residentMemoryGrowth =
             static_cast<std::int64_t>(finalResidentMemory) - static_cast<std::int64_t>(initialResidentMemory);
+        const dms::PixelRectangle effectiveProcessingRoi =
+            presentationConfig.processingRoi.toPixels(inputSize.width, inputSize.height);
 
         std::ostringstream json;
         json << std::fixed << std::setprecision(6) << "{\n"
-             << "  \"schema_version\": 6,\n"
+             << "  \"schema_version\": 7,\n"
              << "  \"backend\": \"" << backendName(options.backend) << "\",\n"
              << "  \"build_configuration\": \"" << buildConfiguration() << "\",\n"
              << "  \"benchmark_metadata\": {\"source_revision\": \"" << FACE_SOURCE_REVISION
@@ -1117,6 +1130,18 @@ int main(int argc, char **argv)
              << "  \"input_kind\": \"" << input.kind() << "\",\n"
              << "  \"input_width\": " << inputSize.width << ",\n"
              << "  \"input_height\": " << inputSize.height << ",\n"
+             << "  \"processing_roi\": {\"enabled\": "
+             << (presentationConfig.processingRoi.enabled ? "true" : "false")
+             << ", \"coordinate_space\": \"normalized\", \"x\": "
+             << presentationConfig.processingRoi.x << ", \"y\": "
+             << presentationConfig.processingRoi.y << ", \"width\": "
+             << presentationConfig.processingRoi.width << ", \"height\": "
+             << presentationConfig.processingRoi.height << ", \"minimum_face_coverage\": "
+             << presentationConfig.processingRoi.minimumFaceCoverage
+             << ", \"effective_x\": " << effectiveProcessingRoi.x
+             << ", \"effective_y\": " << effectiveProcessingRoi.y
+             << ", \"effective_width\": " << effectiveProcessingRoi.width
+             << ", \"effective_height\": " << effectiveProcessingRoi.height << "},\n"
              << "  \"warmup_frames\": " << options.warmupFrames << ",\n"
              << "  \"measured_frames\": " << measuredFrames << ",\n"
              << "  \"successful_frames\": " << successfulFrames << ",\n"

@@ -100,8 +100,14 @@ PERCLOS when coverage or classification domains differ.
    face box, metric groups and performance flags only while rendering. Detection,
    traces, alert FSMs and benchmark results remain independent of visibility.
    Eye and mouth box flags are reserved until those renderers exist.
-4. Apply processing ROI before face detection and transform results back to
-   full-frame coordinates.
+4. **Implemented:** apply the normalized processing ROI before backend face
+   detection, enforce the configured face-coverage gate, and restore accepted
+   face boxes and landmarks to full-frame coordinates before semantic mapping,
+   quality assessment, traces and rendering. Rejected marginal detections are
+   represented as absent rather than fatigue.
+   Disabled ROI preserves the prior full-frame detection behavior. Benchmark
+   schema 7 records the configured normalized ROI, coverage requirement and
+   effective pixel rectangle without recording private imagery.
 5. Add cumulative/rolling statistics using monotonic intervals and event
    timestamps.
 6. Add recorded-sequence tests for missing data, face loss, driver change,

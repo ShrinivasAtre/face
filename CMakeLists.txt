@@ -209,6 +209,7 @@ add_library(dms_semantic_adapters STATIC
     src/BackendGazeMapper.cpp
     src/DmsEyeQualityAssessor.cpp
     src/DmsHeadPoseEstimator.cpp
+    src/ProcessingRoiAdapter.cpp
 )
 
 target_include_directories(dms_core
@@ -232,7 +233,7 @@ target_include_directories(dms_semantic_adapters
         ${OpenCV_INCLUDE_DIRS}
 )
 
-target_link_libraries(dms_semantic_adapters PUBLIC ${OpenCV_LIBS})
+target_link_libraries(dms_semantic_adapters PUBLIC dms_core ${OpenCV_LIBS})
 
 target_link_libraries(pfld_landmark_provider
     PUBLIC
@@ -671,6 +672,12 @@ if(BUILD_TESTING)
     )
     target_link_libraries(dms_eye_quality_assessor_test PRIVATE dms_semantic_adapters)
     add_test(NAME dms_eye_quality_assessor_test COMMAND dms_eye_quality_assessor_test)
+
+    add_executable(processing_roi_adapter_test
+        tests/processing_roi_adapter_test.cpp
+    )
+    target_link_libraries(processing_roi_adapter_test PRIVATE dms_semantic_adapters)
+    add_test(NAME processing_roi_adapter_test COMMAND processing_roi_adapter_test)
 
     add_executable(dms_temporal_events_test
         tests/dms_temporal_events_test.cpp

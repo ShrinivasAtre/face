@@ -1,0 +1,4 @@
+clip_id,frame,timestamp_ms,side,relative_path,candidate_class,requires_visual_review
+T01,0,0.000,left,T01/left/frame_000000.png,unlabelled_visible_candidate,1
+T01,0,0.000,right,T01/right/frame_000000.png,unlabelled_visible_candidate,1
+T01,6,200.000,left,T01/left/frame_000006.png,eye_occluded_candidate,1

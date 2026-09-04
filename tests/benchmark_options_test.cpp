@@ -27,6 +27,33 @@ int main()
     ok &= expect(options.input == "face.jpg" && options.output == "result.json",
                  "paths");
     ok &= expect(options.trace == "frames.csv", "trace path");
+    const char* resources[] = {"bench", "--input=face.mp4",
+                               "--resource-trace=resources.csv",
+                               "--resource-sample-ms=125"};
+    ok &= expect(parseBenchmarkOptions(4, resources, options, error),
+                 "resource profiling options");
+    ok &= expect(options.resourceTrace == "resources.csv" &&
+                 options.resourceSampleMilliseconds == 125 && options.resourceProfile,
+                 "resource profiling values");
+    const char* recalibration[] = {"bench", "--input=face.mp4",
+                                   "--diagnostic-recalibration-frame=200"};
+    ok &= expect(parseBenchmarkOptions(3, recalibration, options, error),
+                 "diagnostic recalibration option");
+    ok &= expect(options.diagnosticRecalibrationFrame == 200,
+                 "diagnostic recalibration frame");
+    const char* crops[] = {"bench", "--input=face.mp4", "--eye-crops-dir=private",
+                           "--eye-crop-every=9"};
+    ok &= expect(parseBenchmarkOptions(4, crops, options, error), "crop options");
+    ok &= expect(options.eyeCropsDirectory == "private" && options.eyeCropEvery == 9,
+                 "crop option values");
+    const char* demo[] = {"bench", "--input=face.mp4", "--sponsor-demo",
+                          "--sponsor-demo-auto-exit"};
+    ok &= expect(parseBenchmarkOptions(4, demo, options, error), "sponsor demo option");
+    ok &= expect(options.sponsorDemo && options.sponsorDemoAutoExit,
+                 "sponsor demo enabled");
+    const char* autoExitOnly[] = {"bench", "--input=face.mp4", "--sponsor-demo-auto-exit"};
+    ok &= expect(!parseBenchmarkOptions(3, autoExitOnly, options, error),
+                 "auto exit requires demo");
 
     const char* pfld[] = {"bench", "--input=face.mp4", "--backend=pfld",
                           "--pfld-model=landmarks.onnx"};

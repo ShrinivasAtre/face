@@ -31,9 +31,17 @@ bool parseBenchmarkOptions(int argc, const char* const argv[],
     bool inputSeen = false;
     bool outputSeen = false;
     bool traceSeen = false;
+    bool resourceTraceSeen = false;
+    bool eyeCropsSeen = false;
     bool pfldModelSeen = false;
     bool warmupSeen = false;
     bool framesSeen = false;
+    bool eyeCropEverySeen = false;
+    bool resourceSampleSeen = false;
+    bool diagnosticRecalibrationSeen = false;
+    bool sponsorDemoSeen = false;
+    bool sponsorDemoAutoExitSeen = false;
+    bool resourceProfileSeen = false;
 
     for (int index = 1; index < argc; ++index)
     {
@@ -47,6 +55,39 @@ bool parseBenchmarkOptions(int argc, const char* const argv[],
             }
             options.showHelp = true;
             return true;
+        }
+        if (argument == "--sponsor-demo")
+        {
+            if (sponsorDemoSeen)
+            {
+                error = "--sponsor-demo may be specified only once.";
+                return false;
+            }
+            sponsorDemoSeen = true;
+            options.sponsorDemo = true;
+            continue;
+        }
+        if (argument == "--sponsor-demo-auto-exit")
+        {
+            if (sponsorDemoAutoExitSeen)
+            {
+                error = "--sponsor-demo-auto-exit may be specified only once.";
+                return false;
+            }
+            sponsorDemoAutoExitSeen = true;
+            options.sponsorDemoAutoExit = true;
+            continue;
+        }
+        if (argument == "--resource-profile")
+        {
+            if (resourceProfileSeen)
+            {
+                error = "--resource-profile may be specified only once.";
+                return false;
+            }
+            resourceProfileSeen = true;
+            options.resourceProfile = true;
+            continue;
         }
 
         const auto parsePath = [&](const char* prefix, bool& seen,
@@ -73,6 +114,8 @@ bool parseBenchmarkOptions(int argc, const char* const argv[],
         if (parsePath("--input=", inputSeen, options.input) ||
             parsePath("--output=", outputSeen, options.output) ||
             parsePath("--trace=", traceSeen, options.trace) ||
+            parsePath("--resource-trace=", resourceTraceSeen, options.resourceTrace) ||
+            parsePath("--eye-crops-dir=", eyeCropsSeen, options.eyeCropsDirectory) ||
             parsePath("--pfld-model=", pfldModelSeen, options.pfldModel))
         {
             if (!error.empty()) return false;
@@ -119,7 +162,21 @@ bool parseBenchmarkOptions(int argc, const char* const argv[],
             return true;
         };
         if (parseCountOption("--warmup=", warmupSeen, options.warmupFrames) ||
-            parseCountOption("--frames=", framesSeen, options.measuredFrames))
+            parseCountOption("--frames=", framesSeen, options.measuredFrames) ||
+            parseCountOption("--eye-crop-every=", eyeCropEverySeen, options.eyeCropEvery))
+        {
+            if (!error.empty()) return false;
+            continue;
+        }
+        if (parseCountOption("--resource-sample-ms=", resourceSampleSeen,
+                             options.resourceSampleMilliseconds))
+        {
+            if (!error.empty()) return false;
+            continue;
+        }
+        if (parseCountOption("--diagnostic-recalibration-frame=",
+                             diagnosticRecalibrationSeen,
+                             options.diagnosticRecalibrationFrame))
         {
             if (!error.empty()) return false;
             continue;
@@ -132,6 +189,12 @@ bool parseBenchmarkOptions(int argc, const char* const argv[],
     if (!inputSeen)
     {
         error = "--input is required.";
+        return false;
+    }
+    if (resourceTraceSeen) options.resourceProfile = true;
+    if (options.sponsorDemoAutoExit && !options.sponsorDemo)
+    {
+        error = "--sponsor-demo-auto-exit requires --sponsor-demo.";
         return false;
     }
     if (options.backend == BackendKind::Pfld && !pfldModelSeen)
@@ -154,5 +217,8 @@ std::string benchmarkUsage(const char* programName)
         " --input=<image-or-video> [--backend=yunet|pfld|mediapipe]"
         " [--pfld-model=<landmarks_68_pfld.onnx>]"
         " [--warmup=N] [--frames=N] [--output=results.json]"
-        " [--trace=frames.csv]";
+        " [--trace=frames.csv] [--eye-crops-dir=directory]"
+        " [--resource-profile] [--resource-trace=resources.csv] [--resource-sample-ms=N]"
+        " [--diagnostic-recalibration-frame=N]"
+        " [--eye-crop-every=N] [--sponsor-demo] [--sponsor-demo-auto-exit]";
 }

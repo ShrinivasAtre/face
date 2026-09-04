@@ -192,6 +192,9 @@ add_library(dms_core STATIC
     src/DmsTemporalEvents.cpp
     src/DmsPolicy.cpp
     src/RecordedFrameClock.cpp
+    src/DriverIdentityMatcher.cpp
+    src/DriverProfileDatabase.cpp
+    src/EncryptedProfileBundle.cpp
 )
 
 add_library(pfld_landmark_provider STATIC
@@ -210,6 +213,10 @@ target_include_directories(dms_core
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
+
+if(WIN32)
+    target_link_libraries(dms_core PUBLIC bcrypt)
+endif()
 
 target_include_directories(pfld_landmark_provider
     PUBLIC
@@ -246,6 +253,8 @@ add_executable(yunet_demo
 
 add_executable(face_benchmark
     src/benchmark_main.cpp
+    src/ResourceProfiler.cpp
+    src/EyeCropExtractor.cpp
     src/AppPaths.cpp
     src/BackendOptions.cpp
     src/BenchmarkOptions.cpp
@@ -258,6 +267,39 @@ add_executable(face_benchmark
     src/YuNetPfldBackend.cpp
     src/BlinkTracker.cpp
 )
+
+execute_process(
+    COMMAND git -c safe.directory=${CMAKE_CURRENT_SOURCE_DIR}
+        rev-parse --short=12 HEAD
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    OUTPUT_VARIABLE FACE_SOURCE_REVISION
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+)
+if(FACE_SOURCE_REVISION STREQUAL "")
+    set(FACE_SOURCE_REVISION "unknown")
+endif()
+target_compile_definitions(face_benchmark PRIVATE
+    FACE_SOURCE_REVISION="${FACE_SOURCE_REVISION}"
+)
+
+add_executable(face_recognition_baseline
+    src/recognition_baseline.cpp
+)
+target_include_directories(face_recognition_baseline PRIVATE ${OpenCV_INCLUDE_DIRS})
+target_link_libraries(face_recognition_baseline PRIVATE ${OpenCV_LIBS})
+
+add_executable(face_pad_baseline
+    src/pad_baseline.cpp
+)
+target_include_directories(face_pad_baseline PRIVATE ${OpenCV_INCLUDE_DIRS})
+target_link_libraries(face_pad_baseline PRIVATE ${OpenCV_LIBS})
+
+add_executable(driver_profile_admin
+    src/driver_profile_admin.cpp
+)
+target_include_directories(driver_profile_admin PRIVATE ${OpenCV_INCLUDE_DIRS})
+target_link_libraries(driver_profile_admin PRIVATE dms_core ${OpenCV_LIBS})
 
 add_executable(dms_sponsor_selftest
     src/sponsor_selftest.cpp
@@ -553,6 +595,20 @@ endif()
 # ============================================================
 
 if(BUILD_TESTING)
+    find_program(FACE_POWERSHELL_EXECUTABLE NAMES pwsh powershell)
+    if(FACE_POWERSHELL_EXECUTABLE)
+        add_test(
+            NAME score_dense_eye_roi_labels_test
+            COMMAND ${FACE_POWERSHELL_EXECUTABLE} -NoProfile -File
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/score_dense_eye_roi_labels_test.ps1
+        )
+        add_test(
+            NAME stage20_recording_batch_test
+            COMMAND ${FACE_POWERSHELL_EXECUTABLE} -NoProfile -File
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/stage20_recording_batch_test.ps1
+        )
+    endif()
+
 
     add_test(
         NAME dms_sponsor_selftest
@@ -565,6 +621,18 @@ if(BUILD_TESTING)
     )
     target_link_libraries(dms_eye_metrics_test PRIVATE dms_core)
     add_test(NAME dms_eye_metrics_test COMMAND dms_eye_metrics_test)
+
+    add_executable(driver_identity_matcher_test
+        tests/driver_identity_matcher_test.cpp
+    )
+    target_link_libraries(driver_identity_matcher_test PRIVATE dms_core)
+    add_test(NAME driver_identity_matcher_test COMMAND driver_identity_matcher_test)
+
+    add_executable(driver_profile_database_test
+        tests/driver_profile_database_test.cpp
+    )
+    target_link_libraries(driver_profile_database_test PRIVATE dms_core)
+    add_test(NAME driver_profile_database_test COMMAND driver_profile_database_test)
 
     add_executable(backend_face_geometry_mapper_test
         tests/backend_face_geometry_mapper_test.cpp
@@ -734,6 +802,26 @@ if(BUILD_TESTING)
         NAME benchmark_options_test
         COMMAND benchmark_options_test
     )
+
+    add_executable(resource_profiler_test
+        tests/resource_profiler_test.cpp
+        src/ResourceProfiler.cpp
+    )
+    target_include_directories(resource_profiler_test PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    if(WIN32)
+        target_link_libraries(resource_profiler_test PRIVATE Psapi)
+    endif()
+    add_test(NAME resource_profiler_test COMMAND resource_profiler_test)
+
+    add_executable(eye_crop_extractor_test
+        tests/eye_crop_extractor_test.cpp
+        src/EyeCropExtractor.cpp
+    )
+    target_include_directories(eye_crop_extractor_test PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include ${OpenCV_INCLUDE_DIRS})
+    target_link_libraries(eye_crop_extractor_test PRIVATE ${OpenCV_LIBS})
+    add_test(NAME eye_crop_extractor_test COMMAND eye_crop_extractor_test)
 
     add_executable(dms_core_test
         tests/dms_core_test.cpp

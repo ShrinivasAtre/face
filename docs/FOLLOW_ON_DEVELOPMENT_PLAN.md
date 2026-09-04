@@ -6,10 +6,12 @@
 - Completed predecessor: 16-step MediaPipe integration program
 - Plan state: **ACCEPTED AND FROZEN**
 - Plan accepted by the user: **2026-08-22**
-- Current formal stage: **Stage 19 — YuNet + PFLD versus YuNet + LBF benchmark**
+- Current formal stages: **Stage 19 dataset expansion and Stage 20 accuracy acceptance**
 - Stage 17 status: **COMPLETE — implementation, sustained tests, and Windows/Orin camera validation passed**
 - Stage 18 status: **COMPLETE — implementation and Windows/Ubuntu/Orin validation passed on 2026-08-24**
 - Stage 19 status: **IN PROGRESS — approved by the user on 2026-08-24**
+- Stage 20 status: **IN PROGRESS — mechanisms, approved policy, first dense scoring, and second-batch tooling complete; new recordings and production-accuracy evidence remain open**
+- Sponsor recorded-video demonstration: **IMPLEMENTED AND PACKAGED — final physical rehearsal pending**
 - Later stages in this document are architectural commitments or benchmark gates, not accepted implementations.
 
 ## Plan governance
@@ -336,6 +338,75 @@ Implement calibrated eye openness, EAR, PERCLOS, blink, yawn, head pose, gaze, d
   24.04 x64. The Orin head-pose estimator test was confirmed as an ARM aarch64
   executable.
 
+## Sponsor recorded-video demonstration gate — 2026-08-31
+
+### Objective
+
+Provide a reproducible engineering demonstration on Windows x64 and Orin
+aarch64 that accepts a sponsor-selected local video, displays the approved
+Stage 20 provider-neutral states/events/counters while the recording plays,
+and presents end-of-video statistics. The demonstration does not replace the
+Stage 19/20 accuracy gates and must not claim production or safety readiness.
+
+### Scope and privacy boundary
+
+- Reuse the recorded-input Stage 20 pipeline and named approved policy; do not
+  create a second set of event algorithms for the UI.
+- Support YuNet/LBF and MediaPipe through their existing runtime contracts.
+- Show unavailable provider capabilities explicitly rather than synthesizing
+  an event from unsupported landmarks.
+- Accept videos by local path. Recordings, audio, frames, traces, annotations,
+  and per-video results remain outside Git.
+- The user subsequently requested a single-folder/ZIP meeting package that
+  includes videos for an offline Windows sponsor computer. Therefore, a curated
+  recording subset may be included only in separately generated external
+  meeting archives. Those archives remain outside Git, must identify their
+  privacy status, and require permission to show the selected recording.
+- Include launchers, an anonymous video catalog, package verification, and
+  operator documentation.
+
+### Acceptance gate
+
+- A single documented command launches a local video on each platform.
+- Playback shows driver presence, eye state/openness, blink/long-blink/
+  prolonged-closure counts, PERCLOS when available, yawn, head zone/counts,
+  gaze/distraction availability, monitoring availability, drowsiness, source
+  time, backend and processing rate.
+- End-of-video output records the same aggregate schema used by headless
+  evaluation and the final display remains reviewable until the operator exits.
+- `Q` or `Esc` exits cleanly; invalid paths and unavailable backends fail with
+  actionable diagnostics.
+- Focused and full Release tests pass on Windows and Orin. Both packages are
+  checked for architecture, dependencies, models, and no direct MediaPipe
+  bridge linkage.
+- At least one private representative recording and one dashcam recording run
+  successfully on each available platform. Private data and results are not
+  committed.
+- The external meeting archive contains all application/runtime payloads and
+  its selected videos in one directory tree, has a payload checksum verifier,
+  and passes verification plus self-test after a fresh extraction.
+- User action is required only for final GUI observation/rehearsal on Windows
+  and the Orin desktop after headless/build evidence passes.
+
+### Implementation evidence (2026-09-01)
+
+- Added a recorded-video sponsor display backed by the Stage 20 semantic/FSM
+  pipeline, end-of-file handling, persistent summary, aggregate schema-5 output,
+  and Windows/Orin launchers with a 15-video anonymous menu.
+- Added external package support for curated video payloads, all-payload
+  checksums, offline verification, Windows application-local runtime DLLs, and
+  an Orin software H.264 fallback for recordings rejected by the automatic
+  Jetson decoder path.
+- Windows and Orin Release builds each passed all 23 CTests. Fresh external
+  packages passed their manifests and deterministic self-tests; direct
+  recorded-video runs succeeded with zero unrequested eye crops.
+- The Windows ZIP and Orin archive, including private videos, remain outside
+  Git. Checksums and detailed evidence are recorded in
+  `docs/SPONSOR_DEMO_VALIDATION.md`.
+- The implementation/package gate is complete. Final visual rehearsal on the
+  different Windows sponsor computer and the Orin desktop remains the marked
+  user-action gate.
+
 ## Stage 21 — recognition and object/context events
 
 ### Objective
@@ -355,6 +426,20 @@ Add consented driver recognition plus cigarette-at-mouth and hand-held-object/dr
 - **USER INPUT — DATA/POLICY/PRODUCT:** approve the initial hand-held-object taxonomy and unknown-object behavior.
 - **USER INPUT — DATA/POLICY/PRODUCT:** after pretrained baselines are reported, approve any proposed data annotation, training, or fine-tuning effort. Production inference remains pure C++ even if offline training uses Python.
 
+### Driver-identification authorization — 2026-09-03
+
+The product owner separated driver identification from later object/context
+work and authorized Stage 21 Steps 21.0--21.3 on
+`feature/stage21-driver-identification`. Scope includes documentation,
+provider-neutral interfaces/tests, private local evaluation, and pretrained
+baseline benchmarking. Training, threshold approval, merge, and release remain
+excluded. The approved baseline is offline identification only, at most 50
+drivers, portable profiles, photo/video/live enrollment, retained enrollment
+images, generic DMS behavior for unknown drivers, controlled automatic profile
+improvement, mandatory spoof protection, and initial Windows/Ubuntu/Orin
+support for India. See `docs/STAGE21_DRIVER_IDENTIFICATION_PLAN.md` and
+`docs/STAGE21_PRODUCT_PRIVACY_DECISION_RECORD.md`.
+
 ## Stage 22 — native packaging matrix and Raspberry Pi enablement
 
 ### Objective
@@ -373,6 +458,95 @@ Produce self-contained CMake application packages for Windows x64, x64 Ubuntu, O
 - **USER ACTION — CAMERA/DEVICE:** when available, provide Raspberry Pi network/device access and physically connect the intended camera. Do not provide or expose credentials in repository data.
 - **USER INPUT — DATA/POLICY/PRODUCT:** confirm whether a Hailo accelerator is present and its exact model before the optional Hailo path begins.
 - **USER ACTION — CAMERA/DEVICE:** at the final gate, make the camera available on each physical target and visually confirm live behavior. The agent performs all builds, commands, packaging, and non-interactive validation.
+
+## Stage 23 — CPU/core and memory instrumentation
+
+**Status: WINDOWS/ORIN COMPLETE; UBUNTU X64 DEFERRED**
+
+### Objective
+
+Extend the existing deterministic benchmark with reproducible run metadata,
+periodic CPU/memory/thread sampling, explicit operating phases, and component
+latency attribution. This stage characterizes resource use without changing DMS
+policy thresholds, scheduling, model behavior, or production resource limits.
+
+### Scope
+
+- Preserve existing aggregate CPU, resident-memory and latency fields while
+  adding a versioned compatible result schema.
+- Sample process CPU, per-logical-core system CPU, resident/private memory and
+  process thread count on Windows and Linux.
+- Mark startup, warm-up, initial calibration, normal processing and
+  recalibration samples.
+- Attribute capture, backend, face-geometry, eye mapping/EAR, eye
+  quality/calibration, temporal FSM and output latency.
+- Keep raw resource traces and private input paths outside Git; retain only
+  approved anonymous aggregate evidence.
+
+### Acceptance gate
+
+- Focused option and resource-profiler tests pass on Windows x64 and Orin
+  aarch64; an Ubuntu x64 build validates the generic Linux collector.
+- A deterministic recorded-input run produces valid schema-6 JSON and resource
+  CSV with matching sample counts and the expected logical-core columns.
+- Profiling on/off comparison shows no DMS output changes and quantifies the
+  profiler overhead before any performance conclusion is accepted.
+- The benchmark guide documents phase meanings, metric units, privacy rules and
+  repeatable commands.
+- Windows and Orin evidence is recorded before Stage 23 is marked complete.
+
+### Authorization and exclusions
+
+The product owner authorized Steps 1--4 (schema/metadata, sampling, phase
+markers and component timing) on 2026-09-03. CPU affinity, hard CPU limits,
+production budget selection, threshold changes, merge and release are not part
+of this implementation gate.
+
+### Initial implementation evidence — 2026-09-03
+
+- Windows x64 Release built successfully and all 28 registered tests passed.
+  A private recorded-video smoke run produced matching schema-6 JSON/CSV
+  samples with all eight logical-core columns populated.
+- Orin aarch64 Release built from a fresh `~/common/p23/face-stage23` checkout
+  at commit `f5cc99a`; all 22 applicable tests passed. The checksum-pinned
+  still-image MediaPipe smoke run detected 20/20 frames, produced 186 matching
+  samples and populated all six logical-core columns.
+- These short runs validate instrumentation plumbing. Repeated profiling-on/off
+  overhead, recorded calibration/processing phase coverage, thermal correlation
+  and sustained-resource characterization remain required for completion.
+
+The first repeated overhead checkpoint followed on 2026-09-04. Three
+interleaved 500-frame Windows pairs showed no measurable profiler slowdown and
+preserved 500/500 detections. Three 100-frame Orin pairs initially showed about
+4.2% lower median sampled throughput; lowering only the sampler thread priority
+reduced this to about 2.2%, with approximately 0.2% median p95-latency impact
+and unchanged 100/100 detections/event output. Sampling remains opt-in and is
+accepted for diagnostic runs only. Recorded phase coverage, target thermals and
+sustained evidence remain open.
+
+A subsequent revision-correct 500-frame Orin run at `db43445` detected all
+frames and produced 62 calibration plus 415 steady-processing resource samples.
+Steady-processing RSS varied by only 73,728 bytes. During 133 seconds of
+`tegrastats` evidence, maximum junction temperature was 48.531 C, maximum
+observed input power was 4,360 mW, and GR3D utilization remained zero under the
+XNNPACK CPU path. Initial calibration/processing phase coverage is now complete
+on Windows and Orin; recalibration and the 30-minute sustained gate remain open.
+
+The deterministic benchmark-only reset control at commit `c6208d1` subsequently
+closed recalibration-phase coverage on Windows and Orin with 500/500 detections
+on each. The Orin sustained run then processed 9,400/9,400 frames at 5.233 FPS;
+its measured-frame window was 29.94 minutes and its five-second NVIDIA telemetry
+window exceeded 30 minutes. Processing RSS varied by 651,264 bytes, maximum
+junction temperature was 48.937 C, maximum observed input power was 4,672 mW,
+and GPU utilization remained zero. Ubuntu x64 validation is still pending
+because the available Ubuntu WSL instance has no C++ compiler.
+
+On 2026-09-04 the product owner explicitly placed Ubuntu x64 validation on
+hold and directed development to continue on Windows x64 and Orin aarch64.
+The Windows/Orin Stage 23 scope is therefore closed with committed evidence.
+The generic Ubuntu x64 collector check remains a deferred cross-platform gate
+and must be resumed when the replacement Ubuntu toolchain is supplied; this
+deferral is not evidence of Ubuntu compatibility.
 
 ## Formal review checkpoints
 
@@ -464,6 +638,72 @@ Cross-platform build evidence at commit `3b61201`:
 
 No training crops were extracted and no eye-ROI model was trained. Both remain
 behind the separately required explicit product-owner approval.
+
+### Eye-ROI crop readiness audit — 2026-09-01
+
+The product owner subsequently approved local, non-Git eye-region crop
+extraction for a benchmark, explicitly excluding model training. The extractor
+produced 1,414 left/right pairs (2,828 crops) from six timestamped clips with
+zero missing files, decode failures, or dimension errors. Anonymous audit and a
+private balanced visual review found that event-interval-derived candidate
+classes are not dense frame-level truth, the set is 75.42% unlabelled-visible,
+only two subjects are represented, and the sole IR slice covers one
+subject/session. Required partial, glasses, invalid-quality, domain-balanced
+occlusion, and hard-negative crop labels are absent or insufficient.
+
+The data is accepted for extractor QA and annotation-queue development but is
+rejected as a training-ready or production-selection dataset. Random crop
+splits are prohibited; both eye sides, neighboring frames, events, sessions,
+and subjects must remain grouped. No training approval is requested. Detailed
+anonymous conclusions and the next data gate are recorded in
+`docs/STAGE20_EYE_ROI_CROP_AUDIT.md`; all images, mappings, per-crop data, and
+contact sheets remain outside Git.
+
+The six-clip schema-5 event checkpoint is summarized in
+`docs/STAGE20_ACCURACY_CHECKPOINT.md`. Ordinary blink F1 is 0.806, long-blink F1
+is 0.667, prolonged-closure F1 is 0.333, yawn F1 is 0.889, and explicit
+eye-occlusion recall is zero. Horizontal gaze is partially supported; vertical
+gaze and head-direction event matching are currently zero. Dense eye-state and
+visibility truth is absent, so PERCLOS/openness and duration-weighted state
+accuracy cannot yet be scored. These results keep the production-accuracy gate
+open and do not justify changing the approved policy thresholds.
+
+The pose/gaze semantic correction was subsequently validated at commit
+`536f1a4` on Windows x64, Ubuntu 24.04 x64, and Orin aarch64. A deterministic
+trace-to-prediction converter was added and reproduced the retained 126-row
+pre-correction prediction CSV exactly. The full 8,501-frame rerun removed all
+ten unmatched vertical-gaze predictions and created the expected physical
+left/right/up head matches, but vertical-gaze recall remains zero, gaze-left
+false positives increased, and eye-occlusion recall remains zero. Detailed
+anonymous metrics and the decision to retain the approved thresholds are in
+`docs/STAGE20_ACCURACY_GATE_RERUN.md`.
+
+Dense eye-state/visibility annotation preparation now has a deterministic
+session-grouped batch generator. The private 2,828-crop manifest was frozen by
+checksum and expanded into independent templates for two anonymous annotators.
+Each annotator receives three complete subject/session batches: 1,722 rows for
+the first visible session, 290 rows for the IR session, and 816 rows for the
+second visible session. Labels and templates remain outside Git. Human review,
+independent second-pass completion, validation, and adjudication were completed
+on 2026-09-03. Deterministic dense-state scoring now reports 87.82%
+duration-weighted model-known coverage, 98.50% conditional state accuracy, and
+86.51% end-to-end accuracy over 1,216 evaluable paired samples. Availability,
+especially in the single IR session, is the dominant remaining eye-state
+failure. Thresholds remain unchanged; broader fixed-window PERCLOS validation
+and the conditional eye-ROI model gate remain open. The scorer produced
+230 comparable 60-second windows on the only sufficiently long clip, with
+0.0064 mean absolute PERCLOS error; the mostly-open single-session slice is
+tooling evidence rather than a production gate. See
+`docs/STAGE20_DENSE_EYE_STATE_RESULTS.md`.
+
+The product owner approved preparation, local extraction, and double review of
+a second private recording batch on 2026-09-03, still excluding model training.
+The batch initializer reserves anonymous clips C07-C18 for three additional
+subjects across visible eye-state, genuine IR, clear-glasses, and occlusion
+sessions. The recording guide, consent-explicit inventory, checksum freeze
+tool, and deterministic tests are committed. Recording and ingestion are now
+the external data dependency; see `docs/STAGE20_SECOND_BATCH_RECORDING_GUIDE.md`
+and `docs/STAGE20_STATUS.md`.
 
 ## Inputs currently unavailable
 

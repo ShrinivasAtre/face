@@ -515,6 +515,15 @@ of this implementation gate.
   overhead, recorded calibration/processing phase coverage, thermal correlation
   and sustained-resource characterization remain required for completion.
 
+The first repeated overhead checkpoint followed on 2026-09-04. Three
+interleaved 500-frame Windows pairs showed no measurable profiler slowdown and
+preserved 500/500 detections. Three 100-frame Orin pairs initially showed about
+4.2% lower median sampled throughput; lowering only the sampler thread priority
+reduced this to about 2.2%, with approximately 0.2% median p95-latency impact
+and unchanged 100/100 detections/event output. Sampling remains opt-in and is
+accepted for diagnostic runs only. Recorded phase coverage, target thermals and
+sustained evidence remain open.
+
 ## Formal review checkpoints
 
 1. **Completed — plan freeze:** overall scope, architecture and acceptance criteria accepted on 2026-08-22.

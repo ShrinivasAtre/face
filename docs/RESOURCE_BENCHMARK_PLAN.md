@@ -97,3 +97,25 @@ resource samples across all six logical cores. The observed 5.507 FPS and
 resource values are smoke evidence only, not a repeated benchmark baseline.
 Profiler overhead, recorded-video phase coverage, thermals and sustained-run
 evidence remain open.
+
+### Profiling overhead checkpoint — 2026-09-04
+
+The sampler thread now runs below normal inference priority on Windows and at
+Linux nice level 10. The change is commit `db43445` and is pushed to the GitHub
+Stage 23 branch.
+
+- Windows used three interleaved profiled/unprofiled Release runs of 500
+  measured frames on the checksum-pinned image. All six runs detected 500/500
+  frames. Median throughput was 53.35 FPS without sampling and 57.06 FPS with
+  200 ms sampling; median end-to-end p95 was 23.66 ms and 21.11 ms,
+  respectively. The apparent profiled speedup is treated as environmental run
+  variance, not a performance benefit; no Windows slowdown was measurable.
+- Orin used three runs per mode of 100 measured frames. Before lowering sampler
+  priority, median 200 ms sampled throughput was 5.20 FPS versus 5.43 FPS
+  unsampled (about -4.2%). After lowering priority it was 5.31 FPS (about
+  -2.2%), while median end-to-end p95 changed from 213.28 ms to 213.70 ms
+  (about +0.2%). All runs detected 100/100 frames with unchanged event output.
+- The profiler remains explicitly enabled and is off by default. These results
+  accept it for diagnostic characterization but do not make it suitable for
+  permanent production telemetry. Longer Orin runs and target thermal
+  correlation remain part of the sustained gate.

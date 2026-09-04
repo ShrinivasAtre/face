@@ -195,6 +195,7 @@ add_library(dms_core STATIC
     src/DriverIdentityMatcher.cpp
     src/DriverProfileDatabase.cpp
     src/EncryptedProfileBundle.cpp
+    src/LocalProtectedProfileKey.cpp
 )
 
 add_library(pfld_landmark_provider STATIC
@@ -215,7 +216,7 @@ target_include_directories(dms_core
 )
 
 if(WIN32)
-    target_link_libraries(dms_core PUBLIC bcrypt)
+    target_link_libraries(dms_core PUBLIC bcrypt crypt32)
 endif()
 
 target_include_directories(pfld_landmark_provider

@@ -1,5 +1,6 @@
 #include "DriverProfileDatabase.hpp"
 #include "EncryptedProfileBundle.hpp"
+#include "LocalProtectedProfileKey.hpp"
 
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/videoio.hpp>
@@ -54,13 +55,26 @@ std::vector<std::uint8_t> capture(const std::string&s,const Args&a){cv::Mat fram
 
 int main(int argc,char**argv)
 {
- try{std::string command;auto args=parse(argc,argv,command);auto store=std::filesystem::path(required(args,"store"));auto pass=passphrase("Store passphrase: ");auto db=load(store,pass);std::string error;
-  if(command=="init"){if(std::filesystem::exists(store))throw std::runtime_error("store already exists");auto confirmation=passphrase("Confirm passphrase: ");if(pass!=confirmation)throw std::runtime_error("passphrases do not match");save(store,pass,db);}
+ try{std::string command;auto args=parse(argc,argv,command);auto store=std::filesystem::path(required(args,"store"));std::string error;
+  const auto keyMode=args.count("key-mode")?args.at("key-mode"):"passphrase";if(keyMode!="passphrase"&&keyMode!="local")throw std::runtime_error("key-mode must be passphrase or local");
+  const bool localKey=keyMode=="local";auto keyFile=args.count("key-file")?std::filesystem::path(args.at("key-file")):std::filesystem::path(store.string()+".key");
+  std::string pass;std::vector<std::uint8_t> newProtectedKey;
+  if(localKey){
+   if(command=="init"){
+    if(std::filesystem::exists(store)||std::filesystem::exists(keyFile))throw std::runtime_error("store or protected key already exists");
+    if(!dms::createLocalProtectedProfileKey(newProtectedKey,pass,error))throw std::runtime_error(error);
+   }else if(!dms::openLocalProtectedProfileKey(readFile(keyFile),pass,error))throw std::runtime_error(error);
+  }else pass=passphrase("Store passphrase: ");
+  auto db=load(store,pass);
+  if(command=="init"){
+   if(localKey){writeFileAtomic(keyFile,newProtectedKey);try{save(store,pass,db);}catch(...){std::filesystem::remove(keyFile);throw;}}
+   else{if(std::filesystem::exists(store))throw std::runtime_error("store already exists");auto confirmation=passphrase("Confirm passphrase: ");if(pass!=confirmation)throw std::runtime_error("passphrases do not match");save(store,pass,db);}
+  }
   else if(command=="list"){for(const auto&p:db.profiles())std::cout<<p.driverId<<'\t'<<p.displayName<<'\t'<<p.images.size()<<'\t'<<p.embeddings.size()<<'\n';return 0;}
   else if(command=="create"){if(!db.create(required(args,"driver-id"),args.count("display-name")?args.at("display-name"):"",error))throw std::runtime_error(error);save(store,pass,db);}
   else if(command=="delete"){if(!db.erase(required(args,"driver-id"),error))throw std::runtime_error(error);save(store,pass,db);}
   else if(command=="add-media"){auto kind=required(args,"source");float quality=std::stof(required(args,"quality"));dms::EnrollmentImage image{source(kind),quality,capture(kind,args)};if(!db.addImage(required(args,"driver-id"),std::move(image),error))throw std::runtime_error(error);save(store,pass,db);}
-  else if(command=="export"){auto output=std::filesystem::path(required(args,"output"));if(output==store)throw std::runtime_error("export output must differ from store");auto bytes=readFile(store);std::vector<std::uint8_t> check;if(!dms::decryptProfileBundle(bytes,pass,check,error))throw std::runtime_error(error);writeFileAtomic(output,bytes);}
+  else if(command=="export"){auto output=std::filesystem::path(required(args,"output"));if(output==store)throw std::runtime_error("export output must differ from store");if(localKey){auto exportPass=passphrase("Export bundle passphrase: ");auto confirmation=passphrase("Confirm export passphrase: ");if(exportPass!=confirmation)throw std::runtime_error("passphrases do not match");save(output,exportPass,db);}else{auto bytes=readFile(store);std::vector<std::uint8_t> check;if(!dms::decryptProfileBundle(bytes,pass,check,error))throw std::runtime_error(error);writeFileAtomic(output,bytes);}}
   else if(command=="import"){
    auto input=std::filesystem::path(required(args,"input"));if(input==store)throw std::runtime_error("import input must differ from store");
    auto inputPass=passphrase("Import bundle passphrase: ");std::vector<std::uint8_t> plain;

@@ -1,5 +1,6 @@
 #include "DriverProfileDatabase.hpp"
 #include "EncryptedProfileBundle.hpp"
+#include "LocalProtectedProfileKey.hpp"
 
 #include <iostream>
 
@@ -31,6 +32,12 @@ int main()
        !check(!decryptProfileBundle(bundle,"incorrect passphrase",plain,error),"wrong passphrase rejected")) return 1;
     bundle[bundle.size()/2]^=1;
     if(!check(!decryptProfileBundle(bundle,"correct horse battery",plain,error),"tamper rejected")) return 1;
+    std::vector<std::uint8_t> protectedKey;std::string localSecret,reopenedSecret;
+    if(!check(createLocalProtectedProfileKey(protectedKey,localSecret,error),"protect local key")||
+       !check(!protectedKey.empty()&&localSecret.size()==64,"local key shape")||
+       !check(openLocalProtectedProfileKey(protectedKey,reopenedSecret,error)&&reopenedSecret==localSecret,"open local key")) return 1;
+    protectedKey[protectedKey.size()/2]^=1;
+    if(!check(!openLocalProtectedProfileKey(protectedKey,reopenedSecret,error),"tampered local key rejected")) return 1;
 #else
     std::vector<std::uint8_t> bundle;
     if(!check(!encryptProfileBundle(bytes,"correct horse battery",{},bundle,error),"missing provider fails closed")) return 1;

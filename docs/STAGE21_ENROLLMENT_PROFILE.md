@@ -43,7 +43,9 @@ https://www.nist.gov/publications/recommendation-block-cipher-modes-operation-ga
 
 ```text
 driver_profile_admin init --store=profiles.dmsid
+driver_profile_admin init --store=profiles.dmsid --key-mode=local
 driver_profile_admin create --store=profiles.dmsid --driver-id=driver-01 --display-name="Driver One"
+driver_profile_admin create --store=profiles.dmsid --key-mode=local --driver-id=driver-01 --display-name="Driver One"
 driver_profile_admin list --store=profiles.dmsid
 driver_profile_admin add-media --store=profiles.dmsid --driver-id=driver-01 --source=photo --input=photo.jpg --quality=0.9
 driver_profile_admin add-media --store=profiles.dmsid --driver-id=driver-01 --source=video --input=enrollment.mp4 --quality=0.9
@@ -58,6 +60,12 @@ driver_profile_admin delete --store=profiles.dmsid --driver-id=driver-01
 `reject` and `replace` operate transactionally on all profiles in the imported
 bundle. `new-id` imports one explicitly selected profile. Import failures leave
 the destination store unchanged.
+
+`--key-mode=local` uses a random store secret protected by Windows DPAPI for the
+current OS user. The protected sidecar defaults to `<store>.key`; it contains no
+plaintext key. Local-key exports prompt for a new portable passphrase and
+re-encrypt the database, so the exported bundle can be copied to another device.
+The optional `--key-file=<path>` selects a different protected sidecar location.
 
 These examples do not establish an approved quality threshold. Until a quality
 provider is integrated, the administrator supplies diagnostic quality and the
@@ -75,11 +83,16 @@ and new-ID imports with different source/destination passphrases. Rejected
 conflicts left the destination byte-for-byte unchanged, successful imports were
 re-encrypted, and the final profile list was correct.
 
+The protected-local-key test creates and reopens a DPAPI blob, verifies the
+recovered random secret, and rejects a modified blob. A CLI smoke test also
+initialized and reopened a local-key store, exported it under a portable
+passphrase, imported it into a separate passphrase store, and recovered the
+expected profile. DPAPI operations require access to the Windows user profile.
+
 ## Remaining Stage 21.4 work
 
-1. Add platform-protected local-key mode; current stores use portable passphrases.
-2. Add an OpenSSL 3 provider and validate byte-compatible Ubuntu/Orin bundles.
-3. Integrate quality, alignment, embedding, and mandatory PAD providers after
+1. Add an OpenSSL 3 provider and validate byte-compatible Ubuntu/Orin bundles.
+2. Integrate quality, alignment, embedding, and mandatory PAD providers after
    candidate selection; do not create production embeddings beforehand.
-4. Add bounded automatic-template replacement and rollback journal.
-5. Run a notified live-camera enrollment usability check.
+3. Add bounded automatic-template replacement and rollback journal.
+4. Run a notified live-camera enrollment usability check.

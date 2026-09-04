@@ -108,11 +108,18 @@ PERCLOS when coverage or classification domains differ.
    Disabled ROI preserves the prior full-frame detection behavior. Benchmark
    schema 7 records the configured normalized ROI, coverage requirement and
    effective pixel rectangle without recording private imagery.
-5. Add cumulative/rolling statistics using monotonic intervals and event
-   timestamps.
+5. **Implemented:** add cumulative/rolling statistics using monotonic eye-state
+   intervals and accepted-blink event timestamps. Unknown and over-gap time is
+   excluded, rolling eye-open percentage is coverage-gated, and both the demo
+   overlay and schema-7 JSON/CSV outputs expose the configured statistics.
 6. Add recorded-sequence tests for missing data, face loss, driver change,
    window trimming and non-monotonic time.
 7. Present proposed defaults and UI wording for approval before product use.
+
+Statistics start a new epoch with each process/session. The explicit reset API
+is ready for confirmed driver-change integration; it is not triggered by
+transient face loss, and will not be connected until the identification path
+produces a confirmed identity-change signal.
 
 ## Stage 24 objective and acceptance criteria
 

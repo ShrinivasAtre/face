@@ -5,6 +5,7 @@
 #include "BenchmarkOptions.hpp"
 #include "BlinkTracker.hpp"
 #include "DmsEyeMetrics.hpp"
+#include "DmsEyeStatistics.hpp"
 #include "DmsPresentationConfigLoader.hpp"
 #include "ProcessingRoiAdapter.hpp"
 #include "DmsEyeQualityAssessor.hpp"
@@ -352,7 +353,8 @@ std::string optionalPercent(std::optional<float> value)
 
 void drawSponsorOverlay(cv::Mat& frame, BackendKind backend, dms::MonotonicTime timestamp,
                         dms::ObservationUsability eyeUsability,
-                        const dms::EyeMetricResult& eye, const dms::YawnResult& yawn,
+                        const dms::EyeMetricResult& eye, const dms::EyeStatisticsResult& eyeStatistics,
+                        const dms::YawnResult& yawn,
                         const dms::HeadPoseResult& head, const dms::DistractionResult& distraction,
                         dms::PresenceState presence,
                         const dms::MonitoringAvailabilityResult& availability,
@@ -390,6 +392,14 @@ void drawSponsorOverlay(cv::Mat& frame, BackendKind backend, dms::MonotonicTime 
             line += (line.empty() ? "" : "  ") + std::string("PERCLOS: ") + optionalPercent(eye.perclos);
         lines.push_back({line, eye.prolongedClosure ? bad : normal});
     }
+    if (selection.showEyeOpenness)
+        lines.push_back({"Eye-open time: cumulative " + optionalPercent(eyeStatistics.cumulativeEyeOpen) +
+                         "  rolling " + optionalPercent(eyeStatistics.rollingEyeOpen) +
+                         "  coverage " + optionalPercent(eyeStatistics.rollingKnownCoverage), normal});
+    if (selection.showBlinkCounts)
+        lines.push_back({"Accepted blinks: cumulative " +
+                         std::to_string(eyeStatistics.cumulativeBlinkCount) + "  rolling " +
+                         std::to_string(eyeStatistics.rollingBlinkCount), normal});
     if (selection.showYawnCounts)
         lines.push_back({"Yawns: " + std::to_string(yawn.count), yawn.active ? warn : normal});
     if (selection.showPose)
@@ -637,6 +647,15 @@ int main(int argc, char **argv)
         std::string policyError;
         if (!policy.validate(policyError)) { std::cerr << "Error: " << policyError << '\n'; return 1; }
         dms::EyeTemporalMetrics eyeMetrics(policy.eyeCalibration, policy.eye);
+        dms::EyeStatisticsConfig eyeStatisticsConfig;
+        eyeStatisticsConfig.rollingWindow =
+            std::chrono::seconds(presentationConfig.statistics.rollingWindowSeconds);
+        eyeStatisticsConfig.maximumSampleGap = policy.eye.maximumSampleGap;
+        eyeStatisticsConfig.minimumKnownCoverage =
+            static_cast<float>(presentationConfig.statistics.minimumKnownCoverage);
+        eyeStatisticsConfig.cumulativeEnabled = presentationConfig.statistics.cumulativeEnabled;
+        eyeStatisticsConfig.rollingEnabled = presentationConfig.statistics.rollingEnabled;
+        dms::EyeStatistics eyeStatistics(eyeStatisticsConfig);
         dms::EyeOpenCalibrator eyeCalibrator(policy.eyeOpenCalibration);
         bool eyeCalibrationApplied = false;
         bool calibrationCompletedOnce = false;
@@ -651,9 +670,10 @@ int main(int argc, char **argv)
         dms::DriverPresenceFsm presenceFsm(policy.presence);
         dms::MonitoringAvailabilityFsm availabilityFsm(policy.availability);
         dms::DrowsinessFsm drowsinessFsm(policy.drowsiness);
-        if (!eyeMetrics.valid())
+        if (!eyeMetrics.valid() || !eyeStatistics.valid())
         {
-            std::cerr << "Error: Invalid eye metric configuration: " << eyeMetrics.error() << '\n';
+            std::cerr << "Error: Invalid eye metric/statistics configuration: "
+                      << (eyeMetrics.valid() ? eyeStatistics.error() : eyeMetrics.error()) << '\n';
             return 1;
         }
         if (!qualityGate.valid() || !eyeQualityAssessor.valid() || !yawnFsm.valid() ||
@@ -676,6 +696,8 @@ int main(int argc, char **argv)
                      "blink_count,eye_usability,eye_openness,temporal_eye_state,"
                      "temporal_blink_event,temporal_blink_count,long_blink_event,long_blink_count,closure_ms,"
                      "prolonged_closure,prolonged_closure_event,prolonged_closure_count,perclos,perclos_coverage,"
+                     "cumulative_eye_open,cumulative_known_coverage,cumulative_blink_count,"
+                     "rolling_eye_open,rolling_known_coverage,rolling_blink_count,"
                      "eye_quality_confidence,eye_visibility,eye_mean,eye_contrast,eye_laplacian,"
                      "mouth_openness,yawn_active,yawn_event,yawn_count,"
                      "yaw_degrees,pitch_degrees,pose_reprojection,head_zone,head_event,"
@@ -743,6 +765,7 @@ int main(int argc, char **argv)
         std::size_t renderedFrames = 0;
         std::size_t measuredFrames = 0;
         dms::EyeMetricResult finalEyeMetrics;
+        dms::EyeStatisticsResult finalEyeStatistics;
         dms::YawnResult finalYawn;
         dms::HeadPoseResult finalHeadPose;
         dms::DistractionResult finalDistraction;
@@ -925,6 +948,8 @@ int main(int argc, char **argv)
                         eyeInput.usability = dms::ObservationUsability::Recovering;
                 }
                 finalEyeMetrics = eyeMetrics.update(eyeInput);
+                finalEyeStatistics = eyeStatistics.update(
+                    input.timestamp(), finalEyeMetrics.state, finalEyeMetrics.blinkEvent);
                 if (finalEyeMetrics.state == dms::EyeState::Unknown)
                     ++unknownEyeFrames;
                 else
@@ -1018,7 +1043,15 @@ int main(int argc, char **argv)
                           << finalEyeMetrics.prolongedClosureCount << ',';
                     if (finalEyeMetrics.perclos)
                         trace << *finalEyeMetrics.perclos;
-                    trace << ',' << finalEyeMetrics.perclosCoverage << ','
+                    trace << ',' << finalEyeMetrics.perclosCoverage << ',';
+                    if (finalEyeStatistics.cumulativeEyeOpen)
+                        trace << *finalEyeStatistics.cumulativeEyeOpen;
+                    trace << ',' << finalEyeStatistics.cumulativeKnownCoverage << ','
+                          << finalEyeStatistics.cumulativeBlinkCount << ',';
+                    if (finalEyeStatistics.rollingEyeOpen)
+                        trace << *finalEyeStatistics.rollingEyeOpen;
+                    trace << ',' << finalEyeStatistics.rollingKnownCoverage << ','
+                          << finalEyeStatistics.rollingBlinkCount << ','
                           << eyeQuality.confidence << ',' << eyeQuality.visibility << ','
                           << eyeQuality.meanIntensity << ',' << eyeQuality.contrast << ','
                           << eyeQuality.laplacianVariance << ',';
@@ -1068,7 +1101,7 @@ int main(int argc, char **argv)
                     const double processingFps = frameMs > 0.0 ? 1000.0 / frameMs : 0.0;
                     finalDisplayFrame = displayFrame.clone();
                     drawSponsorOverlay(displayFrame, options.backend, input.timestamp(), finalEyeUsability,
-                                       finalEyeMetrics, finalYawn, finalHeadPose, finalDistraction,
+                                       finalEyeMetrics, finalEyeStatistics, finalYawn, finalHeadPose, finalDistraction,
                                        finalPresence, finalAvailability, finalDrowsiness, processingFps,
                                        finalGazeAvailable, distractionEventCount, false,
                                        presentationConfig.display);
@@ -1184,6 +1217,20 @@ int main(int argc, char **argv)
             json << "null";
         json << ",\n"
              << "    \"final_perclos_coverage\": " << finalEyeMetrics.perclosCoverage << ",\n"
+             << "    \"cumulative_eye_open\": ";
+        if (finalEyeStatistics.cumulativeEyeOpen) json << *finalEyeStatistics.cumulativeEyeOpen;
+        else json << "null";
+        json << ",\n"
+             << "    \"cumulative_known_coverage\": " << finalEyeStatistics.cumulativeKnownCoverage << ",\n"
+             << "    \"cumulative_blink_count\": " << finalEyeStatistics.cumulativeBlinkCount << ",\n"
+             << "    \"rolling_window_seconds\": "
+             << presentationConfig.statistics.rollingWindowSeconds << ",\n"
+             << "    \"rolling_eye_open\": ";
+        if (finalEyeStatistics.rollingEyeOpen) json << *finalEyeStatistics.rollingEyeOpen;
+        else json << "null";
+        json << ",\n"
+             << "    \"rolling_known_coverage\": " << finalEyeStatistics.rollingKnownCoverage << ",\n"
+             << "    \"rolling_blink_count\": " << finalEyeStatistics.rollingBlinkCount << ",\n"
              << "    \"low_quality_frames\": " << lowQualityEyeFrames << ",\n"
              << "    \"occluded_frames\": " << occludedEyeFrames << "\n"
              << "  },\n"
@@ -1228,7 +1275,7 @@ int main(int argc, char **argv)
             !userStoppedDemo && !finalDisplayFrame.empty())
         {
             drawSponsorOverlay(finalDisplayFrame, options.backend, input.timestamp(), finalEyeUsability,
-                               finalEyeMetrics, finalYawn, finalHeadPose, finalDistraction,
+                               finalEyeMetrics, finalEyeStatistics, finalYawn, finalHeadPose, finalDistraction,
                                finalPresence, finalAvailability, finalDrowsiness,
                                measuredSeconds > 0.0 ? measuredFrames / measuredSeconds : 0.0,
                                finalGazeAvailable, distractionEventCount, true,

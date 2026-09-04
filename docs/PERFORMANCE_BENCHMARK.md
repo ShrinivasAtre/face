@@ -4,7 +4,7 @@
 
 `face_benchmark` runs the production backend and semantic eye/blink path without a camera or GUI. It accepts a still image (repeated without decode cost) or a video (decoded sequentially and restarted at end), performs warm-up frames, and writes versioned JSON results.
 
-Schema version 6 also feeds the provider-neutral Stage 20 eye metric FSM. Video
+Schema version 7 also feeds the provider-neutral Stage 20 eye metric FSM. Video
 presentation timestamps are converted to a strictly monotonic recorded timeline;
 duplicate, missing, backward, and loop-reset timestamps advance by the nominal
 frame period. Temporal durations therefore describe recording time rather than
@@ -52,7 +52,7 @@ The executable locates the deployed models and runtime bridge relative to itself
 
 ## Result contract
 
-Schema version 6 records:
+Schema version 7 records:
 
 - backend, optimized/debug build configuration, input kind and decoded dimensions;
 - warm-up, measured, successful and detected frame counts;
@@ -66,6 +66,9 @@ Schema version 6 records:
   processing and recalibration;
 - component latency for face geometry, eye mapping/EAR, eye quality/calibration,
   temporal FSMs and output in addition to the stable aggregate timings.
+- normalized and effective-pixel processing ROI metadata;
+- cumulative and configurable rolling eye-open percentage, known-time coverage
+  and accepted blink counts.
 
 `calibration` is the initial quality-gated eye-open calibration period.
 `recalibration` begins after an accepted calibration is reset by the existing

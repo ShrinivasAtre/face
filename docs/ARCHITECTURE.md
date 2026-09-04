@@ -182,9 +182,9 @@ Current integration map:
 | MediaPipe | `MediaPipeBackend`, `FaceMediaPipeRuntime`, versioned C bridge | Integrated when explicitly enabled and packaged |
 | Semantic adapters | eye, face geometry, gaze, head-pose and eye-quality adapters | Implemented; benchmark path is broader than camera UI |
 | Observation and scheduling core | `DmsObservation`, `DmsScheduler`, `LatestFrameSlot` | Implemented and cross-platform tested |
-| Metrics and FSMs | `DmsEyeMetrics`, `DmsTemporalEvents`, `DmsPolicy` | Implemented and recorded-sequence tested |
+| Metrics and FSMs | `DmsEyeMetrics`, `DmsEyeStatistics`, `DmsTemporalEvents`, `DmsPolicy` | Implemented and recorded-sequence tested |
 | Display | face box plus blink/EAR state in `src/main.cpp` | Integrated subset |
-| Structured benchmark evidence | `face_benchmark`, schema 4 traces and JSON aggregates | Integrated for development evaluation |
+| Structured benchmark evidence | `face_benchmark`, schema 7 traces and JSON aggregates | Integrated for development evaluation, including effective processing ROI and cumulative/rolling eye statistics |
 | Recognition, object providers, product alert delivery, event recorder | interfaces/architecture only | Planned |
 
 ## View 3 — portability boundary

@@ -21,11 +21,18 @@ bool write(const std::filesystem::path &path, const std::string &content)
 }
 }
 
-int main()
+int main(int argc, char **argv)
 {
     using namespace dms;
     const auto path = std::filesystem::temp_directory_path() / "dms-presentation-loader-test.conf";
     std::string error;
+
+    if (!check(argc == 2, "example configuration path supplied")) return 1;
+    const auto example = DmsPresentationConfigLoader::load(argv[1], error);
+    if (!check(example.has_value(), "shipped example configuration loads") ||
+        !check(example->statistics.rollingWindowSeconds == 300,
+               "shipped rolling-window value loads") ||
+        !check(!example->processingRoi.enabled, "shipped ROI default is disabled")) return 1;
 
     if (!check(write(path,
         "# deterministic test\n"

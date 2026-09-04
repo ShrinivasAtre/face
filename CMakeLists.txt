@@ -642,7 +642,14 @@ if(BUILD_TESTING)
         tests/dms_presentation_config_loader_test.cpp
     )
     target_link_libraries(dms_presentation_config_loader_test PRIVATE dms_core)
-    add_test(NAME dms_presentation_config_loader_test COMMAND dms_presentation_config_loader_test)
+    add_test(NAME dms_presentation_config_loader_test COMMAND dms_presentation_config_loader_test
+        ${CMAKE_CURRENT_SOURCE_DIR}/config/dms-presentation.example.conf)
+
+    add_executable(stage24_recorded_sequence_test
+        tests/stage24_recorded_sequence_test.cpp
+    )
+    target_link_libraries(stage24_recorded_sequence_test PRIVATE dms_core)
+    add_test(NAME stage24_recorded_sequence_test COMMAND stage24_recorded_sequence_test)
 
     add_executable(driver_identity_matcher_test
         tests/driver_identity_matcher_test.cpp

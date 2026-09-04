@@ -52,12 +52,18 @@ int main()
 
     dms::ProcessingRoi disabled;
     if (!check(selectProcessingFrame(full, disabled, selected, context, error), "disabled ROI") ||
-        !check(selected.size() == full.size(), "disabled ROI selects full frame")) return 1;
+        !check(selected.size() == full.size(), "disabled ROI selects full frame") ||
+        !check(selected.data == full.data && selected.step == full.step,
+               "disabled ROI preserves full-frame bytes and layout")) return 1;
     FaceResult legacyEdge;
     legacyEdge.detected = true;
     legacyEdge.faceBox = {-30, 20, 100, 100};
+    legacyEdge.landmarks = {{1.0F, 2.0F, 3.0F}};
     if (!check(restoreProcessingResult(context, disabled, legacyEdge) && legacyEdge.detected,
-               "disabled ROI preserves legacy detections")) return 1;
+               "disabled ROI preserves legacy detections") ||
+        !check(legacyEdge.faceBox == cv::Rect(-30, 20, 100, 100) &&
+               legacyEdge.landmarks[0].x == 1.0F && legacyEdge.landmarks[0].y == 2.0F,
+               "disabled ROI preserves result coordinates")) return 1;
 
     cv::Mat empty;
     if (!check(!selectProcessingFrame(empty, disabled, selected, context, error) && !error.empty(),

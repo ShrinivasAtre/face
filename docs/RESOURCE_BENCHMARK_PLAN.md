@@ -135,3 +135,25 @@ and zero GR3D utilization, consistent with XNNPACK CPU inference. No thermal
 concern was observed in this short run. This closes initial calibration and
 normal-processing phase coverage on Windows and Orin; recalibration and the
 30-minute sustained gate remain open.
+
+### Recalibration and sustained checkpoint — 2026-09-04
+
+The benchmark-only `--diagnostic-recalibration-frame=N` control invokes the
+existing reset/reacquisition path at an explicit measured frame. It is disabled
+by default and does not change production thresholds. At commit `c6208d1`, a
+500-frame Windows run produced 14 initial-calibration, 77 processing and 13
+recalibration resource samples; the matching Orin run produced 65, 347 and 59
+samples. Both detected 500/500 frames.
+
+The Orin sustained run processed 9,400/9,400 frames at 5.233 FPS. Measured-frame
+time was 29.94 minutes and the accompanying 368-sample, five-second `tegrastats`
+window covered more than 30 minutes. Processing RSS stayed between 227,811,328
+and 228,462,592 bytes, a 651,264-byte range; the 24,064,000-byte process growth
+includes startup/model initialization. Mean processing CPU was 17.905% of total
+six-core capacity, end-to-end p95/p99 were 214.924/219.061 ms, maximum junction
+temperature was 48.937 C, maximum observed VDD_IN was 4,672 mW, and GR3D usage
+remained zero.
+
+Ubuntu x64 remains unavailable because the attached Ubuntu 23.10 WSL instance
+has no C++ compiler. The same Linux collector compiles and passes on Orin
+aarch64; Ubuntu validation remains explicit rather than inferred.

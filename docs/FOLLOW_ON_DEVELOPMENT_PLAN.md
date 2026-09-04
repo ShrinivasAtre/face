@@ -532,6 +532,15 @@ observed input power was 4,360 mW, and GR3D utilization remained zero under the
 XNNPACK CPU path. Initial calibration/processing phase coverage is now complete
 on Windows and Orin; recalibration and the 30-minute sustained gate remain open.
 
+The deterministic benchmark-only reset control at commit `c6208d1` subsequently
+closed recalibration-phase coverage on Windows and Orin with 500/500 detections
+on each. The Orin sustained run then processed 9,400/9,400 frames at 5.233 FPS;
+its measured-frame window was 29.94 minutes and its five-second NVIDIA telemetry
+window exceeded 30 minutes. Processing RSS varied by 651,264 bytes, maximum
+junction temperature was 48.937 C, maximum observed input power was 4,672 mW,
+and GPU utilization remained zero. Ubuntu x64 validation is still pending
+because the available Ubuntu WSL instance has no C++ compiler.
+
 ## Formal review checkpoints
 
 1. **Completed — plan freeze:** overall scope, architecture and acceptance criteria accepted on 2026-08-22.

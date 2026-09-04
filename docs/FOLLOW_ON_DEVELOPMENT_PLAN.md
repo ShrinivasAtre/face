@@ -461,7 +461,7 @@ Produce self-contained CMake application packages for Windows x64, x64 Ubuntu, O
 
 ## Stage 23 — CPU/core and memory instrumentation
 
-**Status: IN PROGRESS**
+**Status: WINDOWS/ORIN COMPLETE; UBUNTU X64 DEFERRED**
 
 ### Objective
 
@@ -540,6 +540,13 @@ window exceeded 30 minutes. Processing RSS varied by 651,264 bytes, maximum
 junction temperature was 48.937 C, maximum observed input power was 4,672 mW,
 and GPU utilization remained zero. Ubuntu x64 validation is still pending
 because the available Ubuntu WSL instance has no C++ compiler.
+
+On 2026-09-04 the product owner explicitly placed Ubuntu x64 validation on
+hold and directed development to continue on Windows x64 and Orin aarch64.
+The Windows/Orin Stage 23 scope is therefore closed with committed evidence.
+The generic Ubuntu x64 collector check remains a deferred cross-platform gate
+and must be resumed when the replacement Ubuntu toolchain is supplied; this
+deferral is not evidence of Ubuntu compatibility.
 
 ## Formal review checkpoints
 

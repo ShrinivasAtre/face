@@ -9,7 +9,7 @@ or safety-certified product.
 | # | Work package | Status | Autonomous next action | External decision or resource |
 |---:|---|---|---|---|
 | 1 | Coordinated architecture documentation | Complete for current checkpoint | Keep Markdown and Word views synchronized when boundaries change | Sponsor review comments |
-| 2 | CPU-core, CPU-utilization and memory characterization | In progress | Freeze benchmark scenarios, sampling schema and commands; extend instrumentation without changing DMS thresholds | Live-camera availability for final calibration/monitoring runs |
+| 2 | CPU-core, CPU-utilization and memory characterization | Windows/Orin complete; Ubuntu deferred | Preserve the accepted schema while collecting live-camera Windows/Orin comparison evidence | Live-camera availability; replacement Ubuntu setup for the deferred generic-Linux check |
 | 3 | Configurable display and processing ROI | Specification in progress | Define provider-neutral configuration, validation and safe fallback behavior | Approve final UI defaults and whether ROI is display-only or processing-constraining |
 | 4 | Per-driver eye calibration | Core implemented; product gate open | Preserve quality-gated open-eye and neutral-pose calibration; document session reset behavior | Approve production calibration duration/UX after target-data evidence |
 | 5 | Driver identification and profiles | Stage 21 baseline complete; private gate waiting | Continue provider-neutral, offline, open-set architecture and public-fixture evaluation | Separate biometric/PAD consent and data; deferred privacy/security decisions |
@@ -34,4 +34,3 @@ or safety-certified product.
 3. Define display/AOI/statistics configuration and validation behavior.
 4. Define the SK-AM62 bring-up and acceptance sequence.
 5. Update the architecture documents after implementation boundaries stabilize.
-

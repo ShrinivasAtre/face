@@ -119,3 +119,19 @@ Stage 23 branch.
   accept it for diagnostic characterization but do not make it suitable for
   permanent production telemetry. Longer Orin runs and target thermal
   correlation remain part of the sustained gate.
+
+### Calibration/processing and thermal checkpoint — 2026-09-04
+
+A revision-correct Orin run at `db43445` processed 500 measured frames after 20
+warm-up frames with 500/500 detections. The 200 ms sampler produced 499 samples:
+62 during initial calibration and 415 during steady processing. Throughput was
+5.205 FPS. Steady-processing RSS ranged from 227,414,016 to 227,487,744 bytes,
+a 73,728-byte range; the larger startup-to-final increase is model/runtime
+initialization and is not treated as a leak measurement.
+
+The Orin remained in `MAXN_SUPER`. A 133-sample `tegrastats` capture reported a
+maximum junction temperature of 48.531 C, maximum observed VDD_IN of 4,360 mW,
+and zero GR3D utilization, consistent with XNNPACK CPU inference. No thermal
+concern was observed in this short run. This closes initial calibration and
+normal-processing phase coverage on Windows and Orin; recalibration and the
+30-minute sustained gate remain open.

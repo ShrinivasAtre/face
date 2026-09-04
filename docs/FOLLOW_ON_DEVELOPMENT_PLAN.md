@@ -524,6 +524,14 @@ and unchanged 100/100 detections/event output. Sampling remains opt-in and is
 accepted for diagnostic runs only. Recorded phase coverage, target thermals and
 sustained evidence remain open.
 
+A subsequent revision-correct 500-frame Orin run at `db43445` detected all
+frames and produced 62 calibration plus 415 steady-processing resource samples.
+Steady-processing RSS varied by only 73,728 bytes. During 133 seconds of
+`tegrastats` evidence, maximum junction temperature was 48.531 C, maximum
+observed input power was 4,360 mW, and GR3D utilization remained zero under the
+XNNPACK CPU path. Initial calibration/processing phase coverage is now complete
+on Windows and Orin; recalibration and the 30-minute sustained gate remain open.
+
 ## Formal review checkpoints
 
 1. **Completed — plan freeze:** overall scope, architecture and acceptance criteria accepted on 2026-08-22.

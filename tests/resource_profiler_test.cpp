@@ -21,7 +21,10 @@ int main()
     profiler.setPhase("calibration");
     std::this_thread::sleep_for(std::chrono::milliseconds(45));
     profiler.setPhase("processing");
-    std::this_thread::sleep_for(std::chrono::milliseconds(35));
+    // Windows per-core collection can exceed one nominal interval on machines
+    // with many logical processors. Keep the phase active long enough for a
+    // complete sample instead of racing stop() against the collector.
+    std::this_thread::sleep_for(std::chrono::milliseconds(150));
     profiler.stop();
 
     bool ok = true;

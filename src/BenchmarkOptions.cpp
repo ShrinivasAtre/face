@@ -32,6 +32,7 @@ bool parseBenchmarkOptions(int argc, const char* const argv[],
     bool outputSeen = false;
     bool traceSeen = false;
     bool resourceTraceSeen = false;
+    bool presentationConfigSeen = false;
     bool eyeCropsSeen = false;
     bool pfldModelSeen = false;
     bool warmupSeen = false;
@@ -114,6 +115,7 @@ bool parseBenchmarkOptions(int argc, const char* const argv[],
             parsePath("--output=", outputSeen, options.output) ||
             parsePath("--trace=", traceSeen, options.trace) ||
             parsePath("--resource-trace=", resourceTraceSeen, options.resourceTrace) ||
+            parsePath("--presentation-config=", presentationConfigSeen, options.presentationConfig) ||
             parsePath("--eye-crops-dir=", eyeCropsSeen, options.eyeCropsDirectory) ||
             parsePath("--pfld-model=", pfldModelSeen, options.pfldModel))
         {
@@ -211,5 +213,6 @@ std::string benchmarkUsage(const char* programName)
         " [--warmup=N] [--frames=N] [--output=results.json]"
         " [--trace=frames.csv] [--eye-crops-dir=directory]"
         " [--resource-profile] [--resource-trace=resources.csv] [--resource-sample-ms=N]"
+        " [--presentation-config=dms-presentation.conf]"
         " [--eye-crop-every=N] [--sponsor-demo] [--sponsor-demo-auto-exit]";
 }

@@ -13,6 +13,7 @@ struct BenchmarkOptions
     std::filesystem::path output;
     std::filesystem::path trace;
     std::filesystem::path resourceTrace;
+    std::filesystem::path presentationConfig;
     std::filesystem::path eyeCropsDirectory;
     std::filesystem::path pfldModel;
     std::size_t warmupFrames = 10;

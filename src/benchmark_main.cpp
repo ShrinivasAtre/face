@@ -5,6 +5,7 @@
 #include "BenchmarkOptions.hpp"
 #include "BlinkTracker.hpp"
 #include "DmsEyeMetrics.hpp"
+#include "DmsPresentationConfigLoader.hpp"
 #include "DmsEyeQualityAssessor.hpp"
 #include "DmsHeadPoseEstimator.hpp"
 #include "DmsTemporalEvents.hpp"
@@ -355,43 +356,54 @@ void drawSponsorOverlay(cv::Mat& frame, BackendKind backend, dms::MonotonicTime 
                         dms::PresenceState presence,
                         const dms::MonitoringAvailabilityResult& availability,
                         const dms::DrowsinessResult& drowsiness, double processingFps,
-                        bool gazeAvailable, std::uint64_t distractionCount, bool complete)
+                        bool gazeAvailable, std::uint64_t distractionCount, bool complete,
+                        const dms::DisplaySelection& selection)
 {
-    const int panelWidth = std::min(780, frame.cols - 20);
-    const int panelHeight = std::min(330, frame.rows - 20);
-    cv::Mat panel = frame(cv::Rect(10, 10, panelWidth, panelHeight));
-    cv::Mat shade(panel.size(), panel.type(), cv::Scalar(18, 18, 18));
-    cv::addWeighted(shade, 0.72, panel, 0.28, 0.0, panel);
-    const cv::Scalar normal(240, 240, 240), good(80, 230, 100), warn(40, 190, 255), bad(70, 70, 255);
     std::vector<std::pair<std::string, cv::Scalar>> lines;
+    const cv::Scalar normal(240, 240, 240), good(80, 230, 100), warn(40, 190, 255), bad(70, 70, 255);
     lines.push_back({complete ? "DMS ENGINEERING DEMO - VIDEO COMPLETE"
                               : "DMS ENGINEERING DEMO - DEVELOPMENT BUILD", complete ? good : normal});
-    lines.push_back({std::string("Backend: ") + backendName(backend) + "  Time: " +
-                     cv::format("%.2fs", std::chrono::duration<double>(timestamp).count()) +
-                     "  Processing: " + cv::format("%.1f FPS", processingFps), normal});
-    lines.push_back({"Driver: " + std::string(presenceName(presence)) +
-                     "  Monitoring: " + (availability.unavailable ? "UNAVAILABLE" : "available"),
-                     availability.notify ? bad : (availability.unavailable ? warn : good)});
-    lines.push_back({"Eyes: " + std::string(eyeStateName(eye.state)) +
-                     "  Openness: " + optionalPercent(eye.openness) +
-                     "  Quality: " + usabilityName(eyeUsability),
-                     eye.state == dms::EyeState::Closed ? warn : normal});
-    lines.push_back({"Blinks: " + std::to_string(eye.blinkCount) +
-                     "  Long: " + std::to_string(eye.longBlinkCount) +
-                     "  Prolonged: " + std::to_string(eye.prolongedClosureCount) +
-                     "  PERCLOS: " + optionalPercent(eye.perclos),
-                     eye.prolongedClosure ? bad : normal});
-    lines.push_back({"Yawns: " + std::to_string(yawn.count) +
-                     "  Head: " + headZoneName(head.zone) +
-                     "  L/R/U/D: " + std::to_string(head.leftCount) + "/" +
-                     std::to_string(head.rightCount) + "/" + std::to_string(head.upCount) + "/" +
-                     std::to_string(head.downCount), yawn.active ? warn : normal});
-    lines.push_back({"Gaze: " + std::string(gazeAvailable ? gazeZoneName(distraction.gaze) : "N/A for provider") +
-                     "  Distraction: " + (distraction.distracted ? "YES" : "no") +
-                     " (" + std::to_string(distractionCount) + ")" +
-                     "  Drowsiness: " + drowsinessName(drowsiness.state),
-                     drowsiness.state == dms::DrowsinessState::Drowsy ? bad :
-                         (drowsiness.state == dms::DrowsinessState::Warning ? warn : normal)});
+    if (selection.showPerformance)
+        lines.push_back({std::string("Backend: ") + backendName(backend) + "  Time: " +
+                         cv::format("%.2fs", std::chrono::duration<double>(timestamp).count()) +
+                         "  Processing: " + cv::format("%.1f FPS", processingFps), normal});
+    if (selection.showPresence)
+        lines.push_back({"Driver: " + std::string(presenceName(presence)) +
+                         "  Monitoring: " + (availability.unavailable ? "UNAVAILABLE" : "available"),
+                         availability.notify ? bad : (availability.unavailable ? warn : good)});
+    if (selection.showEyeOpenness || selection.showQuality)
+    {
+        std::string line = "Eyes: " + std::string(eyeStateName(eye.state));
+        if (selection.showEyeOpenness) line += "  Openness: " + optionalPercent(eye.openness);
+        if (selection.showQuality) line += "  Quality: " + std::string(usabilityName(eyeUsability));
+        lines.push_back({line, eye.state == dms::EyeState::Closed ? warn : normal});
+    }
+    if (selection.showBlinkCounts || selection.showPerclos)
+    {
+        std::string line;
+        if (selection.showBlinkCounts)
+            line = "Blinks: " + std::to_string(eye.blinkCount) +
+                   "  Long: " + std::to_string(eye.longBlinkCount) +
+                   "  Prolonged: " + std::to_string(eye.prolongedClosureCount);
+        if (selection.showPerclos)
+            line += (line.empty() ? "" : "  ") + std::string("PERCLOS: ") + optionalPercent(eye.perclos);
+        lines.push_back({line, eye.prolongedClosure ? bad : normal});
+    }
+    if (selection.showYawnCounts)
+        lines.push_back({"Yawns: " + std::to_string(yawn.count), yawn.active ? warn : normal});
+    if (selection.showPose)
+        lines.push_back({"Head: " + std::string(headZoneName(head.zone)) +
+                         "  L/R/U/D: " + std::to_string(head.leftCount) + "/" +
+                         std::to_string(head.rightCount) + "/" + std::to_string(head.upCount) + "/" +
+                         std::to_string(head.downCount), normal});
+    if (selection.showGaze)
+        lines.push_back({"Gaze: " + std::string(gazeAvailable ? gazeZoneName(distraction.gaze) : "N/A for provider") +
+                         "  Distraction: " + (distraction.distracted ? "YES" : "no") +
+                         " (" + std::to_string(distractionCount) + ")", distraction.distracted ? warn : normal});
+    if (selection.showDrowsiness)
+        lines.push_back({"Drowsiness: " + std::string(drowsinessName(drowsiness.state)),
+                         drowsiness.state == dms::DrowsinessState::Drowsy ? bad :
+                             (drowsiness.state == dms::DrowsinessState::Warning ? warn : normal)});
     std::string event = "Event: ";
     if (eye.prolongedClosureEvent) event += "PROLONGED CLOSURE";
     else if (eye.longBlinkEvent) event += "LONG BLINK";
@@ -401,6 +413,12 @@ void drawSponsorOverlay(cv::Mat& frame, BackendKind backend, dms::MonotonicTime 
     else if (distraction.event) event += "DISTRACTION";
     else event += "-";
     lines.push_back({event, event == "Event: -" ? normal : warn});
+
+    const int panelWidth = std::min(780, frame.cols - 20);
+    const int panelHeight = std::min(static_cast<int>(lines.size()) * 37 + 10, frame.rows - 20);
+    cv::Mat panel = frame(cv::Rect(10, 10, panelWidth, panelHeight));
+    cv::Mat shade(panel.size(), panel.type(), cv::Scalar(18, 18, 18));
+    cv::addWeighted(shade, 0.72, panel, 0.28, 0.0, panel);
     int y = 37;
     for (const auto& line : lines)
     {
@@ -551,6 +569,17 @@ int main(int argc, char **argv)
 
     try
     {
+        dms::DmsPresentationConfig presentationConfig;
+        if (!options.presentationConfig.empty())
+        {
+            const auto loaded = dms::DmsPresentationConfigLoader::load(options.presentationConfig, error);
+            if (!loaded)
+            {
+                std::cerr << "Error: " << error << '\n';
+                return 2;
+            }
+            presentationConfig = *loaded;
+        }
         ResourceProfiler resourceProfiler(
             std::chrono::milliseconds(options.resourceSampleMilliseconds));
         if (options.resourceProfile)
@@ -1013,22 +1042,25 @@ int main(int argc, char **argv)
                           << milliseconds(temporalFsmsEnd - totalStart)
                           << '\n';
                 }
-                if (options.sponsorDemo)
+                if (options.sponsorDemo && presentationConfig.display.enabled)
                 {
-                    if (faceResult.detected)
-                        cv::rectangle(frame, faceResult.faceBox, cv::Scalar(255, 120, 0), 2);
+                    cv::Mat presentationFrame = presentationConfig.display.showVideo
+                        ? frame.clone() : cv::Mat::zeros(frame.size(), frame.type());
+                    if (faceResult.detected && presentationConfig.display.showFaceBox)
+                        cv::rectangle(presentationFrame, faceResult.faceBox, cv::Scalar(255, 120, 0), 2);
                     cv::Mat displayFrame;
-                    if (frame.cols < 960)
-                        cv::resize(frame, displayFrame, {}, 2.0, 2.0, cv::INTER_LINEAR);
+                    if (presentationFrame.cols < 960)
+                        cv::resize(presentationFrame, displayFrame, {}, 2.0, 2.0, cv::INTER_LINEAR);
                     else
-                        displayFrame = frame.clone();
+                        displayFrame = presentationFrame;
                     const double frameMs = milliseconds(semanticEnd - totalStart);
                     const double processingFps = frameMs > 0.0 ? 1000.0 / frameMs : 0.0;
                     finalDisplayFrame = displayFrame.clone();
                     drawSponsorOverlay(displayFrame, options.backend, input.timestamp(), finalEyeUsability,
                                        finalEyeMetrics, finalYawn, finalHeadPose, finalDistraction,
                                        finalPresence, finalAvailability, finalDrowsiness, processingFps,
-                                       finalGazeAvailable, distractionEventCount, false);
+                                       finalGazeAvailable, distractionEventCount, false,
+                                       presentationConfig.display);
                     cv::imshow("Face DMS Sponsor Engineering Demo", displayFrame);
                     ++renderedFrames;
                     const int frameDelay = static_cast<int>(std::lround(1000.0 / input.framesPerSecond()));
@@ -1167,14 +1199,15 @@ int main(int argc, char **argv)
             file << json.str();
         }
         std::cout << json.str();
-        if (options.sponsorDemo && !options.sponsorDemoAutoExit &&
+        if (options.sponsorDemo && presentationConfig.display.enabled && !options.sponsorDemoAutoExit &&
             !userStoppedDemo && !finalDisplayFrame.empty())
         {
             drawSponsorOverlay(finalDisplayFrame, options.backend, input.timestamp(), finalEyeUsability,
                                finalEyeMetrics, finalYawn, finalHeadPose, finalDistraction,
                                finalPresence, finalAvailability, finalDrowsiness,
                                measuredSeconds > 0.0 ? measuredFrames / measuredSeconds : 0.0,
-                               finalGazeAvailable, distractionEventCount, true);
+                               finalGazeAvailable, distractionEventCount, true,
+                               presentationConfig.display);
             cv::putText(finalDisplayFrame, "Press any key to exit", {25, finalDisplayFrame.rows - 25},
                         cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 255, 255), 2, cv::LINE_AA);
             cv::imshow("Face DMS Sponsor Engineering Demo", finalDisplayFrame);

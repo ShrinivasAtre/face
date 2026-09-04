@@ -95,7 +95,11 @@ PERCLOS when coverage or classification domains differ.
    normalized-to-pixel ROI conversion and deterministic tests.
 2. **Implemented:** add a deterministic dependency-free configuration loader
    with mandatory schema versioning and strict key/value validation.
-3. Apply display flags only in rendering.
+3. **Implemented for the existing sponsor-demo renderer:** load an optional
+   `--presentation-config` file and apply display enablement, video background,
+   face box, metric groups and performance flags only while rendering. Detection,
+   traces, alert FSMs and benchmark results remain independent of visibility.
+   Eye and mouth box flags are reserved until those renderers exist.
 4. Apply processing ROI before face detection and transform results back to
    full-frame coordinates.
 5. Add cumulative/rolling statistics using monotonic intervals and event

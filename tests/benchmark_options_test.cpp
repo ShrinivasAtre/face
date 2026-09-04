@@ -35,6 +35,16 @@ int main()
     ok &= expect(options.resourceTrace == "resources.csv" &&
                  options.resourceSampleMilliseconds == 125 && options.resourceProfile,
                  "resource profiling values");
+    const char* presentation[] = {"bench", "--input=face.mp4",
+                                  "--presentation-config=display.conf"};
+    ok &= expect(parseBenchmarkOptions(3, presentation, options, error),
+                 "presentation config option");
+    ok &= expect(options.presentationConfig == "display.conf",
+                 "presentation config path");
+    const char* duplicatePresentation[] = {"bench", "--input=face.mp4",
+        "--presentation-config=a.conf", "--presentation-config=b.conf"};
+    ok &= expect(!parseBenchmarkOptions(4, duplicatePresentation, options, error),
+                 "duplicate presentation config rejected");
     const char* crops[] = {"bench", "--input=face.mp4", "--eye-crops-dir=private",
                            "--eye-crop-every=9"};
     ok &= expect(parseBenchmarkOptions(4, crops, options, error), "crop options");

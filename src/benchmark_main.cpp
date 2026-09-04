@@ -827,6 +827,15 @@ int main(int argc, char **argv)
                 const auto qualityCalibrationStart = Clock::now();
                 dms::EyeMetricInput eyeInput;
                 eyeInput.timestamp = input.timestamp();
+                const std::size_t measuredFrame = index - options.warmupFrames;
+                if (options.diagnosticRecalibrationFrame != 0 &&
+                    measuredFrame == options.diagnosticRecalibrationFrame)
+                {
+                    headPoseCalibrator.reset();
+                    eyeCalibrator.reset();
+                    eyeMetrics.reset();
+                    eyeCalibrationApplied = false;
+                }
                 if (!faceResult.detected)
                 {
                     if (!absentSince) absentSince = input.timestamp();

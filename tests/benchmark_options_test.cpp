@@ -35,6 +35,12 @@ int main()
     ok &= expect(options.resourceTrace == "resources.csv" &&
                  options.resourceSampleMilliseconds == 125 && options.resourceProfile,
                  "resource profiling values");
+    const char* recalibration[] = {"bench", "--input=face.mp4",
+                                   "--diagnostic-recalibration-frame=200"};
+    ok &= expect(parseBenchmarkOptions(3, recalibration, options, error),
+                 "diagnostic recalibration option");
+    ok &= expect(options.diagnosticRecalibrationFrame == 200,
+                 "diagnostic recalibration frame");
     const char* crops[] = {"bench", "--input=face.mp4", "--eye-crops-dir=private",
                            "--eye-crop-every=9"};
     ok &= expect(parseBenchmarkOptions(4, crops, options, error), "crop options");

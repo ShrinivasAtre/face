@@ -73,6 +73,12 @@ absence/invalid-geometry policy. A phase with zero samples was shorter than the
 configured sampling interval or was not entered; it must not be interpreted as
 zero resource usage.
 
+For deterministic reset/reacquisition validation only,
+`--diagnostic-recalibration-frame=N` resets the existing calibrators immediately
+before zero-based measured frame `N`. The option is disabled by default, does
+not alter reset thresholds, and must not be used for production performance
+claims.
+
 The backend measurement includes any bridge-side BGR-to-RGB conversion, inference and result conversion. Bridge-internal timings may be added as a compatible diagnostic extension, but must not replace the end-to-end measurement.
 
 The accepted photograph is personal validation data and must remain outside Git. Its filename, dimensions and SHA-256 above are the reproducibility contract; evidence is invalid when any of those differ.

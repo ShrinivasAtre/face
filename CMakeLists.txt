@@ -211,6 +211,15 @@ add_library(dms_semantic_adapters STATIC
     src/DmsHeadPoseEstimator.cpp
 )
 
+add_library(dms_identity_opencv_providers STATIC
+    src/OpenCvIdentityProviders.cpp
+)
+target_include_directories(dms_identity_opencv_providers PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${OpenCV_INCLUDE_DIRS}
+)
+target_link_libraries(dms_identity_opencv_providers PUBLIC dms_core ${OpenCV_LIBS})
+
 target_include_directories(dms_core
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -289,7 +298,7 @@ add_executable(driver_profile_admin
     src/driver_profile_admin.cpp
 )
 target_include_directories(driver_profile_admin PRIVATE ${OpenCV_INCLUDE_DIRS})
-target_link_libraries(driver_profile_admin PRIVATE dms_core ${OpenCV_LIBS})
+target_link_libraries(driver_profile_admin PRIVATE dms_core dms_identity_opencv_providers ${OpenCV_LIBS})
 
 add_executable(dms_sponsor_selftest
     src/sponsor_selftest.cpp
@@ -629,6 +638,12 @@ if(BUILD_TESTING)
     )
     target_link_libraries(driver_enrollment_processor_test PRIVATE dms_core)
     add_test(NAME driver_enrollment_processor_test COMMAND driver_enrollment_processor_test)
+
+    add_executable(opencv_identity_providers_test
+        tests/opencv_identity_providers_test.cpp
+    )
+    target_link_libraries(opencv_identity_providers_test PRIVATE dms_identity_opencv_providers)
+    add_test(NAME opencv_identity_providers_test COMMAND opencv_identity_providers_test)
 
     add_executable(backend_face_geometry_mapper_test
         tests/backend_face_geometry_mapper_test.cpp

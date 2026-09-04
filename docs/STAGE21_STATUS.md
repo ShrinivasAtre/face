@@ -14,7 +14,7 @@ Date: 2026-09-03
 | 8 | Pretrained candidate/license research | Complete | SFace evaluation-only; InsightFace public weights excluded; PAD candidate recorded |
 | 9 | Local pretrained baselines | Complete | Windows public-fixture recognition/PAD plumbing and latency measured; no accuracy/threshold claim |
 | 10 | Stage 21.4 enrollment/profile administration | In progress | Windows CNG and Ubuntu OpenSSL stores are byte-compatible; DPAPI local keys, portable export, media capture, and transactional imports pass; Orin, provider integration and rollback remain |
-| 11 | Stage 21.4 enrollment provider pipeline | In progress | Alignment → quality → mandatory live PAD → embedding orchestration implemented with unapproved-threshold lockout; OpenCV adapters/admin wiring remain |
+| 11 | Stage 21.4 enrollment provider pipeline | In progress | Fail-closed orchestration, OpenCV SFace/quality/PAD evaluation adapters, and non-mutating admin diagnostics pass; approved thresholds, production commit path and private evaluation remain |
 
 ## Current constraints
 

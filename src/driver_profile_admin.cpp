@@ -1,6 +1,7 @@
 #include "DriverProfileDatabase.hpp"
 #include "EncryptedProfileBundle.hpp"
 #include "LocalProtectedProfileKey.hpp"
+#include "OpenCvIdentityProviders.hpp"
 
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/videoio.hpp>
@@ -51,11 +52,12 @@ void save(const std::filesystem::path&p,const std::string&pass,const dms::Driver
 dms::EnrollmentSource source(const std::string&s){if(s=="photo")return dms::EnrollmentSource::Photo;if(s=="video")return dms::EnrollmentSource::Video;if(s=="live")return dms::EnrollmentSource::Live;throw std::runtime_error("source must be photo, video, or live");}
 dms::ImportConflict importConflict(const std::string&s){if(s=="reject")return dms::ImportConflict::Reject;if(s=="replace")return dms::ImportConflict::Replace;if(s=="new-id")return dms::ImportConflict::NewAnonymousId;throw std::runtime_error("conflict must be reject, replace, or new-id");}
 std::vector<std::uint8_t> capture(const std::string&s,const Args&a){cv::Mat frame;if(s=="photo")frame=cv::imread(required(a,"input"));else{cv::VideoCapture video;if(s=="live")video.open(std::stoi(a.count("camera")?a.at("camera"):"0"));else video.open(required(a,"input"));if(!video.isOpened())throw std::runtime_error("unable to open video/camera");for(int i=0;i<10;++i)if(!video.read(frame))break;}if(frame.empty())throw std::runtime_error("unable to obtain enrollment frame");std::vector<unsigned char> encoded;if(!cv::imencode(".jpg",frame,encoded,{cv::IMWRITE_JPEG_QUALITY,95}))throw std::runtime_error("unable to encode enrollment frame");return encoded;}
+int diagnoseMedia(const Args&a){auto image=cv::imread(required(a,"input"));if(image.empty())throw std::runtime_error("unable to decode diagnostic input");dms::OpenCvSFaceProvider sface(required(a,"detector"),required(a,"recognizer"),"opencv-sface-2021dec-evaluation");dms::OpenCvAntiSpoofProvider pad(required(a,"pad-model"),"omz-anti-spoof-mn3-evaluation");dms::OpenCvDiagnosticFaceQualityProvider quality;if(!sface.valid())throw std::runtime_error(sface.diagnostic());if(!pad.valid())throw std::runtime_error(pad.diagnostic());dms::FaceImageView source{image.data,image.cols,image.rows,static_cast<std::ptrdiff_t>(image.step)};auto aligned=sface.align(source);if(!aligned.available)throw std::runtime_error(aligned.diagnostic);auto q=quality.assess(aligned.alignedFace.view());auto p=pad.evaluate(aligned.alignedFace.view());auto e=sface.extract(aligned.alignedFace.view());std::cout<<"{\"schema\":1,\"diagnostic_only\":true,\"enrollment_allowed\":false,\"aligned\":"<<(aligned.available?"true":"false")<<",\"quality_available\":"<<(q.available?"true":"false")<<",\"quality_score\":"<<q.score<<",\"pad_state\":"<<static_cast<int>(p.state)<<",\"pad_score\":"<<p.score<<",\"pad_thresholds_approved\":false,\"embedding_available\":"<<(e.available?"true":"false")<<",\"embedding_dimensions\":"<<e.embedding.values.size()<<",\"embedding_model\":\""<<e.embedding.modelId<<"\"}\n";return q.available&&e.available?0:1;}
 }
 
 int main(int argc,char**argv)
 {
- try{std::string command;auto args=parse(argc,argv,command);auto store=std::filesystem::path(required(args,"store"));std::string error;
+ try{std::string command;auto args=parse(argc,argv,command);if(command=="diagnose-media")return diagnoseMedia(args);auto store=std::filesystem::path(required(args,"store"));std::string error;
   const auto keyMode=args.count("key-mode")?args.at("key-mode"):"passphrase";if(keyMode!="passphrase"&&keyMode!="local")throw std::runtime_error("key-mode must be passphrase or local");
   const bool localKey=keyMode=="local";auto keyFile=args.count("key-file")?std::filesystem::path(args.at("key-file")):std::filesystem::path(store.string()+".key");
   std::string pass;std::vector<std::uint8_t> newProtectedKey;
@@ -91,7 +93,7 @@ int main(int argc,char**argv)
    }
    save(store,pass,updated);db=std::move(updated);
   }
-  else throw std::runtime_error("commands: init, list, create, delete, add-media, export, import");
+  else throw std::runtime_error("commands: init, list, create, delete, add-media, export, import, diagnose-media");
   std::cout<<command<<" completed\n";return 0;
  }catch(const std::exception&e){std::cerr<<"driver profile admin failed: "<<e.what()<<'\n';return 1;}
 }

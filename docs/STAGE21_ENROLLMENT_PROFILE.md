@@ -14,8 +14,7 @@ re-encrypts accepted profiles with the destination store passphrase.
 The store enforces 50 profiles, ten images, ten embeddings, bounded fields,
 finite qualities, model-tagged embeddings, strict parsing, unique anonymous
 IDs, and complete profile deletion. The import API supports reject, replace, or
-new-anonymous-ID conflict behavior; CLI import workflow remains the next
-increment.
+new-anonymous-ID conflict behavior, and the CLI implements all three policies.
 
 ## Cryptographic format
 
@@ -59,6 +58,7 @@ driver_profile_admin import --store=profiles.dmsid --input=portable-profile-bund
 driver_profile_admin import --store=profiles.dmsid --input=portable-profile-bundle.dmsid --conflict=replace
 driver_profile_admin import --store=profiles.dmsid --input=portable-profile-bundle.dmsid --conflict=new-id --source-driver-id=driver-01 --new-driver-id=driver-02
 driver_profile_admin delete --store=profiles.dmsid --driver-id=driver-01
+driver_profile_admin diagnose-media --input=face.jpg --detector=yunet.onnx --recognizer=sface.onnx --pad-model=anti-spoof-mn3.onnx
 ```
 
 `reject` and `replace` operate transactionally on all profiles in the imported
@@ -77,7 +77,7 @@ data is retained but cannot become a production identity template.
 
 ## Validation checkpoint
 
-Windows Release passes all 23 tests registered on the isolated Stage 21 branch.
+Windows Release passes all 25 tests registered on the isolated Stage 21 branch.
 The focused profile test covers
 serialization, field bounds, duplicate rejection, conflict rejection/new-ID
 import, deletion, weak-KDF rejection, encrypted round trip, incorrect passphrase,
@@ -93,7 +93,7 @@ initialized and reopened a local-key store, exported it under a portable
 passphrase, imported it into a separate passphrase store, and recovered the
 expected profile. DPAPI operations require access to the Windows user profile.
 
-Ubuntu 24.04 with OpenSSL 3.0.13 passes all 21 registered tests. Bidirectional
+Ubuntu 24.04 with OpenSSL 3.0.13 passes all 23 registered tests. Bidirectional
 compatibility is verified: Ubuntu opens a Windows CNG-produced bundle and
 Windows opens an Ubuntu OpenSSL-produced bundle with the expected profile data.
 The same provider is intended for Orin, but Orin execution remains a separate
@@ -124,3 +124,28 @@ platform gate.
 The current focused test uses deterministic mock providers and verifies call
 ordering plus fail-closed behavior. It does not approve a quality or PAD
 threshold and does not add a production embedding to a driver profile.
+
+## OpenCV evaluation adapters
+
+The OpenCV adapter library now provides:
+
+- YuNet detection plus SFace five-point alignment;
+- SFace 128-dimensional evaluation embeddings with an explicit model ID;
+- a deterministic diagnostic-only exposure/sharpness quality score;
+- `anti-spoof-mn3` preprocessing and two-class softmax diagnostics;
+- fail-closed construction and inference diagnostics for absent or invalid
+  model assets.
+
+`diagnose-media` is intentionally non-mutating: it requires no profile store,
+prints `diagnostic_only:true` and `enrollment_allowed:false`, and never writes an
+image or embedding. With the external `D:\work\p21` evaluation models and public
+`lena.jpg` fixture on Windows/OpenCV 4.8, it aligned a face, reported diagnostic
+quality `0.956888`, retained PAD as `Indeterminate` because thresholds are not
+approved, and produced a 128-dimensional SFace evaluation embedding. These
+numbers are plumbing evidence, not accuracy or threshold evidence.
+
+The adapter focused test passes on Windows/OpenCV 4.8 and Ubuntu/OpenCV 4.6. It
+checks bounded quality output and fail-closed missing-model behavior. Ubuntu
+source compatibility does not override the already recorded OpenCV 4.6 model
+execution limitation; actual candidate inference remains a Windows baseline
+until the Ubuntu runtime is upgraded or replaced.

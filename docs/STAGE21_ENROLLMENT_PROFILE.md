@@ -102,7 +102,25 @@ platform gate.
 ## Remaining Stage 21.4 work
 
 1. Validate the OpenSSL 3 provider and bundle compatibility on Orin.
-2. Integrate quality, alignment, embedding, and mandatory PAD providers after
-   candidate selection; do not create production embeddings beforehand.
+2. Complete the in-progress quality, alignment, embedding, and mandatory PAD
+   integration. The provider-neutral processor and fail-closed gate ordering
+   are implemented; OpenCV candidate adapters and administrator wiring remain.
+   No production embedding may be committed before threshold approval.
 3. Add bounded automatic-template replacement and rollback journal.
 4. Run a notified live-camera enrollment usability check.
+
+## Enrollment processing safety contract
+
+`DriverEnrollmentProcessor` now owns the model-neutral orchestration boundary:
+
+1. validate the source image view;
+2. require a valid aligned face;
+3. require a finite quality score and apply the configured diagnostic gate;
+4. require PAD state `Live`—`Spoof`, `Indeterminate`, and unavailable all stop;
+5. only then request a finite, non-empty, correctly model-tagged embedding;
+6. return `ThresholdApprovalRequired` instead of accepting enrollment while
+   product thresholds remain unapproved.
+
+The current focused test uses deterministic mock providers and verifies call
+ordering plus fail-closed behavior. It does not approve a quality or PAD
+threshold and does not add a production embedding to a driver profile.

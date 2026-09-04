@@ -38,6 +38,33 @@ struct FaceImageView
     std::ptrdiff_t strideBytes = 0;
 };
 
+struct OwnedFaceImage
+{
+    std::vector<std::uint8_t> bgr;
+    int width = 0;
+    int height = 0;
+    std::ptrdiff_t strideBytes = 0;
+
+    FaceImageView view() const noexcept
+    {
+        return {bgr.empty() ? nullptr : bgr.data(), width, height, strideBytes};
+    }
+};
+
+struct FaceAlignmentResult
+{
+    bool available = false;
+    OwnedFaceImage alignedFace;
+    std::string diagnostic;
+};
+
+struct FaceQualityResult
+{
+    bool available = false;
+    float score = 0.0F;
+    std::string diagnostic;
+};
+
 struct FaceEmbedding
 {
     std::vector<float> values;
@@ -86,6 +113,20 @@ class FaceEmbeddingProvider
     virtual ~FaceEmbeddingProvider() = default;
     virtual const std::string &modelId() const noexcept = 0;
     virtual EmbeddingResult extract(const FaceImageView &alignedFace) = 0;
+};
+
+class FaceAlignmentProvider
+{
+  public:
+    virtual ~FaceAlignmentProvider() = default;
+    virtual FaceAlignmentResult align(const FaceImageView &sourceFace) = 0;
+};
+
+class FaceQualityProvider
+{
+  public:
+    virtual ~FaceQualityProvider() = default;
+    virtual FaceQualityResult assess(const FaceImageView &alignedFace) = 0;
 };
 
 class PresentationAttackProvider

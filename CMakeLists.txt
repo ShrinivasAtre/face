@@ -193,6 +193,7 @@ add_library(dms_core STATIC
     src/DmsPolicy.cpp
     src/RecordedFrameClock.cpp
     src/DriverIdentityMatcher.cpp
+    src/DriverEnrollmentProcessor.cpp
     src/DriverProfileDatabase.cpp
     src/EncryptedProfileBundle.cpp
     src/LocalProtectedProfileKey.cpp
@@ -622,6 +623,12 @@ if(BUILD_TESTING)
     )
     target_link_libraries(driver_profile_database_test PRIVATE dms_core)
     add_test(NAME driver_profile_database_test COMMAND driver_profile_database_test)
+
+    add_executable(driver_enrollment_processor_test
+        tests/driver_enrollment_processor_test.cpp
+    )
+    target_link_libraries(driver_enrollment_processor_test PRIVATE dms_core)
+    add_test(NAME driver_enrollment_processor_test COMMAND driver_enrollment_processor_test)
 
     add_executable(backend_face_geometry_mapper_test
         tests/backend_face_geometry_mapper_test.cpp

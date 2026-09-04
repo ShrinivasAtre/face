@@ -6,13 +6,17 @@ Date: 2026-09-03
 
 Presentation selection and processing selection are separate. Hiding a value
 must not disable the algorithm that supplies alerts or recorded evidence.
-Likewise, a display crop must not silently become a processing crop.
+Likewise, a display crop must not silently become a processing crop. The
+implemented focus selection is applied only after detection, semantic mapping
+and monitoring have completed. If a selected feature is unavailable, the
+renderer shows a blank diagnostic view instead of revealing the full frame.
 
 ## Proposed configuration groups
 
     display
       enabled
       show_video
+      focus_region = full | face | eyes | mouth
       show_face_box
       show_eye_boxes
       show_mouth_box
@@ -65,6 +69,8 @@ defaults. See `config/dms-presentation.example.conf`.
    quality and temporal contracts, never immediate fatigue.
 6. Display-only crops and processing ROIs use distinct names and cannot alias
    the same configuration key.
+   `display.focus_region` changes presentation pixels only; `full` preserves
+   the existing view while `face`, `eyes` and `mouth` select semantic crops.
 7. Configuration and effective ROI are recorded in benchmark metadata without
    recording private video.
 
@@ -99,7 +105,8 @@ PERCLOS when coverage or classification domains differ.
    `--presentation-config` file and apply display enablement, video background,
    face box, metric groups and performance flags only while rendering. Detection,
    traces, alert FSMs and benchmark results remain independent of visibility.
-   Eye and mouth box flags are reserved until those renderers exist.
+   Face, eye and mouth boxes plus full/face/eyes/mouth display-only focus modes
+   are implemented without changing the processing frame.
 4. **Implemented:** apply the normalized processing ROI before backend face
    detection, enforce the configured face-coverage gate, and restore accepted
    face boxes and landmarks to full-frame coordinates before semantic mapping,

@@ -7,6 +7,7 @@
 #include "DmsEyeMetrics.hpp"
 #include "DmsEyeStatistics.hpp"
 #include "DmsPresentationConfigLoader.hpp"
+#include "DisplayAoiAdapter.hpp"
 #include "ProcessingRoiAdapter.hpp"
 #include "DmsEyeQualityAssessor.hpp"
 #include "DmsHeadPoseEstimator.hpp"
@@ -444,6 +445,23 @@ void drawSponsorOverlay(cv::Mat& frame, BackendKind backend, dms::MonotonicTime 
 class InputFrames
 {
   public:
+    bool openCamera(int index)
+    {
+#ifdef _WIN32
+        capture_.open(index, cv::CAP_DSHOW);
+#else
+        capture_.open(index, cv::CAP_V4L2);
+#endif
+        if (!capture_.isOpened()) capture_.open(index);
+        if (!capture_.isOpened()) return false;
+        capture_.set(cv::CAP_PROP_FRAME_WIDTH, 640.0);
+        capture_.set(cv::CAP_PROP_FRAME_HEIGHT, 480.0);
+        capture_.set(cv::CAP_PROP_FPS, 30.0);
+        kind_ = "camera";
+        clock_.reset(framesPerSecond());
+        return true;
+    }
+
     bool open(const std::filesystem::path &path)
     {
         if (std::filesystem::is_directory(path))
@@ -599,9 +617,13 @@ int main(int argc, char **argv)
             resourceProfiler.setPhase("startup");
         }
         InputFrames input;
-        if (!input.open(options.input))
+        const bool inputOpened = options.cameraIndex
+            ? input.openCamera(*options.cameraIndex) : input.open(options.input);
+        if (!inputOpened)
         {
-            std::cerr << "Error: Cannot open benchmark input: " << options.input << '\n';
+            std::cerr << "Error: Cannot open benchmark "
+                      << (options.cameraIndex ? "camera device " + std::to_string(*options.cameraIndex)
+                                              : "input: " + options.input.string()) << '\n';
             return 1;
         }
         if (options.sponsorDemo && !input.isVideo())
@@ -1088,10 +1110,51 @@ int main(int argc, char **argv)
                 }
                 if (options.sponsorDemo && presentationConfig.display.enabled)
                 {
-                    cv::Mat presentationFrame = presentationConfig.display.showVideo
+                    cv::Mat presentationCanvas = presentationConfig.display.showVideo
                         ? frame.clone() : cv::Mat::zeros(frame.size(), frame.type());
                     if (faceResult.detected && presentationConfig.display.showFaceBox)
-                        cv::rectangle(presentationFrame, faceResult.faceBox, cv::Scalar(255, 120, 0), 2);
+                        cv::rectangle(presentationCanvas, faceResult.faceBox, cv::Scalar(255, 120, 0), 2);
+                    if (eyeMapped && presentationConfig.display.showEyeBoxes)
+                    {
+                        const auto drawEyeBox = [&](const EyeLandmarks &eye)
+                        {
+                            const std::vector<cv::Point2f> points = {
+                                eye.outerCorner, eye.upperOuterLid, eye.upperInnerLid,
+                                eye.innerCorner, eye.lowerInnerLid, eye.lowerOuterLid};
+                            cv::rectangle(presentationCanvas, cv::boundingRect(points),
+                                          cv::Scalar(80, 230, 100), 2);
+                        };
+                        drawEyeBox(eyes.rightEye);
+                        drawEyeBox(eyes.leftEye);
+                    }
+                    if (faceGeometryValid && presentationConfig.display.showMouthBox)
+                    {
+                        const std::vector<cv::Point2f> points = {
+                            faceGeometry.rightMouthCorner, faceGeometry.leftMouthCorner,
+                            faceGeometry.upperInnerLip, faceGeometry.lowerInnerLip};
+                        cv::rectangle(presentationCanvas, cv::boundingRect(points),
+                                      cv::Scalar(40, 190, 255), 2);
+                    }
+                    if (faceResult.detected && presentationConfig.display.showLandmarks)
+                    {
+                        for (const auto &landmark : faceResult.landmarks)
+                            cv::circle(presentationCanvas,
+                                       {static_cast<int>(std::lround(landmark.x)),
+                                        static_cast<int>(std::lround(landmark.y))},
+                                       1, cv::Scalar(210, 120, 255), cv::FILLED, cv::LINE_AA);
+                    }
+                    const dms::DisplayAoi displayAoi = dms::selectDisplayAoi(
+                        frame.size(), presentationConfig.display.focus,
+                        faceResult.detected, faceResult.faceBox,
+                        eyeMapped ? &eyes : nullptr,
+                        faceGeometryValid ? &faceGeometry : nullptr);
+                    cv::Mat presentationFrame = displayAoi.available
+                        ? presentationCanvas(displayAoi.sourceRectangle).clone()
+                        : cv::Mat::zeros(frame.size(), frame.type());
+                    if (!displayAoi.available)
+                        cv::putText(presentationFrame, "Selected display AOI unavailable",
+                                    {25, presentationFrame.rows / 2}, cv::FONT_HERSHEY_SIMPLEX,
+                                    0.8, cv::Scalar(240, 240, 240), 2, cv::LINE_AA);
                     cv::Mat displayFrame;
                     if (presentationFrame.cols < 960)
                         cv::resize(presentationFrame, displayFrame, {}, 2.0, 2.0, cv::INTER_LINEAR);

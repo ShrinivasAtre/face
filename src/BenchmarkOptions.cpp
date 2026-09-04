@@ -20,6 +20,16 @@ bool parseCount(std::string_view text, std::size_t& value)
     value = static_cast<std::size_t>(parsed);
     return true;
 }
+
+bool parseCameraIndex(std::string_view text, int& value)
+{
+    int parsed = -1;
+    const auto result = std::from_chars(text.data(), text.data() + text.size(), parsed);
+    if (text.empty() || result.ec != std::errc{} ||
+        result.ptr != text.data() + text.size() || parsed < 0) return false;
+    value = parsed;
+    return true;
+}
 }
 
 bool parseBenchmarkOptions(int argc, const char* const argv[],
@@ -29,6 +39,7 @@ bool parseBenchmarkOptions(int argc, const char* const argv[],
     error.clear();
     bool backendSeen = false;
     bool inputSeen = false;
+    bool cameraSeen = false;
     bool outputSeen = false;
     bool traceSeen = false;
     bool resourceTraceSeen = false;
@@ -141,6 +152,23 @@ bool parseBenchmarkOptions(int argc, const char* const argv[],
             }
             continue;
         }
+        if (argument.rfind("--camera=", 0) == 0)
+        {
+            if (cameraSeen)
+            {
+                error = "--camera may be specified only once.";
+                return false;
+            }
+            cameraSeen = true;
+            int cameraIndex = -1;
+            if (!parseCameraIndex(std::string_view(argument).substr(9), cameraIndex))
+            {
+                error = "--camera requires a non-negative integer device index.";
+                return false;
+            }
+            options.cameraIndex = cameraIndex;
+            continue;
+        }
 
         const auto parseCountOption = [&](const char* prefix, bool& seen,
                                           std::size_t& destination) -> bool
@@ -180,9 +208,9 @@ bool parseBenchmarkOptions(int argc, const char* const argv[],
         return false;
     }
 
-    if (!inputSeen)
+    if (inputSeen == cameraSeen)
     {
-        error = "--input is required.";
+        error = "exactly one of --input or --camera is required.";
         return false;
     }
     if (resourceTraceSeen) options.resourceProfile = true;
@@ -208,7 +236,8 @@ std::string benchmarkUsage(const char* programName)
 {
     const std::string program = programName != nullptr ? programName : "face_benchmark";
     return "Usage: " + program +
-        " --input=<image-or-video> [--backend=yunet|pfld|mediapipe]"
+        " (--input=<image-or-video> | --camera=<device-index>)"
+        " [--backend=yunet|pfld|mediapipe]"
         " [--pfld-model=<landmarks_68_pfld.onnx>]"
         " [--warmup=N] [--frames=N] [--output=results.json]"
         " [--trace=frames.csv] [--eye-crops-dir=directory]"

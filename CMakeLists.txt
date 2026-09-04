@@ -211,6 +211,7 @@ add_library(dms_semantic_adapters STATIC
     src/DmsEyeQualityAssessor.cpp
     src/DmsHeadPoseEstimator.cpp
     src/ProcessingRoiAdapter.cpp
+    src/DisplayAoiAdapter.cpp
 )
 
 target_include_directories(dms_core
@@ -692,6 +693,12 @@ if(BUILD_TESTING)
     )
     target_link_libraries(processing_roi_adapter_test PRIVATE dms_semantic_adapters)
     add_test(NAME processing_roi_adapter_test COMMAND processing_roi_adapter_test)
+
+    add_executable(display_aoi_adapter_test
+        tests/display_aoi_adapter_test.cpp
+    )
+    target_link_libraries(display_aoi_adapter_test PRIVATE dms_semantic_adapters)
+    add_test(NAME display_aoi_adapter_test COMMAND display_aoi_adapter_test)
 
     add_executable(dms_temporal_events_test
         tests/dms_temporal_events_test.cpp

@@ -28,6 +28,16 @@ bool parseBool(std::string_view text, bool &value)
     return false;
 }
 
+bool parseDisplayFocus(std::string_view text, DisplayFocus &value)
+{
+    if (text == "full") value = DisplayFocus::Full;
+    else if (text == "face") value = DisplayFocus::Face;
+    else if (text == "eyes") value = DisplayFocus::Eyes;
+    else if (text == "mouth") value = DisplayFocus::Mouth;
+    else return false;
+    return true;
+}
+
 template <typename T>
 bool parseNumber(std::string_view text, T &value)
 {
@@ -78,6 +88,10 @@ std::optional<DmsPresentationConfig> DmsPresentationConfigLoader::load(
         });
         boolean("display.enabled", config.display.enabled);
         boolean("display.show_video", config.display.showVideo);
+        setters.emplace("display.focus_region", [&](std::string_view value)
+        {
+            return parseDisplayFocus(value, config.display.focus);
+        });
         boolean("display.show_face_box", config.display.showFaceBox);
         boolean("display.show_eye_boxes", config.display.showEyeBoxes);
         boolean("display.show_mouth_box", config.display.showMouthBox);

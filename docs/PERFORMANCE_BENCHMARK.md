@@ -2,7 +2,10 @@
 
 ## Purpose
 
-`face_benchmark` runs the production backend and semantic eye/blink path without a camera or GUI. It accepts a still image (repeated without decode cost) or a video (decoded sequentially and restarted at end), performs warm-up frames, and writes versioned JSON results.
+`face_benchmark` runs the production backend and semantic eye/blink path without
+requiring a GUI. It accepts a still image (repeated without decode cost), a
+video (decoded sequentially and restarted at end), or an explicit live camera
+device, performs warm-up frames, and writes versioned JSON results.
 
 Schema version 7 also feeds the provider-neutral Stage 20 eye metric FSM. Video
 presentation timestamps are converted to a strictly monotonic recorded timeline;
@@ -34,6 +37,14 @@ Configure an enabled Release build using the platform's accepted MediaPipe runti
 
 ```text
 face_benchmark --backend=yunet|mediapipe --input=<image-or-video> --warmup=10 --frames=100 --output=<result.json>
+```
+
+For a live camera benchmark, replace `--input` with a non-negative device
+index. The harness requests 640x480 at 30 FPS and records the effective decoded
+dimensions and input kind in the result:
+
+```text
+face_benchmark --backend=yunet --camera=0 --warmup=30 --frames=900 --output=<result.json>
 ```
 
 For periodic CPU/core, memory and thread sampling, add:

@@ -27,6 +27,16 @@ int main()
     ok &= expect(options.input == "face.jpg" && options.output == "result.json",
                  "paths");
     ok &= expect(options.trace == "frames.csv", "trace path");
+    const char* camera[] = {"bench", "--camera=0", "--backend=yunet", "--frames=30"};
+    ok &= expect(parseBenchmarkOptions(4, camera, options, error), "camera options");
+    ok &= expect(options.cameraIndex && *options.cameraIndex == 0 && options.input.empty(),
+                 "camera index");
+    const char* inputAndCamera[] = {"bench", "--input=face.mp4", "--camera=0"};
+    ok &= expect(!parseBenchmarkOptions(3, inputAndCamera, options, error),
+                 "camera and recorded input are mutually exclusive");
+    const char* badCamera[] = {"bench", "--camera=-1"};
+    ok &= expect(!parseBenchmarkOptions(2, badCamera, options, error),
+                 "negative camera rejected");
     const char* resources[] = {"bench", "--input=face.mp4",
                                "--resource-trace=resources.csv",
                                "--resource-sample-ms=125"};

@@ -5,6 +5,14 @@
 
 namespace dms
 {
+enum class DisplayFocus
+{
+    Full,
+    Face,
+    Eyes,
+    Mouth
+};
+
 struct PixelRectangle
 {
     int x = 0;
@@ -17,6 +25,7 @@ struct DisplaySelection
 {
     bool enabled = true;
     bool showVideo = true;
+    DisplayFocus focus = DisplayFocus::Full;
     bool showFaceBox = true;
     bool showEyeBoxes = true;
     bool showMouthBox = true;

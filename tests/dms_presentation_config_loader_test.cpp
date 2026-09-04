@@ -30,6 +30,8 @@ int main(int argc, char **argv)
     if (!check(argc == 2, "example configuration path supplied")) return 1;
     const auto example = DmsPresentationConfigLoader::load(argv[1], error);
     if (!check(example.has_value(), "shipped example configuration loads") ||
+        !check(example->display.focus == DisplayFocus::Full,
+               "shipped display focus is full frame") ||
         !check(example->statistics.rollingWindowSeconds == 300,
                "shipped rolling-window value loads") ||
         !check(!example->processingRoi.enabled, "shipped ROI default is disabled")) return 1;
@@ -38,6 +40,7 @@ int main(int argc, char **argv)
         "# deterministic test\n"
         "schema_version = 1\n"
         "display.show_landmarks=true\n"
+        "display.focus_region=eyes\n"
         "processing_roi.enabled=true\n"
         "processing_roi.x=0.25\n"
         "processing_roi.width=0.50\n"
@@ -45,6 +48,7 @@ int main(int argc, char **argv)
     const auto valid = DmsPresentationConfigLoader::load(path, error);
     if (!check(valid.has_value(), "valid file loads") ||
         !check(valid->display.showLandmarks, "display selection loads") ||
+        !check(valid->display.focus == DisplayFocus::Eyes, "display focus loads") ||
         !check(valid->processingRoi.enabled && valid->processingRoi.x == 0.25,
                "ROI selection loads") ||
         !check(valid->statistics.rollingWindowSeconds == 60,
@@ -63,6 +67,10 @@ int main(int argc, char **argv)
     if (!check(write(path, "schema_version=1\ndisplay.enabled=yes\n"), "write bad bool fixture") ||
         !check(!DmsPresentationConfigLoader::load(path, error) && error.find("invalid value") != std::string::npos,
                "noncanonical boolean is rejected")) return 1;
+    if (!check(write(path, "schema_version=1\ndisplay.focus_region=driver\n"),
+               "write bad focus fixture") ||
+        !check(!DmsPresentationConfigLoader::load(path, error) && error.find("invalid value") != std::string::npos,
+               "unknown display focus is rejected")) return 1;
     if (!check(write(path, "schema_version=1\nprocessing_roi.width=2.0\n"), "write invalid ROI fixture") ||
         !check(!DmsPresentationConfigLoader::load(path, error) && error.find("within the frame") != std::string::npos,
                "semantic validation runs after parsing")) return 1;

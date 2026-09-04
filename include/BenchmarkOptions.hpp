@@ -4,12 +4,14 @@
 
 #include <cstddef>
 #include <filesystem>
+#include <optional>
 #include <string>
 
 struct BenchmarkOptions
 {
     BackendKind backend = BackendKind::YuNet;
     std::filesystem::path input;
+    std::optional<int> cameraIndex;
     std::filesystem::path output;
     std::filesystem::path trace;
     std::filesystem::path resourceTrace;

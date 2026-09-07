@@ -53,6 +53,7 @@ build-*/
 cmake-build-*/
 out/
 dist/
+outputs/
 
 # CMake generated files
 CMakeFiles/

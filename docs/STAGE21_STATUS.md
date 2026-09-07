@@ -16,6 +16,7 @@ Date: 2026-09-03
 | 10 | Stage 21.4 enrollment/profile administration | In progress | Windows CNG and Ubuntu OpenSSL stores are byte-compatible; DPAPI local keys, portable export, media capture, transactional imports, and bounded encrypted rollback pass; Orin and private usability remain |
 | 11 | Stage 21.4 enrollment provider pipeline | In progress | Fail-closed orchestration now drives the OpenCV non-mutating diagnostic path; approved thresholds, production commit path and private evaluation remain |
 | 12 | Five-person capture kit | Ready; waiting for data | Consent-first initializer, manifest and checksum validator committed; private captures remain external |
+| 13 | Security/privacy verification | In progress | Threat/control matrix and synthetic consent/checksum/tamper CTest complete; private deletion/export audit and independent review remain |
 
 ## Current constraints
 

@@ -30,7 +30,7 @@ excluded.
 | 21.3c | Five-person private baseline | Waiting for data | Specific identity/PAD consent and enrollment captures available |
 | 21.4 | Enrollment application | Authorized; in progress | Encrypted profile foundation, fail-closed processor, OpenCV evaluation adapters, and non-mutating diagnostics pass; Orin, thresholds, private evaluation and usability remain |
 | 21.5 | Runtime integration/session FSM | Not authorized | Separate implementation approval after threshold review |
-| 21.6 | Security/privacy verification | Planned | Threat, deletion, portability, and key tests pass |
+| 21.6 | Security/privacy verification | In progress | Threat/control matrix and non-private automated checks added; private deletion/export audit, platform key decisions and independent review remain |
 | 21.7 | Windows/Ubuntu/Orin acceptance | Planned | Cross-platform accuracy/resource gates pass |
 | 21.8 | Merge/release | Not authorized | Explicit product-owner approval |
 

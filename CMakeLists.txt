@@ -594,6 +594,14 @@ endif()
 # ============================================================
 
 if(BUILD_TESTING)
+    find_package(Python3 COMPONENTS Interpreter QUIET)
+    if(Python3_Interpreter_FOUND)
+        add_test(
+            NAME stage21_identity_batch_test
+            COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/stage21_identity_batch_test.py
+        )
+    endif()
     find_program(FACE_POWERSHELL_EXECUTABLE NAMES pwsh powershell)
     if(FACE_POWERSHELL_EXECUTABLE)
         add_test(

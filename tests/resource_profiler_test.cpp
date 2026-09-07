@@ -19,7 +19,7 @@ int main()
     ResourceProfiler profiler(std::chrono::milliseconds(10));
     profiler.start();
     profiler.setPhase("calibration");
-    std::this_thread::sleep_for(std::chrono::milliseconds(45));
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
     profiler.setPhase("processing");
     // Windows per-core collection can exceed one nominal interval on machines
     // with many logical processors. Keep the phase active long enough for a

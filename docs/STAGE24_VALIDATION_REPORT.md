@@ -104,3 +104,12 @@ at the statistics API but is deliberately not connected to an unconfirmed
 recognition candidate; that runtime connection belongs to Stage 21.5 after its
 separate authorization and identity-threshold evidence. The Windows/Orin live
 driver commands are prepared in `docs/LIVE_DRIVER_RESOURCE_RUNBOOK.md`.
+
+### Stage 23 integration checkpoint — 2026-09-07
+
+Stage 23 was merged into the Stage 24 development branch with additive conflict
+resolution. The combined benchmark retains camera input, display/processing ROI,
+statistics and configuration while adding the finalized sampler priority and
+diagnostic recalibration control. A fresh Windows x64 Release build passed all
+30 registered tests. This is an integration regression gate, not a new resource
+or accuracy claim.

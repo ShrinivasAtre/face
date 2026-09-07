@@ -97,3 +97,62 @@ resource samples across all six logical cores. The observed 5.507 FPS and
 resource values are smoke evidence only, not a repeated benchmark baseline.
 Profiler overhead, recorded-video phase coverage, thermals and sustained-run
 evidence remain open.
+### Profiling overhead checkpoint — 2026-09-04
+
+The sampler thread now runs below normal inference priority on Windows and at
+Linux nice level 10. The change is commit `db43445` and is pushed to the GitHub
+Stage 23 branch.
+
+- Windows used three interleaved profiled/unprofiled Release runs of 500
+  measured frames on the checksum-pinned image. All six runs detected 500/500
+  frames. Median throughput was 53.35 FPS without sampling and 57.06 FPS with
+  200 ms sampling; median end-to-end p95 was 23.66 ms and 21.11 ms,
+  respectively. The apparent profiled speedup is treated as environmental run
+  variance, not a performance benefit; no Windows slowdown was measurable.
+- Orin used three runs per mode of 100 measured frames. Before lowering sampler
+  priority, median 200 ms sampled throughput was 5.20 FPS versus 5.43 FPS
+  unsampled (about -4.2%). After lowering priority it was 5.31 FPS (about
+  -2.2%), while median end-to-end p95 changed from 213.28 ms to 213.70 ms
+  (about +0.2%). All runs detected 100/100 frames with unchanged event output.
+- The profiler remains explicitly enabled and is off by default. These results
+  accept it for diagnostic characterization but do not make it suitable for
+  permanent production telemetry. Longer Orin runs and target thermal
+  correlation remain part of the sustained gate.
+
+### Calibration/processing and thermal checkpoint — 2026-09-04
+
+A revision-correct Orin run at `db43445` processed 500 measured frames after 20
+warm-up frames with 500/500 detections. The 200 ms sampler produced 499 samples:
+62 during initial calibration and 415 during steady processing. Throughput was
+5.205 FPS. Steady-processing RSS ranged from 227,414,016 to 227,487,744 bytes,
+a 73,728-byte range; the larger startup-to-final increase is model/runtime
+initialization and is not treated as a leak measurement.
+
+The Orin remained in `MAXN_SUPER`. A 133-sample `tegrastats` capture reported a
+maximum junction temperature of 48.531 C, maximum observed VDD_IN of 4,360 mW,
+and zero GR3D utilization, consistent with XNNPACK CPU inference. No thermal
+concern was observed in this short run. This closes initial calibration and
+normal-processing phase coverage on Windows and Orin; recalibration and the
+30-minute sustained gate remain open.
+
+### Recalibration and sustained checkpoint — 2026-09-04
+
+The benchmark-only `--diagnostic-recalibration-frame=N` control invokes the
+existing reset/reacquisition path at an explicit measured frame. It is disabled
+by default and does not change production thresholds. At commit `c6208d1`, a
+500-frame Windows run produced 14 initial-calibration, 77 processing and 13
+recalibration resource samples; the matching Orin run produced 65, 347 and 59
+samples. Both detected 500/500 frames.
+
+The Orin sustained run processed 9,400/9,400 frames at 5.233 FPS. Measured-frame
+time was 29.94 minutes and the accompanying 368-sample, five-second `tegrastats`
+window covered more than 30 minutes. Processing RSS stayed between 227,811,328
+and 228,462,592 bytes, a 651,264-byte range; the 24,064,000-byte process growth
+includes startup/model initialization. Mean processing CPU was 17.905% of total
+six-core capacity, end-to-end p95/p99 were 214.924/219.061 ms, maximum junction
+temperature was 48.937 C, maximum observed VDD_IN was 4,672 mW, and GR3D usage
+remained zero.
+
+Ubuntu x64 remains unavailable because the attached Ubuntu 23.10 WSL instance
+has no C++ compiler. The same Linux collector compiles and passes on Orin
+aarch64; Ubuntu validation remains explicit rather than inferred.

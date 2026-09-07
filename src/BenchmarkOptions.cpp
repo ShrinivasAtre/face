@@ -50,6 +50,7 @@ bool parseBenchmarkOptions(int argc, const char* const argv[],
     bool framesSeen = false;
     bool eyeCropEverySeen = false;
     bool resourceSampleSeen = false;
+    bool diagnosticRecalibrationSeen = false;
     bool sponsorDemoSeen = false;
     bool sponsorDemoAutoExitSeen = false;
     bool resourceProfileSeen = false;
@@ -203,6 +204,13 @@ bool parseBenchmarkOptions(int argc, const char* const argv[],
             if (!error.empty()) return false;
             continue;
         }
+        if (parseCountOption("--diagnostic-recalibration-frame=",
+                             diagnosticRecalibrationSeen,
+                             options.diagnosticRecalibrationFrame))
+        {
+            if (!error.empty()) return false;
+            continue;
+        }
 
         error = "Unsupported argument: " + argument;
         return false;
@@ -243,5 +251,6 @@ std::string benchmarkUsage(const char* programName)
         " [--trace=frames.csv] [--eye-crops-dir=directory]"
         " [--resource-profile] [--resource-trace=resources.csv] [--resource-sample-ms=N]"
         " [--presentation-config=dms-presentation.conf]"
+        " [--diagnostic-recalibration-frame=N]"
         " [--eye-crop-every=N] [--sponsor-demo] [--sponsor-demo-auto-exit]";
 }

@@ -34,7 +34,6 @@ or safety-certified product.
 3. Define display/AOI/statistics configuration and validation behavior.
 4. Define the SK-AM62 bring-up and acceptance sequence.
 5. Update the architecture documents after implementation boundaries stabilize.
-
 ## Stage 24 validation checkpoint — 2026-09-04
 
 Stage 24 configuration, processing ROI and cumulative/rolling eye/blink
@@ -57,3 +56,13 @@ Release tests and Orin passed 28/28 applicable tests. Orin device 0 sustained
 30.01 FPS for 900 YuNet frames with resource sampling, but the unattended
 camera view contained no driver, so calibration/eye/event evidence is correctly
 not claimed. Windows exposed no physical camera at this checkpoint.
+
+## Stage 23 into Stage 24 integration — 2026-09-07
+
+The completed Stage 23 resource-instrumentation line is integrated into the
+Stage 24 development branch. Conflict resolution preserves Stage 24 live-camera,
+presentation configuration, processing ROI and eye/blink statistics together
+with Stage 23's lower-priority sampler, diagnostic recalibration control and
+final resource evidence. A fresh Windows x64 Release build passed 30/30 tests.
+Orin regression is the remaining integration validation step; `main` is not
+changed by this feature-branch integration.

@@ -461,7 +461,7 @@ Produce self-contained CMake application packages for Windows x64, x64 Ubuntu, O
 
 ## Stage 23 — CPU/core and memory instrumentation
 
-**Status: IN PROGRESS**
+**Status: WINDOWS/ORIN COMPLETE; UBUNTU X64 DEFERRED**
 
 ### Objective
 
@@ -514,6 +514,39 @@ of this implementation gate.
 - These short runs validate instrumentation plumbing. Repeated profiling-on/off
   overhead, recorded calibration/processing phase coverage, thermal correlation
   and sustained-resource characterization remain required for completion.
+
+The first repeated overhead checkpoint followed on 2026-09-04. Three
+interleaved 500-frame Windows pairs showed no measurable profiler slowdown and
+preserved 500/500 detections. Three 100-frame Orin pairs initially showed about
+4.2% lower median sampled throughput; lowering only the sampler thread priority
+reduced this to about 2.2%, with approximately 0.2% median p95-latency impact
+and unchanged 100/100 detections/event output. Sampling remains opt-in and is
+accepted for diagnostic runs only. Recorded phase coverage, target thermals and
+sustained evidence remain open.
+
+A subsequent revision-correct 500-frame Orin run at `db43445` detected all
+frames and produced 62 calibration plus 415 steady-processing resource samples.
+Steady-processing RSS varied by only 73,728 bytes. During 133 seconds of
+`tegrastats` evidence, maximum junction temperature was 48.531 C, maximum
+observed input power was 4,360 mW, and GR3D utilization remained zero under the
+XNNPACK CPU path. Initial calibration/processing phase coverage is now complete
+on Windows and Orin; recalibration and the 30-minute sustained gate remain open.
+
+The deterministic benchmark-only reset control at commit `c6208d1` subsequently
+closed recalibration-phase coverage on Windows and Orin with 500/500 detections
+on each. The Orin sustained run then processed 9,400/9,400 frames at 5.233 FPS;
+its measured-frame window was 29.94 minutes and its five-second NVIDIA telemetry
+window exceeded 30 minutes. Processing RSS varied by 651,264 bytes, maximum
+junction temperature was 48.937 C, maximum observed input power was 4,672 mW,
+and GPU utilization remained zero. Ubuntu x64 validation is still pending
+because the available Ubuntu WSL instance has no C++ compiler.
+
+On 2026-09-04 the product owner explicitly placed Ubuntu x64 validation on
+hold and directed development to continue on Windows x64 and Orin aarch64.
+The Windows/Orin Stage 23 scope is therefore closed with committed evidence.
+The generic Ubuntu x64 collector check remains a deferred cross-platform gate
+and must be resumed when the replacement Ubuntu toolchain is supplied; this
+deferral is not evidence of Ubuntu compatibility.
 
 ## Formal review checkpoints
 

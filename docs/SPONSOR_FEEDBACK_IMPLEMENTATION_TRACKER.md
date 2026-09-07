@@ -64,5 +64,7 @@ Stage 24 development branch. Conflict resolution preserves Stage 24 live-camera,
 presentation configuration, processing ROI and eye/blink statistics together
 with Stage 23's lower-priority sampler, diagnostic recalibration control and
 final resource evidence. A fresh Windows x64 Release build passed 30/30 tests.
-Orin regression is the remaining integration validation step; `main` is not
-changed by this feature-branch integration.
+The exact merge commit then passed a fresh Orin aarch64 Release build and all
+28 applicable tests under `~/common/p26`; `face_benchmark` was confirmed as a
+native ARM aarch64 executable. `main` is not changed by this feature-branch
+integration.

@@ -113,3 +113,8 @@ statistics and configuration while adding the finalized sampler priority and
 diagnostic recalibration control. A fresh Windows x64 Release build passed all
 30 registered tests. This is an integration regression gate, not a new resource
 or accuracy claim.
+
+The exact merge commit `77077b7` was checked out fresh on Orin under
+`~/common/p26`, built in Release mode with GCC 13.3.0 and OpenCV 4.8.0, and
+passed all 28 applicable tests. The resulting `face_benchmark` was confirmed as
+an ARM aarch64 ELF executable. No live camera or private data was required.

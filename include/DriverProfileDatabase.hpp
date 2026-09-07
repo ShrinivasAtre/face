@@ -18,6 +18,13 @@ struct EnrollmentImage
     std::vector<std::uint8_t> encodedImage;
 };
 
+struct TemplateRollbackEntry
+{
+    std::uint64_t profileRevision = 0;
+    std::size_t embeddingIndex = 0;
+    FaceEmbedding previousEmbedding;
+};
+
 struct StoredDriverProfile
 {
     std::string driverId;
@@ -25,6 +32,7 @@ struct StoredDriverProfile
     std::uint64_t revision = 1;
     std::vector<EnrollmentImage> images;
     std::vector<FaceEmbedding> embeddings;
+    std::vector<TemplateRollbackEntry> rollbackJournal;
 };
 
 enum class ImportConflict { Reject, Replace, NewAnonymousId };
@@ -35,6 +43,7 @@ class DriverProfileDatabase
     static constexpr std::size_t maximumImagesPerProfile = 10;
     static constexpr std::size_t maximumEmbeddingsPerProfile = 10;
     static constexpr std::size_t maximumEncodedImageBytes = 16 * 1024 * 1024;
+    static constexpr std::size_t maximumRollbackEntriesPerProfile = 3;
 
     const std::vector<StoredDriverProfile> &profiles() const noexcept { return profiles_; }
     const StoredDriverProfile *find(const std::string &driverId) const noexcept;
@@ -42,6 +51,9 @@ class DriverProfileDatabase
     bool erase(const std::string &driverId, std::string &error);
     bool addImage(const std::string &driverId, EnrollmentImage image, std::string &error);
     bool addEmbedding(const std::string &driverId, FaceEmbedding embedding, std::string &error);
+    bool replaceEmbeddingWithRollback(const std::string &driverId, std::size_t embeddingIndex,
+                                      FaceEmbedding replacement, std::string &error);
+    bool rollbackLastEmbeddingReplacement(const std::string &driverId, std::string &error);
     bool importProfile(StoredDriverProfile profile, ImportConflict conflict, std::string newAnonymousId,
                        std::string &error);
     std::vector<std::uint8_t> serialize(std::string &error) const;

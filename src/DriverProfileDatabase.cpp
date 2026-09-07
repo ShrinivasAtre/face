@@ -70,6 +70,7 @@ bool validateProfile(const StoredDriverProfile &profile, std::string &error)
     else if (profile.displayName.size() > 256) error = "display name is too long";
     else if (profile.images.size() > DriverProfileDatabase::maximumImagesPerProfile) error = "too many images";
     else if (profile.embeddings.size() > DriverProfileDatabase::maximumEmbeddingsPerProfile) error = "too many embeddings";
+    else if (profile.rollbackJournal.size() > DriverProfileDatabase::maximumRollbackEntriesPerProfile) error = "too many rollback entries";
     else {
         for (const auto &image : profile.images)
             if (image.encodedImage.empty() || image.encodedImage.size() > DriverProfileDatabase::maximumEncodedImageBytes ||
@@ -80,6 +81,12 @@ bool validateProfile(const StoredDriverProfile &profile, std::string &error)
                 embedding.values.size() > maximumEmbeddingDimensions ||
                 !std::all_of(embedding.values.begin(), embedding.values.end(), [](float v){return std::isfinite(v);}))
                 { error = "invalid embedding"; break; }
+        for (const auto &entry : profile.rollbackJournal)
+            if (entry.profileRevision == 0 || entry.embeddingIndex >= profile.embeddings.size() ||
+                entry.previousEmbedding.modelId.empty() || entry.previousEmbedding.modelId.size() > 256 ||
+                entry.previousEmbedding.values.empty() || entry.previousEmbedding.values.size() > maximumEmbeddingDimensions ||
+                !std::all_of(entry.previousEmbedding.values.begin(), entry.previousEmbedding.values.end(), [](float v){return std::isfinite(v);}))
+                { error = "invalid rollback entry"; break; }
     }
     return error.empty();
 }
@@ -124,6 +131,34 @@ bool DriverProfileDatabase::addEmbedding(const std::string &id, FaceEmbedding em
     copy.revision++; *it = std::move(copy); return true;
 }
 
+bool DriverProfileDatabase::replaceEmbeddingWithRollback(const std::string &id, std::size_t index,
+                                                          FaceEmbedding replacement, std::string &error)
+{
+    error.clear(); auto it = std::find_if(profiles_.begin(), profiles_.end(), [&](const auto &p){return p.driverId == id;});
+    if (it == profiles_.end()) { error = "driver ID not found"; return false; }
+    if (index >= it->embeddings.size()) { error = "embedding index is out of range"; return false; }
+    auto copy = *it;
+    TemplateRollbackEntry entry{copy.revision, index, copy.embeddings[index]};
+    copy.embeddings[index] = std::move(replacement);
+    copy.rollbackJournal.push_back(std::move(entry));
+    if (copy.rollbackJournal.size() > maximumRollbackEntriesPerProfile) copy.rollbackJournal.erase(copy.rollbackJournal.begin());
+    copy.revision++;
+    if (!validateProfile(copy, error)) return false;
+    *it = std::move(copy); return true;
+}
+
+bool DriverProfileDatabase::rollbackLastEmbeddingReplacement(const std::string &id, std::string &error)
+{
+    error.clear(); auto it = std::find_if(profiles_.begin(), profiles_.end(), [&](const auto &p){return p.driverId == id;});
+    if (it == profiles_.end()) { error = "driver ID not found"; return false; }
+    if (it->rollbackJournal.empty()) { error = "rollback journal is empty"; return false; }
+    auto copy = *it; auto entry = copy.rollbackJournal.back(); copy.rollbackJournal.pop_back();
+    if (entry.embeddingIndex >= copy.embeddings.size()) { error = "rollback entry is invalid"; return false; }
+    copy.embeddings[entry.embeddingIndex] = std::move(entry.previousEmbedding); copy.revision++;
+    if (!validateProfile(copy, error)) return false;
+    *it = std::move(copy); return true;
+}
+
 bool DriverProfileDatabase::importProfile(StoredDriverProfile profile, ImportConflict conflict, std::string newId, std::string &error)
 {
     error.clear(); if (!validateProfile(profile, error)) return false;
@@ -140,13 +175,15 @@ bool DriverProfileDatabase::importProfile(StoredDriverProfile profile, ImportCon
 std::vector<std::uint8_t> DriverProfileDatabase::serialize(std::string &error) const
 {
     error.clear(); if (profiles_.size() > kMaximumDriverProfiles) {error="profile limit exceeded";return {};}
-    std::vector<std::uint8_t> out(std::begin(magic), std::end(magic) - 1); put32(out, 1); put32(out, static_cast<std::uint32_t>(profiles_.size()));
+    std::vector<std::uint8_t> out(std::begin(magic), std::end(magic) - 1); put32(out, 2); put32(out, static_cast<std::uint32_t>(profiles_.size()));
     for (const auto &p : profiles_) {
         if (!validateProfile(p, error)) return {};
         putString(out,p.driverId); putString(out,p.displayName); put64(out,p.revision); put32(out,static_cast<std::uint32_t>(p.images.size()));
         for(const auto &i:p.images){out.push_back(static_cast<std::uint8_t>(i.source)); const auto *q=reinterpret_cast<const std::uint8_t*>(&i.quality);out.insert(out.end(),q,q+sizeof(float));put32(out,static_cast<std::uint32_t>(i.encodedImage.size()));out.insert(out.end(),i.encodedImage.begin(),i.encodedImage.end());}
         put32(out,static_cast<std::uint32_t>(p.embeddings.size()));
         for(const auto &e:p.embeddings){putString(out,e.modelId);put32(out,static_cast<std::uint32_t>(e.values.size()));const auto *v=reinterpret_cast<const std::uint8_t*>(e.values.data());out.insert(out.end(),v,v+e.values.size()*sizeof(float));}
+        put32(out,static_cast<std::uint32_t>(p.rollbackJournal.size()));
+        for(const auto &j:p.rollbackJournal){put64(out,j.profileRevision);put64(out,static_cast<std::uint64_t>(j.embeddingIndex));putString(out,j.previousEmbedding.modelId);put32(out,static_cast<std::uint32_t>(j.previousEmbedding.values.size()));const auto *v=reinterpret_cast<const std::uint8_t*>(j.previousEmbedding.values.data());out.insert(out.end(),v,v+j.previousEmbedding.values.size()*sizeof(float));}
     }
     return out;
 }
@@ -154,13 +191,14 @@ std::vector<std::uint8_t> DriverProfileDatabase::serialize(std::string &error) c
 std::optional<DriverProfileDatabase> DriverProfileDatabase::deserialize(const std::vector<std::uint8_t> &bytes, std::string &error)
 {
     error.clear(); Reader r(bytes); char got[8]; std::uint32_t version,count;
-    if(!r.take(got,8)||std::memcmp(got,magic,8)!=0||!r.u32(version)||version!=1||!r.u32(count)||count>kMaximumDriverProfiles){error="invalid profile payload header";return std::nullopt;}
+    if(!r.take(got,8)||std::memcmp(got,magic,8)!=0||!r.u32(version)||(version!=1&&version!=2)||!r.u32(count)||count>kMaximumDriverProfiles){error="invalid profile payload header";return std::nullopt;}
     DriverProfileDatabase db;
     for(std::uint32_t n=0;n<count;++n){StoredDriverProfile p;std::uint32_t images,embeddings;
         if(!r.string(p.driverId)||!r.string(p.displayName)||!r.u64(p.revision)||!r.u32(images)||images>maximumImagesPerProfile){error="invalid profile payload";return std::nullopt;}
         for(std::uint32_t j=0;j<images;++j){std::uint8_t source;float quality;std::uint32_t size;if(!r.take(&source,1)||!r.take(&quality,sizeof quality)||!r.u32(size)||size==0||size>maximumEncodedImageBytes){error="invalid image payload";return std::nullopt;}EnrollmentImage i{static_cast<EnrollmentSource>(source),quality,{}};i.encodedImage.resize(size);if(!r.take(i.encodedImage.data(),size)){error="truncated image payload";return std::nullopt;}p.images.push_back(std::move(i));}
         if(!r.u32(embeddings)||embeddings>maximumEmbeddingsPerProfile){error="invalid embedding count";return std::nullopt;}
         for(std::uint32_t j=0;j<embeddings;++j){FaceEmbedding e;std::uint32_t dims;if(!r.string(e.modelId)||!r.u32(dims)||dims==0||dims>maximumEmbeddingDimensions){error="invalid embedding payload";return std::nullopt;}e.values.resize(dims);if(!r.take(e.values.data(),dims*sizeof(float))){error="truncated embedding payload";return std::nullopt;}p.embeddings.push_back(std::move(e));}
+        if(version>=2){std::uint32_t journal;if(!r.u32(journal)||journal>maximumRollbackEntriesPerProfile){error="invalid rollback journal";return std::nullopt;}for(std::uint32_t j=0;j<journal;++j){TemplateRollbackEntry entry;std::uint64_t index;std::uint32_t dims;if(!r.u64(entry.profileRevision)||!r.u64(index)||index>std::numeric_limits<std::size_t>::max()||!r.string(entry.previousEmbedding.modelId)||!r.u32(dims)||dims==0||dims>maximumEmbeddingDimensions){error="invalid rollback entry";return std::nullopt;}entry.embeddingIndex=static_cast<std::size_t>(index);entry.previousEmbedding.values.resize(dims);if(!r.take(entry.previousEmbedding.values.data(),dims*sizeof(float))){error="truncated rollback entry";return std::nullopt;}p.rollbackJournal.push_back(std::move(entry));}}
         if(!validateProfile(p,error)||db.find(p.driverId)){if(error.empty())error="duplicate driver ID";return std::nullopt;}db.profiles_.push_back(std::move(p));
     }
     if(!r.finished()){error="trailing profile payload data";return std::nullopt;} return db;

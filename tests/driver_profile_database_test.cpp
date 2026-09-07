@@ -13,10 +13,16 @@ int main()
        !check(!db.create("driver-01","Duplicate",error),"duplicate rejected")||
        !check(db.addImage("driver-01",{EnrollmentSource::Photo,0.9F,{1,2,3,4}},error),"add image")||
        !check(db.addEmbedding("driver-01",{{0.1F,0.2F,0.3F},"mock-v1"},error),"add embedding")) return 1;
+    for(int n=1;n<=4;++n)
+        if(!check(db.replaceEmbeddingWithRollback("driver-01",0,{{static_cast<float>(n),0.2F,0.3F},"mock-v1"},error),"replace with rollback")) return 1;
+    if(!check(db.find("driver-01")->rollbackJournal.size()==DriverProfileDatabase::maximumRollbackEntriesPerProfile,"rollback journal bounded")||
+       !check(db.rollbackLastEmbeddingReplacement("driver-01",error),"rollback latest replacement")||
+       !check(db.find("driver-01")->embeddings[0].values[0]==3.0F,"rollback restored previous embedding")) return 1;
     auto bytes=db.serialize(error);auto restored=DriverProfileDatabase::deserialize(bytes,error);
     if(!check(restored.has_value(),"deserialize")||!check(restored->profiles().size()==1,"profile count")||
        !check(restored->find("driver-01")->images.size()==1,"image retained")||
-       !check(restored->find("driver-01")->embeddings.size()==1,"embedding retained")) return 1;
+       !check(restored->find("driver-01")->embeddings.size()==1,"embedding retained")||
+       !check(restored->find("driver-01")->rollbackJournal.size()==2,"rollback journal retained")) return 1;
     auto imported=*restored;
     if(!check(!db.importProfile(imported.profiles()[0],ImportConflict::Reject,"",error),"conflict rejected")||
        !check(db.importProfile(imported.profiles()[0],ImportConflict::NewAnonymousId,"driver-02",error),"new ID import")||

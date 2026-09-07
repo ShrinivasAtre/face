@@ -106,7 +106,10 @@ platform gate.
    integration. The provider-neutral processor and fail-closed gate ordering
    are implemented; OpenCV candidate adapters and administrator wiring remain.
    No production embedding may be committed before threshold approval.
-3. Add bounded automatic-template replacement and rollback journal.
+3. **Implemented at the non-threshold storage boundary:** bounded automatic-template
+   replacement retains the three most recent prior embeddings in the encrypted
+   profile payload and supports deterministic last-update rollback. Activation
+   policy remains deferred until private evaluation and threshold approval.
 4. Run a notified live-camera enrollment usability check.
 
 ## Enrollment processing safety contract
@@ -149,3 +152,15 @@ checks bounded quality output and fail-closed missing-model behavior. Ubuntu
 source compatibility does not override the already recorded OpenCV 4.6 model
 execution limitation; actual candidate inference remains a Windows baseline
 until the Ubuntu runtime is upgraded or replaced.
+
+## 2026-09-07 autonomous checkpoint
+
+- Profile payload schema 2 adds an encrypted, three-entry bounded rollback
+  journal. Readers remain compatible with existing schema-1 stores.
+- Replacement and rollback are atomic in memory and are persisted only through
+  the existing authenticated, atomic bundle save path.
+- `diagnose-media` now invokes `DriverEnrollmentProcessor` instead of duplicating
+  its gate ordering. It remains non-mutating and cannot accept enrollment while
+  `thresholdsApproved` is false.
+- `docs/STAGE21_PRIVATE_CAPTURE_GUIDE.md` plus initialization and validation
+  scripts define the consent-first five-person capture handoff.

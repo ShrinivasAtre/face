@@ -97,3 +97,10 @@ ROI, display-selection and eye/blink statistics scope. Product defaults and UI
 wording remain a product-owner decision. Confirmed-driver-change reset remains
 ready at the statistics API but will be connected only when the identification
 pipeline supplies a stable identity-change event.
+
+On 2026-09-07 the product owner approved the display wording, five-minute
+rolling-window default and statistics reset policy. The reset remains exposed
+at the statistics API but is deliberately not connected to an unconfirmed
+recognition candidate; that runtime connection belongs to Stage 21.5 after its
+separate authorization and identity-threshold evidence. The Windows/Orin live
+driver commands are prepared in `docs/LIVE_DRIVER_RESOURCE_RUNBOOK.md`.

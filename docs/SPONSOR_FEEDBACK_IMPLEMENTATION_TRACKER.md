@@ -1,6 +1,6 @@
 # Sponsor feedback implementation tracker
 
-Date: 2026-09-03
+Date: 2026-09-07
 
 This tracker converts the sponsor feedback into numbered, independently
 reviewable work packages. Status describes repository evidence, not a released
@@ -8,13 +8,13 @@ or safety-certified product.
 
 | # | Work package | Status | Autonomous next action | External decision or resource |
 |---:|---|---|---|---|
-| 1 | Coordinated architecture documentation | Complete for current checkpoint | Keep Markdown and Word views synchronized when boundaries change | Sponsor review comments |
-| 2 | CPU-core, CPU-utilization and memory characterization | Windows/Orin instrumentation complete; live driver run pending | Preserve the accepted schema while collecting target-camera evidence | Physical Windows camera and a driver positioned for both camera runs; Ubuntu replacement setup remains deferred |
-| 3 | Configurable display and processing ROI | Engineering checkpoint complete | Retain strict presentation/processing separation and repeat on target-camera data | Approve final UI defaults and target-specific driver-seat ROI |
+| 1 | Coordinated architecture documentation | Closed for current checkpoint; sponsor accepted | Keep Markdown, source guide and sponsor brief synchronized | Reopen only for new sponsor comments |
+| 2 | CPU-core, CPU-utilization and memory characterization | Windows/Orin complete; live-driver runbook ready; Ubuntu deferred | Execute paired target-camera runs when physical session is available | User will notify when driver/camera are ready; replacement Ubuntu setup remains on hold |
+| 3 | Configurable display and processing ROI | Engineering checkpoint complete; product defaults approved | Retain strict presentation/processing separation and repeat on target-camera data | Camera-specific driver-seat ROI after live view is available |
 | 4 | Per-driver eye calibration | Core implemented; product gate open | Preserve quality-gated open-eye and neutral-pose calibration; document session reset behavior | Approve production calibration duration/UX after target-data evidence |
 | 5 | Driver identification and profiles | Stage 21 baseline complete; private gate waiting | Continue provider-neutral, offline, open-set architecture and public-fixture evaluation | Separate biometric/PAD consent and data; deferred privacy/security decisions |
-| 6 | TI SK-AM62 platform | Planning | Define BSP, toolchain, camera, acceleration, packaging and acceptance gates | Physical board, intended camera and selected Processor SDK |
-| 7 | Eye-open percentage and blink statistics | Engineering checkpoint complete | Connect reset only to a future confirmed identity-change signal | Approve display wording, reset policy and rolling-window default |
+| 6 | TI SK-AM62 platform | On hold; portability plan complete | Keep the shared C++ core free of target assumptions | User will notify when board, intended camera and Processor SDK are available |
+| 7 | Eye-open percentage and blink statistics | Engineering checkpoint complete; wording, five-minute default and reset policy approved | Connect reset only to a future stable confirmed-identity signal | Stage 21.5 authorization and identity evidence |
 | 8 | Dependency/model inventory and release compliance | In progress | Generate deterministic source SBOM; close provenance gaps where evidence exists | Product-owner license selection and legal/release approval |
 
 ## Status rules

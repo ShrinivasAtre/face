@@ -164,3 +164,8 @@ until the Ubuntu runtime is upgraded or replaced.
   `thresholdsApproved` is false.
 - `docs/STAGE21_PRIVATE_CAPTURE_GUIDE.md` plus initialization and validation
   scripts define the consent-first five-person capture handoff.
+- Fresh Orin aarch64 validation at commit `2ed07c7` used GCC 13.3.0,
+  OpenCV 4.8.0 and OpenSSL 3.0.13 under `~/common/p25`. The profile database,
+  enrollment processor and OpenCV identity-provider tests passed 3/3, the
+  administrator linked successfully, and the profile test executable was
+  confirmed as ARM aarch64.

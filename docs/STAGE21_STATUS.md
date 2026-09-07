@@ -27,3 +27,10 @@ Date: 2026-09-03
   can be claimed; the current provider-neutral matcher itself passes on Ubuntu.
 - Orin model/runtime validation remains part of the later Stage 21.7 platform
   gate, not the completed local-baseline gate.
+
+## 2026-09-07 platform checkpoint
+
+The non-model Stage 21.4 storage, enrollment orchestration and OpenCV adapter
+targets build on Orin aarch64 with OpenSSL 3, and their three focused tests pass.
+This closes the previously open Orin encrypted-profile provider check. It does
+not claim Orin recognition/PAD model accuracy or Stage 21.7 acceptance.

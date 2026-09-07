@@ -40,6 +40,10 @@ captured media are untrusted inputs even when they are local.
 7. Consent-first batch initialization, path containment, checksum creation and
    tamper rejection using synthetic files only.
 
+The capture-batch and encrypted rollback tests passed 2/2 in fresh Windows
+Release validation and in the dedicated Orin aarch64 `~/common/p25` checkout at
+commit `d848ad4`. No participant data or camera was used.
+
 ## Important deletion limitation
 
 `driver_profile_admin delete` removes the profile from the logical database and
